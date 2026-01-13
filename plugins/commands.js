@@ -1,9 +1,9 @@
-const config = require('../config')
 const { cmd, commands } = require('../command');
+const config = require('../config');
 
 cmd({
     pattern: "list",
-    alias: ["listcmd","commands"],
+    alias: ["listcmd", "commands"],
     desc: "menu the bot",
     category: "menu",
     react: "⚡",
@@ -292,20 +292,20 @@ async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sen
 ┃▸📄 COMMAND: .trt 
 ┃▸❕ change languages 
 ╰━━━━━━━━━━━━⪼
-> ${config.DESCRIPTION}`;
+> *© ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech*`;
 
         await conn.sendMessage(
             from,
             {
-                image: { url: `https://res.cloudinary.com/dgy2dutjs/image/upload/v1751707342/url.crissvevo.co.tz/%E1%B4%8F%CA%99%E1%B4%87%E1%B4%85%E1%B4%9B%E1%B4%87%E1%B4%84%CA%9C1_exmbht.jpg` },
+                image: { url: "https://files.catbox.moe/ntfw9h.jpg" },
                 caption: dec,
                 contextInfo: {
                     mentionedJid: [m.sender],
                     forwardingScore: 999,
                     isForwarded: true,
                     forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363416335506023@newsletter',
-                        newsletterName: 'ʜᴜɴᴛᴇʀ xᴍᴅ',
+                        newsletterJid: '120363421164015033@newsletter',
+                        newsletterName: 'GURU MD',
                         serverMessageId: 143
                     }
                 }
