@@ -1,5 +1,6 @@
 const { cmd } = require('../command');
 const { getBuffer, fetchJson } = require('../lib/functions');
+const config = require('../config');
 
 cmd({
     pattern: "person",
@@ -26,7 +27,7 @@ async (conn, mek, m, { from, sender, isGroup, reply, quoted, participants }) => 
         try {
             ppUrl = await conn.profilePictureUrl(userJid, 'image');
         } catch {
-            ppUrl = 'https://i.ibb.co/KhYC4FY/1221bc0bdd2354b42b293317ff2adbcf-icon.png';
+            ppUrl = 'https://files.catbox.moe/ntfw9h.jpg';  // ← Updated to your image
         }
 
         // 4. GET NAME (MULTI-SOURCE FALLBACK)
@@ -88,7 +89,7 @@ async (conn, mek, m, { from, sender, isGroup, reply, quoted, participants }) => 
 
         // 7. FORMAT OUTPUT
         const formattedBio = bio.text ? 
-            `${bio.text}\n└─ 📌 ${bio.type} Bio${bio.updated ? ` | 🕒 ${bio.updated.toLocaleString()}` : ''}` : 
+            `${bio.text}\n└─ 📌 \( {bio.type} Bio \){bio.updated ? ` | 🕒 ${bio.updated.toLocaleString()}` : ''}` : 
             "No bio available";
 
         const userInfo = `
@@ -105,7 +106,8 @@ ${formattedBio}
 ✅ Registered: ${user.isUser ? "Yes" : "No"}
 🛡️ Verified: ${user.verifiedName ? "✅ Verified" : "❌ Not verified"}
 ${isGroup ? `👥 *Group Role:* ${groupRole}` : ''}
-`.trim();
+
+> *© ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech* | https://github.com/itsguruu/GURU`;
 
         // 8. SEND RESULT
         await conn.sendMessage(from, {
