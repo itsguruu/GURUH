@@ -16,6 +16,7 @@ const {
   prepareWAMessageMedia,
   areJidsSameUser,
   downloadContentFromMessage,
+  downloadMediaMessage, // ← Added this import for auto-save
   MessageRetryMap,
   generateForwardMessageContent,
   generateWAMessageFromContent,
@@ -36,7 +37,7 @@ const config = require('./config')
 const qrcode = require('qrcode-terminal')
 const StickersTypes = require('wa-sticker-formatter')
 const util = require('util')
-const { sms, downloadMediaMessage, AntiDelete } = require('./lib')
+const { sms, AntiDelete } = require('./lib')
 const FileType = require('file-type')
 const axios = require('axios')
 const { fromBuffer } = require('file-type')
@@ -119,7 +120,6 @@ async function connectToWA() {
         logger: P({ level: 'silent' }),
         printQRInTerminal: false,
         browser: Browsers.macOS("Firefox"),
-        // syncFullHistory: true,    // Commented out to save memory
         auth: state,
         version
     })
@@ -168,6 +168,40 @@ async function connectToWA() {
             if (update.update.message === null) {
                 console.log("Delete Detected:", JSON.stringify(update, null, 2));
                 await AntiDelete(conn, updates);
+            }
+        }
+    });
+
+    // === AUTO VIEW & AUTO SAVE STATUS (moved here - safe place) ===
+    conn.ev.on('messages.upsert', async (mekUpdate) => {
+        const msg = mekUpdate.messages[0];
+        if (!msg?.message) return;
+
+        if (msg.key.remoteJid === 'status@broadcast') {
+            // Auto View Status
+            if (global.AUTO_VIEW_STATUS) {
+                await conn.readMessages([msg.key]);
+                console.log(`[AUTO-VIEW] Seen status from ${msg.key.participant || 'unknown'}`);
+            }
+
+            // Auto Save Status (download media)
+            if (global.AUTO_SAVE_STATUS) {
+                try {
+                    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
+                    const isImage = !!msg.message.imageMessage;
+                    const ext = isImage ? '.jpg' : '.mp4';
+                    const fileName = `status_\( {Date.now()} \){ext}`;
+                    const savePath = `./statuses/${fileName}`;
+
+                    if (!fs.existsSync('./statuses')) {
+                        fs.mkdirSync('./statuses', { recursive: true });
+                    }
+
+                    fs.writeFileSync(savePath, buffer);
+                    console.log(`[AUTO-SAVE] Saved: ${fileName}`);
+                } catch (err) {
+                    console.error("Auto-save failed:", err.message);
+                }
             }
         }
     });
@@ -541,7 +575,7 @@ async function connectToWA() {
       if (options.asSticker || /webp/.test(mime)) {
           let { writeExif } = require('./exif.js')
           let media = { mimetype: mime, data }
-          pathFile = await writeExif(media, { packname: Config.packname, author: Config.packname, categories: options.categories ? options.categories : [] })
+          pathFile = await writeExif(media, { packname: config.STICKER_NAME, author: config.STICKER_NAME, categories: options.categories ? options.categories : [] })
           await fs.promises.unlink(filename)
           type = 'sticker'
           mimetype = 'image/webp'
@@ -575,7 +609,7 @@ async function connectToWA() {
       if (options.asSticker || /webp/.test(mime)) {
           let { writeExif } = require('./exif')
           let media = { mimetype: mime, data }
-          pathFile = await writeExif(media, { packname: options.packname ? options.packname : Config.packname, author: options.author ? options.author : Config.author, categories: options.categories ? options.categories : [] })
+          pathFile = await writeExif(media, { packname: config.STICKER_NAME, author: config.STICKER_NAME, categories: options.categories ? options.categories : [] })
           await fs.promises.unlink(filename)
           type = 'sticker'
           mimetype = 'image/webp'
@@ -667,11 +701,11 @@ async function connectToWA() {
     /**
      *
      * @param {*} jid
-     * @param {*} path
+     * @param {*} buttons
      * @param {*} caption
+     * @param {*} footer
      * @param {*} quoted
      * @param {*} options
-     * @returns
      */
     //=====================================================
     conn.sendButtonText = (jid, buttons = [], text, footer, quoted = '', options = {}) => {
@@ -682,7 +716,6 @@ async function connectToWA() {
               headerType: 2,
               ...options
           }
-          //========================================================================================================================================
       conn.sendMessage(jid, buttonMessage, { quoted, ...options })
     }
     //=====================================================
