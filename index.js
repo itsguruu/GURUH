@@ -16,7 +16,7 @@ const {
   prepareWAMessageMedia,
   areJidsSameUser,
   downloadContentFromMessage,
-  downloadMediaMessage, // ← Added this import for auto-save
+  downloadMediaMessage,
   MessageRetryMap,
   generateForwardMessageContent,
   generateWAMessageFromContent,
@@ -47,7 +47,7 @@ const Crypto = require('crypto')
 const path = require('path')
 const prefix = config.PREFIX
 
-const ownerNumber = ['254778074353']  // ← Updated to your number
+const ownerNumber = ['254778074353']  
 
 const tempDir = path.join(os.tmpdir(), 'cache-temp')
 if (!fs.existsSync(tempDir)) {
@@ -172,16 +172,16 @@ async function connectToWA() {
         }
     });
 
-    // === AUTO VIEW & AUTO SAVE STATUS (moved here - safe place) ===
+    // === AUTO VIEW & AUTO SAVE STATUS + IMMEDIATE MARK AS SEEN ===
     conn.ev.on('messages.upsert', async (mekUpdate) => {
         const msg = mekUpdate.messages[0];
         if (!msg?.message) return;
 
         if (msg.key.remoteJid === 'status@broadcast') {
-            // Auto View Status
+            // Auto View Status - MARK AS SEEN IMMEDIATELY
             if (global.AUTO_VIEW_STATUS) {
                 await conn.readMessages([msg.key]);
-                console.log(`[AUTO-VIEW] Seen status from ${msg.key.participant || 'unknown'}`);
+                console.log(`[AUTO-VIEW] Seen status from ${msg.key.participant || 'unknown'} (immediate)`);
             }
 
             // Auto Save Status (download media)
@@ -206,8 +206,7 @@ async function connectToWA() {
         }
     });
 
-    //=============readstatus=======
-
+    //============= Main messages handler ===============
     conn.ev.on('messages.upsert', async(mek) => {
         mek = mek.messages[0]
         if (!mek.message) return
@@ -223,9 +222,10 @@ async function connectToWA() {
         if(mek.message.viewOnceMessageV2)
             mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
 
-        if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_SEEN === "true"){
-            await conn.readMessages([mek.key])
-        }
+        // Removed duplicate/old status seen check - now handled above
+
+        // Removed fake reply block completely (config.AUTO_STATUS_REPLY)
+        // Removed duplicate react block - keeping only the one below if needed
 
         if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_REACT === "true"){
             const jawadlike = await conn.decodeJid(conn.user.id);
@@ -244,12 +244,6 @@ async function connectToWA() {
                 } 
             }, { statusJidList: [mek.key.participant, jawadlike] });
         }                       
-
-        if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_STATUS_REPLY === "true"){
-            const user = mek.key.participant
-            const text = `${config.AUTO_STATUS_MSG}`
-            await conn.sendMessage(user, { text: text, react: { text: '💜', key: mek.key } }, { quoted: mek })
-        }
 
         await Promise.all([
             saveMessage(mek),
@@ -286,7 +280,7 @@ async function connectToWA() {
             conn.sendMessage(from, { text: teks }, { quoted: mek })
         }
         const udp = botNumber.split('@')[0];
-        const jawad = ('254778074353'); // ← Updated to your number
+        const jawad = ('254778074353');
         let isCreator = [udp, jawad, config.DEV]
             .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
             .includes(mek.sender);
