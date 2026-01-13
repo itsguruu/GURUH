@@ -11,14 +11,14 @@ cmd({
     filename: __filename,
 },
 async (conn, mek, m, { from, reply }) => {
-    const githubRepoURL = 'https://github.com/Obedweb/Hunter-Xmd1';
+    const githubRepoURL = 'https://github.com/itsguruu/GURU';
 
     try {
         // Extract username and repo name from the URL
         const [, username, repoName] = githubRepoURL.match(/github\.com\/([^/]+)\/([^/]+)/);
 
         // Fetch repository details using GitHub API
-        const response = await fetch(`https://api.github.com/repos/${username}/${repoName}`);
+        const response = await fetch(`https://api.github.com/repos/\( {username}/ \){repoName}`);
         
         if (!response.ok) {
             throw new Error(`GitHub API request failed with status ${response.status}`);
@@ -27,19 +27,19 @@ async (conn, mek, m, { from, reply }) => {
         const repoData = await response.json();
 
         // Format the repository information
-        const formattedInfo = `*BOT NAME:* *${repoData.name}*\n\n*OWNER NAME:* *${repoData.owner.login}*\n\n*STARS:* *${repoData.stargazers_count}*\n\n*FORKS:* *${repoData.forks_count}*\n\n*GITHUB LINK:*\n> ${repoData.html_url}\n\n*DESCRIPTION:*\n> ${repoData.description || 'No description'}\n\n*Don't Forget To Star and Fork Repository*\n\n> *© Powered By ᴏʙᴇᴅᴛᴇᴄʜ 🖤*`;
+        const formattedInfo = `*BOT NAME:* *GURU MD*\n\n*OWNER NAME:* *GuruTech*\n\n*STARS:* *\( {repoData.stargazers_count}*\n\n*FORKS:* * \){repoData.forks_count}*\n\n*GITHUB LINK:*\n> ${repoData.html_url}\n\n*DESCRIPTION:*\n> ${repoData.description || 'No description'}\n\n*Don't Forget To Star and Fork Repository*\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
 
         // Send an image with the formatted info as a caption and context info
         await conn.sendMessage(from, {
-            image: { url: `https://res.cloudinary.com/dgy2dutjs/image/upload/v1751659999/url.crissvevo.co.tz/%E1%B4%8F%CA%99%E1%B4%87%E1%B4%85%E1%B4%9B%E1%B4%87%E1%B4%84%CA%9C1_pl1cki.jpg` },
+            image: { url: "https://files.catbox.moe/ntfw9h.jpg" },
             caption: formattedInfo,
             contextInfo: { 
                 mentionedJid: [m.sender],
                 forwardingScore: 999,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363416335506023@newsletter',
-                    newsletterName: 'ʜᴜɴᴛᴇʀ xᴍᴅ',
+                    newsletterJid: '120363421164015033@newsletter',
+                    newsletterName: 'GURU MD',
                     serverMessageId: 143
                 }
             }
@@ -55,8 +55,8 @@ async (conn, mek, m, { from, reply }) => {
                 forwardingScore: 999,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: '.120363416335506023@newsletter',
-                    newsletterName: 'ʜᴜɴᴛᴇʀ xᴍᴅ',
+                    newsletterJid: '120363421164015033@newsletter',
+                    newsletterName: 'GURU MD',
                     serverMessageId: 143
                 }
             }
