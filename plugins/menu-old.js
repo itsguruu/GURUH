@@ -10,14 +10,15 @@ cmd({
 },
 async (conn, mek, m, { from, sender, pushname, reply }) => {
     try {
-        const dec = `╭━━━〔 *GURU MD Main Menu* 〕━━━╮
-┃ 🖤 *𝙊𝙬𝙣𝙚𝙧:* +254 778 074353
-┃ 🖤 *𝙈𝙤𝙙𝙚:* ${config.MODE}
-┃ 🖤 *𝙥𝙡𝙖𝙩𝙛𝙤𝙧𝙢:* GuruTech lab
-┃ 🖤 *𝙏𝙮𝙥𝙚:* Node.Js (Multi Device)
-┃ 🖤 *𝙋𝙧𝙚𝙛𝙞𝙭:* ${config.PREFIX}
-┃ 🖤 *𝙑𝙚𝙧𝙨𝙞𝙤𝙣:* 5.0.0 Pro
-╰━━━━━━━━━━━━━━━━━━━━━━━━╯
+        const dec = `█║▌│█│║▌║││█║▌║▌║
+   *GURU MD SYSTEM*
+█║▌│█│║▌║││█║▌║▌║
+
+▮ ▰ 👤 *OWNER:* +254 778 074353
+▮ ▰ 🛠️ *MODE:* ${config.MODE}
+▮ ▰ 🏗️ *DEV:* GuruTech Lab
+▮ ▰ ⚡ *VER:* 5.0.0 Pro
+▮ ▰ 🔘 *PRE:* ${config.PREFIX}
 
 ╭━━〔 🧩 *Command Categories* 〕━━╮
 ┃ 🖤 Quranmenu
@@ -70,6 +71,7 @@ async (conn, mek, m, { from, sender, pushname, reply }) => {
         reply(`${e}`);
     }
 });
+
 
 // Logo Menu
 cmd({
