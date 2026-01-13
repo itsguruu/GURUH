@@ -1,6 +1,5 @@
 const { cmd } = require('../command');
 const { getBuffer, fetchJson } = require('../lib/functions');
-const config = require('../config');
 
 cmd({
     pattern: "person",
@@ -27,22 +26,25 @@ async (conn, mek, m, { from, sender, isGroup, reply, quoted, participants }) => 
         try {
             ppUrl = await conn.profilePictureUrl(userJid, 'image');
         } catch {
-            ppUrl = 'https://files.catbox.moe/ntfw9h.jpg';  // Your custom fallback image
+            ppUrl = 'https://files.catbox.moe/ntfw9h.jpg';
         }
 
         // 4. GET NAME (MULTI-SOURCE FALLBACK)
         let userName = userJid.split('@')[0];
         try {
+            // Try group participant info first
             if (isGroup) {
                 const member = participants.find(p => p.id === userJid);
                 if (member?.notify) userName = member.notify;
             }
             
+            // Try contact DB
             if (userName === userJid.split('@')[0] && conn.contactDB) {
                 const contact = await conn.contactDB.get(userJid).catch(() => null);
                 if (contact?.name) userName = contact.name;
             }
             
+            // Try presence as final fallback
             if (userName === userJid.split('@')[0]) {
                 const presence = await conn.presenceSubscribe(userJid).catch(() => null);
                 if (presence?.pushname) userName = presence.pushname;
@@ -54,6 +56,7 @@ async (conn, mek, m, { from, sender, isGroup, reply, quoted, participants }) => 
         // 5. GET BIO/ABOUT
         let bio = {};
         try {
+            // Try personal status
             const statusData = await conn.fetchStatus(userJid).catch(() => null);
             if (statusData?.status) {
                 bio = {
@@ -62,6 +65,7 @@ async (conn, mek, m, { from, sender, isGroup, reply, quoted, participants }) => 
                     updated: statusData.setAt ? new Date(statusData.setAt * 1000) : null
                 };
             } else {
+                // Try business profile
                 const businessProfile = await conn.getBusinessProfile(userJid).catch(() => null);
                 if (businessProfile?.description) {
                     bio = {
@@ -82,9 +86,9 @@ async (conn, mek, m, { from, sender, isGroup, reply, quoted, participants }) => 
             groupRole = participant?.admin ? "👑 Admin" : "👥 Member";
         }
 
-        // 7. FORMAT OUTPUT (this was the broken line - now fixed)
+        // 7. FORMAT OUTPUT
         const formattedBio = bio.text ? 
-            `${bio.text}\n└─ 📌 \( {bio.type} Bio \){bio.updated ? ` | 🕒 ${bio.updated.toLocaleString()}` : ''}` : 
+            `${bio.text}\n└─ 📌 ${bio.type} Bio${bio.updated ? ` | 🕒 ${bio.updated.toLocaleString()}` : ''}` : 
             "No bio available";
 
         const userInfo = `
@@ -101,8 +105,7 @@ ${formattedBio}
 ✅ Registered: ${user.isUser ? "Yes" : "No"}
 🛡️ Verified: ${user.verifiedName ? "✅ Verified" : "❌ Not verified"}
 ${isGroup ? `👥 *Group Role:* ${groupRole}` : ''}
-
-> *© ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech* | https://github.com/itsguruu/GURU`;
+`.trim();
 
         // 8. SEND RESULT
         await conn.sendMessage(from, {
