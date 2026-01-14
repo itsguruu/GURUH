@@ -1,75 +1,81 @@
-<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=8A2BE2&center=true&width=1000&height=200&lines=HUNTER-XMD" alt="Typing SVG" /></a>
-  </div>
-<a><img src='https://res.cloudinary.com/dgy2dutjs/image/upload/v1751656256/url.crissvevo.co.tz/%E1%B4%8F%CA%99%E1%B4%87%E1%B4%85%E1%B4%9B%E1%B4%87%E1%B4%84%CA%9C1_xyfpby.jpg'/></a>
-
-<p align="center">
-  <a href="https://github.com/pkdriller"><img title="Developer" src="https://img.shields.io/badge/Author-HUNTER%20XMD-FF00FF.svg?style=big-square&logo=github" /></a>
-</p>
-
 <div align="center">
+  <a href="https://git.io/typing-svg">
+    <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=80&pause=1000&color=00FF9D&center=true&vCenter=true&width=1000&height=120&lines=GURU+MD+PREMIUM" alt="GURU MD" />
+  </a>
 
+  <img src="https://files.catbox.moe/ntfw9h.jpg" width="90%" style="border-radius: 30px; border: 4px solid #1a1a1a;" />
+
+  <br><br>
+
+  <a href="https://github.com/itsguruu/GURU/fork">
+    <img src="https://img.shields.io/badge/FORK_REPO-00FF9D?style=for-the-badge&logo=github&logoColor=black" height="35"/>
+  </a>
+  <a href="https://github.com/itsguruu/GURU/stargazers">
+    <img src="https://img.shields.io/badge/STAR_REPO-FFD700?style=for-the-badge&logo=githubstars&logoColor=black" height="35"/>
+  </a>
+  <br>
+  <img src="https://profile-counter.glitch.me/itsguruu/count.svg" alt="Visitor Count" />
 </div>
 
- <p align="center"><img src="https://profile-counter.glitch.me/{Obedweb}/count.svg" alt="Obedweb :: Visitor's Count" old_src="https://profile-counter.glitch.me/{Obedweb}/count.svg" /></p>
+## [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Rockstar-ExtraBold&color=blue&lines=𝟭.+𝗖𝗢𝗡𝗡𝗘𝗖𝗧+𝗪𝗛𝗔𝗧𝗦𝗔𝗣𝗣)](https://git.io/typing-svg)
 
+<div align="center">
+  <p><b>Step 1:</b> Click the button below to get your Session ID via Pair Code.</p>
+  <a href="https://xgurupairing1-b1268276f8b5.herokuapp.com">
+    <img src="https://img.shields.io/badge/GET_SESSION_ID-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" width="300" />
+  </a>
+</div>
 
+## [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Rockstar-ExtraBold&color=blue&lines=𝟮.+𝗗𝗘𝗣𝗟𝗢𝗬+𝗚𝗨𝗥𝗨+𝗠𝗗)](https://git.io/typing-svg)
 
+<div align="center">
+  <table style="border: none;">
+    <tr>
+      <td><a href="https://heroku.com/deploy?template=https://github.com/itsguruu/GURU"><img src="https://www.herokucdn.com/deploy/button.svg" alt="Heroku" height="40"></a></td>
+      <td><a href="https://railway.app/new/template?template=https://github.com/itsguruu/GURU"><img src="https://railway.app/button.svg" alt="Railway" height="40"></a></td>
+    </tr>
+    <tr>
+      <td><a href="https://render.com/deploy?repo=https://github.com/itsguruu/GURU"><img src="https://render.com/images/deploy-to-render-button.svg" alt="Render" height="40"></a></td>
+      <td><a href="https://vercel.com/new/clone?repository-url=https://github.com/itsguruu/GURU"><img src="https://img.shields.io/badge/Deploy_to_Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" height="40"></a></td>
+    </tr>
+    <tr>
+      <td><a href="https://app.koyeb.com/deploy?type=git&repository=github.com/itsguruu/GURU&branch=main"><img src="https://www.koyeb.com/static/images/deploy/button.svg" alt="Koyeb" height="40"></a></td>
+      <td><a href="https://replit.com/new/github/itsguruu/GURU"><img src="https://img.shields.io/badge/Deploy_to_Replit-6673FF?style=for-the-badge&logo=replit&logoColor=white" height="40"></a></td>
+    </tr>
+  </table>
+</div>
 
-### 1. FORK THIS REPO
+## [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Rockstar-ExtraBold&color=blue&lines=𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥+𝗦𝗧𝗔𝗧𝗦)](https://git.io/typing-svg)
 
-<a href='https://github.com/Obedweb/Hunter-Xmd1/fork' target="_blank"><img alt='Fork repo' src='https://img.shields.io/badge/Fork This Repo-black?style=for-the-badge&logo=git&logoColor=white'/></a>
-<p align="center">
+<div align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=itsguruu&show_icons=true&theme=tokyonight&hide_border=false&border_radius=15" width="48%" />
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=itsguruu&theme=tokyonight&hide_border=false&border_radius=15" width="48%" />
+</div>
 
-#### 𝐒𝐄𝐓𝐔𝐏
+<br>
 
+<div align="center">
+  <img src="https://github.com/itsguruu/GURU/blob/main/assets/menu.gif?raw=true" width="90%" style="border-radius: 20px; box-shadow: 0px 10px 30px rgba(0,255,157,0.3);" />
+</div>
 
-1.𝐆𝐄𝐓 𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐈𝐃 𝐅𝐑𝐎𝐌 𝐒𝐄𝐑𝐕𝐄𝐑
+## [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Rockstar-ExtraBold&color=blue&lines=𝗖𝗢𝗡𝗧𝗔𝗖𝗧+𝗔𝗡𝗗+𝗛𝗘𝗟𝗣)](https://git.io/typing-svg)
 
- 𝐅𝐈𝐑𝐒𝐓 𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐖𝐄𝐁
-
-  <a href="https://hunter-xmd-web.vercel.app"><img title="GET-SESSION ID HERE" src="https://img.shields.io/badge/GET-SESSION ID HERE-h?color=green&style=for-the-badge&logo=nike" width="230" height="38.45"/></a></p>  
-
-
-𝐒𝐄𝐂𝐎𝐍𝐃 𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐖𝐄𝐁
-<a href="https://hunter-adv-pair.onrender.com/"><img title="GET-SESSION ID HERE" src="https://img.shields.io/badge/GET-SESSION ID HERE-h?color=green&style=for-the-badge&logo=nike" width="230" height="38.45"/></a></p>  
-
-𝐓𝐇𝐈𝐑𝐃 𝐒𝐄𝐒𝐒𝐈𝐎𝐍 𝐖𝐄𝐁
-<a href="https://hunterxmd-pair-4-new.onrender.com"><img title="GET-SESSION ID HERE" src="https://img.shields.io/badge/GET-SESSION ID HERE-h?color=green&style=for-the-badge&logo=nike" width="230" height="38.45"/></a></p>  
-
- ## 𝐅𝐎𝐑 𝐎𝐍𝐄-𝐓𝐀𝐏 𝐃𝐄𝐏𝐋𝐎𝐘𝐌𝐄𝐍𝐓 𝐔𝐒𝐄 𝐓𝐇𝐈𝐒 𝐁𝐔𝐓𝐓𝐎𝐍
-
-   🕳IF YOU LOVE THIS PROJECT BY PK DRILLER... FOLLOW ME
-   
-   <a href="https://github.com/Obedweb"><img title="FOLLOW-ACCOUNT" src="https://img.shields.io/badge/FOLLOW-ME-h?color=purple&style=for-the-badge&logo=heroku" width="180" height="43.45"/></a></p>
-
-   🕎 𝐃𝐄𝐏𝐋𝐎𝐘𝐈𝐍𝐆 𝐖𝐄𝐁
-
- <a href="https://hunter-xmd-deploying-web.vercel.app"><img title="DEPLOYING-WEB" src="https://img.shields.io/badge/DEPLOYING-WEB-h?color=red&style=for-the-badge&logo=heroku" width="220" height="38.45"/></a></p>
-
- 
- [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Rockstar-ExtraBold&size=30&pause=1000&color=0000FF&center=true&vCenter=true&width=815&height=60&lines=▭+▬+▭+▬+▭+▬+▭+▬+▭+▬+▭)](https://git.io/typing-svg) 
-
-
-
+<div align="center">
+  <a href="https://wa.me/254778074353">
+    <img src="https://img.shields.io/badge/WHATSAPP_GURU-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" height="35" />
+  </a>
+  <a href="https://github.com/itsguruu/GURU/issues">
+    <img src="https://img.shields.io/badge/OPEN_ISSUES-FF4444?style=for-the-badge&logo=github&logoColor=white" height="35" />
+  </a>
+</div>
 
 ---
 
-## 🗃️ PROJECT ARCHITECTS
+> [!IMPORTANT]
+> **Note:** This script is for educational purposes only. Modifying or using it for spam is strictly prohibited.
 
 <p align="center">
-  <a href="https://github.com/Obedweb">
-    <img src="https://github-readme-stats.vercel.app/api?username=Obedweb&show_icons=true&theme=radical">
-  </a>
+  <b>© 2026 GURU MD • Powered by GuruTech</b><br>
+  <i>Always Online • Always Ahead</i><br>
+  Made with ❤️ in Nairobi, KE
 </p>
-<div align="center">
-  <img src="https://github.com/Obedweb/Hunter-Xmd1/blob/main/assets/menu.gif?raw=true" width="100%"/>
-</div>
-
-
-
-## 𝐑𝐄𝐀𝐂𝐇 𝐎𝐔𝐓 𝐎𝐁𝐄𝐃𝐓𝐄𝐂𝐇
-
- <a href="https://reach-out-obedtech.vercel.app/"><img title="REACH OUT OBEDTECH" src="https://img.shields.io/badge/OUR-WHATSAPP CHANNEL-h?color=green&style=for-the-badge&logo=whatsapp" width="280" height="38.45"/></a></p>
- 
-
-
