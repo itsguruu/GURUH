@@ -4,70 +4,74 @@ const config = require('../config');
 
 cmd({
     pattern: "uptime",
-    alias: ["runtime", "up"],
-    desc: "Show bot uptime with stylish formats",
+    alias: ["runtime", "up", "alive", "online"],
+    desc: "Show bot uptime in random stylish formats",
     category: "main",
     react: "⏱️",
     filename: __filename
-},
-async (conn, mek, m, { from, reply }) => {
+}, async (conn, mek, m, { from, reply, sender }) => {
     try {
         const uptime = runtime(process.uptime());
         const startTime = new Date(Date.now() - process.uptime() * 1000);
-        
-        // Style 1: Classic Box
-        const style1 = `╭───『 UPTIME 』───⳹
+        const botName = config.BOT_NAME || "GURU MD";
+        const ownerName = config.OWNER_NAME || "GuruTech";
+        const version = "4.5.0"; // ← Update this as needed
+
+        // All 10 stylish templates
+        const styles = [
+            // Style 1: Classic Box
+            `╭───『 UPTIME 』───⳹
 │
 │ ⏱️ ${uptime}
 │
 │ 🚀 Started: ${startTime.toLocaleString()}
 │
 ╰────────────────⳹
-${config.DESCRIPTION}`;
+${config.DESCRIPTION || botName + " - Powered by GuruTech"}`,
 
-        // Style 2: Minimalist
-        const style2 = `•——[ UPTIME ]——•
+            // Style 2: Minimalist
+            `•——[ UPTIME ]——•
   │
   ├─ ⏳ ${uptime}
   ├─ 🕒 Since: ${startTime.toLocaleTimeString()}
   │
-  •——[ ${config.BOT_NAME} ]——•`;
+  •——[ ${botName} ]——•`,
 
-        // Style 3: Fancy Borders
-        const style3 = `▄▀▄▀▄ BOT UPTIME ▄▀▄▀▄
+            // Style 3: Fancy Borders
+            `▄▀▄▀▄ BOT UPTIME ▄▀▄▀▄
 
   ♢ Running: ${uptime}
   ♢ Since: ${startTime.toLocaleDateString()}
   
-  ${config.DESCRIPTION}`;
+  ${config.DESCRIPTION || "Powered by " + ownerName}`,
 
-        // Style 4: Code Style
-        const style4 = `┌──────────────────────┐
+            // Style 4: Code Style
+            `┌──────────────────────┐
 │  ⚡ UPTIME STATUS ⚡  │
 ├──────────────────────┤
 │ • Time: ${uptime}
 │ • Started: ${startTime.toLocaleString()}
-│ • Version: 4.0.0
-└──────────────────────┘`;
+│ • Version: ${version}
+└──────────────────────┘`,
 
-        // Style 5: Modern Blocks
-        const style5 = `▰▰▰▰▰ UPTIME ▰▰▰▰▰
+            // Style 5: Modern Blocks
+            `▰▰▰▰▰ UPTIME ▰▰▰▰▰
 
   ⏳ ${uptime}
   🕰️ ${startTime.toLocaleString()}
   
-  ${config.DESCRIPTION}`;
+  ${config.DESCRIPTION || botName}`,
 
-        // Style 6: Retro Terminal
-        const style6 = `╔══════════════════════╗
-║   ${config.BOT_NAME} UPTIME    ║
+            // Style 6: Retro Terminal
+            `╔══════════════════════╗
+║   ${botName} UPTIME    ║
 ╠══════════════════════╣
 ║ > RUNTIME: ${uptime}
 ║ > SINCE: ${startTime.toLocaleString()}
-╚══════════════════════╝`;
+╚══════════════════════╝`,
 
-        // Style 7: Elegant
-        const style7 = `┌───────────────┐
+            // Style 7: Elegant
+            `┌───────────────┐
 │  ⏱️  UPTIME  │
 └───────────────┘
 │
@@ -76,58 +80,63 @@ ${config.DESCRIPTION}`;
 │ Since ${startTime.toLocaleDateString()}
 │
 ┌───────────────┐
-│  ${config.BOT_NAME}  │
-└───────────────┘`;
+│  ${botName}  │
+└───────────────┘`,
 
-        // Style 8: Social Media Style
-        const style8 = `⏱️ *Uptime Report* ⏱️
+            // Style 8: Social Media Style
+            `⏱️ *Uptime Report* ⏱️
 
 🟢 Online for: ${uptime}
 📅 Since: ${startTime.toLocaleString()}
 
-${config.DESCRIPTION}`;
+${config.DESCRIPTION || "Powered by " + ownerName}`,
 
-        // Style 9: Fancy List
-        const style9 = `╔♫═⏱️═♫══════════╗
-   ${config.BOT_NAME} UPTIME
+            // Style 9: Fancy List
+            `╔♫═⏱️═♫══════════╗
+   ${botName} UPTIME
 ╚♫═⏱️═♫══════════╝
 
 •・゜゜・* ✧  *・゜゜・•
  ✧ ${uptime}
  ✧ Since ${startTime.toLocaleDateString()}
-•・゜゜・* ✧  *・゜゜・•`;
+•・゜゜・* ✧  *・゜゜・•`,
 
-        // Style 10: Professional
-        const style10 = `┏━━━━━━━━━━━━━━━━━━┓
+            // Style 10: Professional
+            `┏━━━━━━━━━━━━━━━━━━┓
 ┃  UPTIME ANALYSIS  ┃
 ┗━━━━━━━━━━━━━━━━━━┛
 
 ◈ Duration: ${uptime}
 ◈ Start Time: ${startTime.toLocaleString()}
 ◈ Stability: 100%
-◈ Version:  4.0.0
+◈ Version:  ${version}
 
-${config.DESCRIPTION}`;
+${config.DESCRIPTION || botName + " - Always Online"}`
+        ];
 
-        const styles = [style1, style2, style3, style4, style5, style6, style7, style8, style9, style10];
+        // Pick random style
         const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
 
+        // Send with premium forwarding tricks
         await conn.sendMessage(from, { 
             text: selectedStyle,
             contextInfo: {
-                mentionedJid: [m.sender],
+                mentionedJid: [sender],
                 forwardingScore: 999,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
                     newsletterJid: '120363416335506023@newsletter',
-                    newsletterName: config.OWNER_NAME || 'ʜᴜɴᴛᴇʀ xᴍᴅ SUPPORT',
+                    newsletterName: ownerName + ' SUPPORT',
                     serverMessageId: 143
                 }
             }
         }, { quoted: mek });
 
+        // Optional success reaction
+        await conn.sendMessage(from, { react: { text: "⏱️", key: mek.key } });
+
     } catch (e) {
-        console.error("Uptime Error:", e);
-        reply(`❌ Error: ${e.message}`);
+        console.error("Uptime command error:", e);
+        await reply(`❌ Error: ${e.message || "Something went wrong"}`);
     }
 });
