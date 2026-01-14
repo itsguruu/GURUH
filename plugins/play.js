@@ -6,82 +6,91 @@ const path = require('path');
 
 cmd({
     pattern: "play",
-    alias: ["song", "ytplay", "audio"],
-    desc: "Download YouTube audio as MP3 (using yt-search + ytdlp-nodejs)",
+    alias: ["song", "ytplay", "music"],
+    desc: "Download & send YouTube song as MP3 with nice audio player",
     category: "download",
-    use: ".play <song name or YouTube URL>",
+    use: ".play <song name or URL>",
     react: "🎵",
     filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
+}, async (conn, mek, m, { from, q, reply, sender }) => {
     try {
-        if (!q) return reply("❌ Please provide song name or YouTube URL!\nExample: .play perfect ed sheeran");
+        if (!q) return reply("❌ Provide song name or YouTube link!\nEg: .play perfect ed sheeran");
 
         await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
 
-        let videoUrl, title, thumbnail;
+        let videoUrl, title, thumbnailUrl;
 
-        // If input is a YouTube URL
+        // Handle URL or search
         if (q.match(/(youtube\.com|youtu\.be)/)) {
             videoUrl = q.trim();
-            const search = await yts({ videoId: q.split(/[=/]/).pop() });
-            title = search.title || "Audio";
-            thumbnail = search.thumbnail;
+            const info = await yts({ videoId: q.split(/[=/]/).pop() });
+            title = info.title || "Song";
+            thumbnailUrl = info.thumbnail;
         } else {
-            // Search using yt-search
-            const searchResults = await yts(q);
-            if (!searchResults.videos.length) {
-                return reply("⚠️ No results found for: " + q);
-            }
-
-            const video = searchResults.videos[0];
-            videoUrl = video.url;
-            title = video.title;
-            thumbnail = video.thumbnail;
+            const search = await yts(q);
+            if (!search.videos.length) return reply("No results found 😕");
+            const vid = search.videos[0];
+            videoUrl = vid.url;
+            title = vid.title;
+            thumbnailUrl = vid.thumbnail;
         }
 
-        reply(`🎧 Found: *${title}*\nDownloading audio...`);
+        reply(`🎧 Downloading *${title}*...`);
 
         const ytdlp = new YtDlp();
-
         const tempDir = path.join(__dirname, '../temp');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-        const outputPath = path.join(tempDir, `\( {Date.now()}_ \){title.replace(/[^\w]/g, '_')}.mp3`);
+        const safeTitle = title.replace(/[^\w\s]/gi, '_');
+        const outputPath = path.join(tempDir, `\( {Date.now()}_ \){safeTitle}.mp3`);
 
-        // Download best audio → mp3
+        // Download best audio as mp3
         await ytdlp.download(videoUrl, {
             extractAudio: true,
             audioFormat: 'mp3',
-            audioQuality: 0,           // best (usually 160kbps opus → converted)
+            audioQuality: 0, // best
             output: outputPath,
             addMetadata: true,
             embedThumbnail: true
         });
 
-        if (!fs.existsSync(outputPath)) {
-            throw new Error("Audio file not created");
-        }
+        if (!fs.existsSync(outputPath)) throw new Error("Download failed");
 
-        // Send audio
+        // Optional: Get thumbnail buffer for better preview (WhatsApp loves it)
+        let thumbBuffer;
+        try {
+            const thumbResponse = await fetch(thumbnailUrl);
+            thumbBuffer = await thumbResponse.buffer();
+        } catch {}
+
+        // Send as AUDIO → gets the nice player + waveform + progress bar
         await conn.sendMessage(from, {
             audio: { url: outputPath },
             mimetype: 'audio/mpeg',
-            fileName: `${title.replace(/[^\w]/g, '_')}.mp3`,
-            caption: `🎵 *${title}*\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech\n> Reliable download via yt-dlp (2026)`,
-            ...(thumbnail ? { jpegThumbnail: { url: thumbnail } } : {})
+            fileName: `${safeTitle}.mp3`,
+            caption: `🎵 *${title}*\nPowered by Guru MD • Downloaded from YouTube`,
+            ...(thumbBuffer ? { jpegThumbnail: thumbBuffer } : {}),
+            contextInfo: {
+                forwardingScore: 999,
+                isForwarded: true, // optional: makes it look like forwarded music
+                externalAdReply: {
+                    title: title,
+                    body: "Song • Artist • YouTube",
+                    thumbnail: thumbBuffer || undefined,
+                    mediaType: 2,
+                    sourceUrl: videoUrl,
+                    renderLargerThumbnail: true
+                }
+            }
         }, { quoted: mek });
 
-        // Auto-cleanup
-        setTimeout(() => {
-            fs.unlink(outputPath, (err) => {
-                if (err) console.log("Cleanup failed:", err);
-            });
-        }, 60000); // 1 min
+        reply(`✅ Sent as audio player! Play & enjoy 🎧`);
 
-        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+        // Cleanup
+        setTimeout(() => fs.unlink(outputPath, () => {}), 60000);
 
     } catch (e) {
-        console.error("[PLAY ERROR]", e);
-        reply(`❌ Error: ${e.message || "Failed to download. Try another song."}`);
+        console.error(e);
+        reply(`❌ Error: ${e.message || 'Something went wrong'}`);
     }
 });
