@@ -111,7 +111,7 @@ const port = process.env.PORT || 9090;
 
 // Global toggles
 global.AUTO_VIEW_STATUS = true;     // Auto mark status as seen immediately (ON by default)
-global.AUTO_REACT_STATUS = false;   // Auto react to status (OFF by default)
+global.AUTO_REACT_STATUS = true;   // Auto react to status (OFF by default)
 
 //=============================================
 
