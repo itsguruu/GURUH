@@ -113,7 +113,127 @@ const port = process.env.PORT || 9090;
 global.AUTO_VIEW_STATUS = true;     // Auto mark status as seen immediately (ON by default)
 global.AUTO_REACT_STATUS = true;   // Auto react to status (OFF by default)
 
-//=============================================
+// ================= ENHANCED STATUS VIEWING FUNCTIONS =================
+// Function to simulate human-like status viewing that appears in viewer list
+async function simulateStatusViewing(conn, statusMessage) {
+    try {
+        // 1. Get your phone's JID (the account that should appear)
+        const phoneJid = conn.user.id.split(':')[0] + '@s.whatsapp.net';
+        
+        console.log(`📱 Attempting to view status as: ${phoneJid}`);
+        console.log(`📊 Status ID: ${statusMessage.key.id}`);
+        console.log(`👤 Status from: ${statusMessage.key.participant || statusMessage.pushName || 'unknown'}`);
+        
+        // 2. Send typing indicator first (simulates human behavior)
+        await conn.sendPresenceUpdate('composing', 'status@broadcast');
+        await sleep(1500); // Wait 1.5 seconds (like human reading)
+        
+        // 3. Send presence update to show as "available"
+        await conn.sendPresenceUpdate('available', 'status@broadcast');
+        
+        // 4. Send multiple receipt types for maximum compatibility
+        // Method A: Standard readMessages (internal marking)
+        await conn.readMessages([statusMessage.key]);
+        
+        // Method B: sendReceipt with 'viewed' type (for viewer list)
+        await conn.sendReceipt(
+            statusMessage.key.remoteJid,
+            statusMessage.key.participant || phoneJid,
+            [statusMessage.key.id],
+            'viewed' // Changed from 'read' to 'viewed' for status
+        );
+        
+        // Method C: Alternative protocol message for status views
+        const viewTimestamp = Math.floor(Date.now() / 1000);
+        const viewMsg = {
+            key: {
+                remoteJid: statusMessage.key.remoteJid,
+                fromMe: false,
+                id: statusMessage.key.id,
+                participant: phoneJid
+            },
+            messageTimestamp: viewTimestamp,
+            status: 3 // Viewed status code
+        };
+        
+        // Try to send via different methods
+        try {
+            await conn.sendMessage('status@broadcast', {
+                protocolMessage: {
+                    key: statusMessage.key,
+                    type: 13, // Status view type
+                    timestamp: viewTimestamp
+                }
+            });
+        } catch (protocolErr) {
+            console.log("Protocol method not supported, using alternative");
+        }
+        
+        // 5. Final presence update to show completion
+        await conn.sendPresenceUpdate('available', 'status@broadcast');
+        
+        console.log(`✅ Status viewing simulation completed for ${phoneJid}`);
+        console.log(`👁️ Should appear in viewer list as: ${phoneJid.split('@')[0]}`);
+        
+        return {
+            success: true,
+            viewerJid: phoneJid,
+            timestamp: viewTimestamp,
+            statusId: statusMessage.key.id
+        };
+        
+    } catch (error) {
+        console.error("❌ Status viewing simulation failed:", error.message);
+        console.error("Stack:", error.stack);
+        
+        // Fallback to basic method
+        try {
+            await conn.readMessages([statusMessage.key]);
+            console.log("Used basic read fallback");
+            return { success: false, fallback: true };
+        } catch (fallbackError) {
+            console.error("Fallback also failed:", fallbackError.message);
+            return { success: false, error: error.message };
+        }
+    }
+}
+
+// Function to handle auto-reaction to status
+async function handleStatusReaction(conn, statusMessage) {
+    if (!global.AUTO_REACT_STATUS) return;
+    
+    const emojis = [
+        '🔥', '❤️', '💯', '😂', '😍', '👏', '🙌', '🎉', '✨', '💪',
+        '🥰', '😎', '🤩', '🌟', '💥', '👀', '😭', '🤣', '🥳', '💜',
+        '😘', '🤗', '😢', '😤', '🤔', '😴', '😷', '🤢', '🥵', '🥶',
+        '🤯', '🫡', '🫶', '💀', '😈', '👻', '🫂', '🐱', '🐶', '🌹',
+        '🌸', '🍀', '⭐', '⚡', '🚀', '💣', '🎯', '🙏', '👑', '😊'
+    ];
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+    try {
+        const reactionKey = {
+            remoteJid: statusMessage.key.remoteJid,
+            fromMe: false,
+            id: statusMessage.key.id || generateMessageID(),
+            participant: statusMessage.key.participant || statusMessage.key.remoteJid
+        };
+
+        await conn.relayMessage('status@broadcast', {
+            reactionMessage: {
+                key: reactionKey,
+                text: randomEmoji,
+                senderTimestampMs: Date.now()
+            }
+        }, { messageId: generateMessageID() });
+
+        console.log(`[AUTO-REACT STATUS] Successfully sent ${randomEmoji} to ${statusMessage.key.participant || statusMessage.pushName || 'unknown'}`);
+    } catch (reactErr) {
+        console.error("[AUTO-REACT ERROR]", reactErr.message);
+    }
+}
+
+// ================================================================
 
 async function connectToWA() {
     console.log("Connecting to WhatsApp ⏳️...");
@@ -132,7 +252,8 @@ async function connectToWA() {
         const { connection, lastDisconnect } = update
         if (connection === 'close') {
             if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
-                connectToWA()
+                console.log('Connection closed. Reconnecting in 5 seconds...');
+                setTimeout(connectToWA, 5000);
             }
         } else if (connection === 'open') {
             console.log('🧬 Installing Plugins')
@@ -144,6 +265,13 @@ async function connectToWA() {
             });
             console.log('Plugins installed successful ✅')
             console.log('Bot connected to whatsapp ✅')
+            
+            // Display bot information
+            const botJid = conn.user.id;
+            const phoneNumber = botJid.split(':')[0];
+            console.log(`📱 Bot Account: ${phoneNumber}@s.whatsapp.net`);
+            console.log(`🔧 Status Viewer: ${global.AUTO_VIEW_STATUS ? 'ENABLED' : 'DISABLED'}`);
+            console.log(`😊 Status React: ${global.AUTO_REACT_STATUS ? 'ENABLED' : 'DISABLED'}`);
 
             let up = `*✨ ʜᴇʟʟᴏᴡ GURU MD ʟᴇɢᴇɴᴅꜱ! ✨*
 
@@ -166,7 +294,7 @@ async function connectToWA() {
     conn.ev.on('creds.update', saveCreds)
 
     //==============================
-
+    // Anti-Delete Handler
     conn.ev.on('messages.update', async updates => {
         for (const update of updates) {
             if (update.update.message === null) {
@@ -176,62 +304,57 @@ async function connectToWA() {
         }
     });
 
-    // === AUTO VIEW (IMMEDIATE + APPEARS AS YOU VIEWED) + AUTO SAVE + AUTO REACT ===
+    // ================= ENHANCED STATUS VIEWING HANDLER =================
     conn.ev.on('messages.upsert', async (mekUpdate) => {
         const msg = mekUpdate.messages[0];
         if (!msg?.message) return;
 
-        // Auto-view new statuses instantly (real view as your number)
+        // Enhanced status viewing with viewer list appearance
         if (msg.key.remoteJid === 'status@broadcast' && global.AUTO_VIEW_STATUS) {
-            try {
-                await conn.readMessages([msg.key]);
-                const viewer = msg.key.participant || msg.pushName || msg.key.remoteJid.split('@')[0] || 'unknown';
-                console.log(`[AUTO-VIEW] Successfully marked status as seen from ${viewer} (immediate - appears as you viewed)`);
-            } catch (viewErr) {
-                console.error("[AUTO-VIEW ERROR]", viewErr.message);
+            console.log("\n📬 NEW STATUS DETECTED");
+            console.log("=".repeat(50));
+            
+            // Get message type and info
+            const msgType = getContentType(msg.message);
+            const isImage = msgType === 'imageMessage';
+            const isVideo = msgType === 'videoMessage';
+            const isText = msgType === 'conversation' || msgType === 'extendedTextMessage';
+            
+            console.log(`📄 Status Type: ${msgType}`);
+            console.log(`👤 From: ${msg.pushName || msg.key.participant?.split('@')[0] || 'Unknown'}`);
+            console.log(`🆔 Message ID: ${msg.key.id}`);
+            console.log(`📅 Timestamp: ${new Date(msg.messageTimestamp * 1000).toLocaleString()}`);
+            
+            // Run the enhanced status viewing simulation
+            const viewResult = await simulateStatusViewing(conn, msg);
+            
+            if (viewResult.success) {
+                console.log(`✅ Status marked as viewed by: ${viewResult.viewerJid}`);
+                console.log(`👁️ Your account (${viewResult.viewerJid.split('@')[0]}) should appear in viewer list`);
+            } else {
+                console.log(`⚠️ Status viewing may not appear in viewer list`);
             }
+            
+            // Auto-react to status if enabled
+            if (global.AUTO_REACT_STATUS) {
+                await handleStatusReaction(conn, msg);
+            }
+            
+            console.log("=".repeat(50) + "\n");
+            
+            // Skip further processing for status messages
+            return;
         }
 
-        // Auto React to Status - 50 emojis mixture (stable relayMessage)
-        if (global.AUTO_REACT_STATUS && msg.key.remoteJid === 'status@broadcast') {
-            const emojis = [
-                '🔥', '❤️', '💯', '😂', '😍', '👏', '🙌', '🎉', '✨', '💪',
-                '🥰', '😎', '🤩', '🌟', '💥', '👀', '😭', '🤣', '🥳', '💜',
-                '😘', '🤗', '😢', '😤', '🤔', '😴', '😷', '🤢', '🥵', '🥶',
-                '🤯', '🫡', '🫶', '💀', '😈', '👻', '🫂', '🐱', '🐶', '🌹',
-                '🌸', '🍀', '⭐', '⚡', '🚀', '💣', '🎯', '🙏', '👑', '😊'
-            ];
-            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-            try {
-                const reactionKey = {
-                    remoteJid: msg.key.remoteJid,
-                    fromMe: false,
-                    id: msg.key.id || generateMessageID(),
-                    participant: msg.key.participant || msg.key.remoteJid
-                };
-
-                await conn.relayMessage('status@broadcast', {
-                    reactionMessage: {
-                        key: reactionKey,
-                        text: randomEmoji,
-                        senderTimestampMs: Date.now()
-                    }
-                }, { messageId: generateMessageID() });
-
-                console.log(`[AUTO-REACT STATUS] Successfully sent ${randomEmoji} to ${msg.key.participant || msg.pushName || 'unknown'}`);
-            } catch (reactErr) {
-                console.error("[AUTO-REACT ERROR]", reactErr.message);
-            }
-        }
-
-        // Auto Save Status (download media)
+        // Auto Save Status (download media) - Optional feature
+        // Uncomment if you want to save statuses
+        /*
         if (global.AUTO_SAVE_STATUS && msg.key.remoteJid === 'status@broadcast') {
             try {
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
                 const isImage = !!msg.message.imageMessage;
                 const ext = isImage ? '.jpg' : '.mp4';
-                const fileName = `status_\( {Date.now()} \){ext}`;
+                const fileName = `status_${Date.now()}${ext}`;
                 const savePath = `./statuses/${fileName}`;
 
                 if (!fs.existsSync('./statuses')) {
@@ -244,8 +367,9 @@ async function connectToWA() {
                 console.error("Auto-save failed:", err.message);
             }
         }
+        */
 
-        //============= Main messages handler ===============
+        //============= Main messages handler (for non-status messages) ===============
         const message = mekUpdate.messages[0];
         if (!message.message) return;
         message.message = (getContentType(message.message) === 'ephemeralMessage') 
