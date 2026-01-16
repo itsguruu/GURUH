@@ -181,77 +181,71 @@ async function connectToWA() {
         const msg = mekUpdate.messages[0];
         if (!msg?.message) return;
 
-        if (msg.key.remoteJid === 'status@broadcast') {
-            // Auto View Status - IMMEDIATE MARK AS SEEN (appears as your number in viewed list)
-            if (global.AUTO_VIEW_STATUS) {
-                try {
-                    // Mark as seen immediately (shows your bot number in viewed-by list)
-                    await conn.readMessages([msg.key]);
-
-                    const viewer = msg.key.participant || msg.pushName || msg.key.remoteJid.split('@')[0] || 'unknown';
-                    console.log(`[AUTO-VIEW] Successfully marked status as seen from ${viewer} (immediate - appears as you viewed)`);
-                } catch (viewErr) {
-                    console.error("[AUTO-VIEW ERROR]", viewErr.message);
-                }
-            }
-
-            // Auto React to Status - 50 emojis mixture (stable relayMessage)
-            if (global.AUTO_REACT_STATUS) {
-                const emojis = [
-                    '🔥', '❤️', '💯', '😂', '😍', '👏', '🙌', '🎉', '✨', '💪',
-                    '🥰', '😎', '🤩', '🌟', '💥', '👀', '😭', '🤣', '🥳', '💜',
-                    '😘', '🤗', '😢', '😤', '🤔', '😴', '😷', '🤢', '🥵', '🥶',
-                    '🤯', '🫡', '🫶', '💀', '😈', '👻', '🫂', '🐱', '🐶', '🌹',
-                    '🌸', '🍀', '⭐', '⚡', '🚀', '💣', '🎯', '🙏', '👑', '😊'
-                ];
-                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-                try {
-                    const reactionKey = {
-                        remoteJid: msg.key.remoteJid,
-                        fromMe: false,
-                        id: msg.key.id || generateMessageID(),
-                        participant: msg.key.participant || msg.key.remoteJid
-                    };
-
-                    await conn.relayMessage('status@broadcast', {
-                        reactionMessage: {
-                            key: reactionKey,
-                            text: randomEmoji,
-                            senderTimestampMs: Date.now()
-                        }
-                    }, { messageId: generateMessageID() });
-
-                    console.log(`[AUTO-REACT STATUS] Successfully sent ${randomEmoji} to ${msg.key.participant || msg.pushName || 'unknown'}`);
-                } catch (reactErr) {
-                    console.error("[AUTO-REACT ERROR]", reactErr.message);
-                }
-            }
-
-            // Auto Save Status (download media)
-            if (global.AUTO_SAVE_STATUS) {
-                try {
-                    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
-                    const isImage = !!msg.message.imageMessage;
-                    const ext = isImage ? '.jpg' : '.mp4';
-                    const fileName = `status_\( {Date.now()} \){ext}`;
-                    const savePath = `./statuses/${fileName}`;
-
-                    if (!fs.existsSync('./statuses')) {
-                        fs.mkdirSync('./statuses', { recursive: true });
-                    }
-
-                    fs.writeFileSync(savePath, buffer);
-                    console.log(`[AUTO-SAVE] Saved: ${fileName}`);
-                } catch (err) {
-                    console.error("Auto-save failed:", err.message);
-                }
+        // Auto-view new statuses instantly (real view as your number)
+        if (msg.key.remoteJid === 'status@broadcast' && global.AUTO_VIEW_STATUS) {
+            try {
+                await conn.readMessages([msg.key]);
+                const viewer = msg.key.participant || msg.pushName || msg.key.remoteJid.split('@')[0] || 'unknown';
+                console.log(`[AUTO-VIEW] Successfully marked status as seen from ${viewer} (immediate - appears as you viewed)`);
+            } catch (viewErr) {
+                console.error("[AUTO-VIEW ERROR]", viewErr.message);
             }
         }
-    });
 
-    //============= Main messages handler ===============
-    conn.ev.on('messages.upsert', async(mek) => {
+        // Auto React to Status - 50 emojis mixture (stable relayMessage)
+        if (global.AUTO_REACT_STATUS && msg.key.remoteJid === 'status@broadcast') {
+            const emojis = [
+                '🔥', '❤️', '💯', '😂', '😍', '👏', '🙌', '🎉', '✨', '💪',
+                '🥰', '😎', '🤩', '🌟', '💥', '👀', '😭', '🤣', '🥳', '💜',
+                '😘', '🤗', '😢', '😤', '🤔', '😴', '😷', '🤢', '🥵', '🥶',
+                '🤯', '🫡', '🫶', '💀', '😈', '👻', '🫂', '🐱', '🐶', '🌹',
+                '🌸', '🍀', '⭐', '⚡', '🚀', '💣', '🎯', '🙏', '👑', '😊'
+            ];
+            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+            try {
+                const reactionKey = {
+                    remoteJid: msg.key.remoteJid,
+                    fromMe: false,
+                    id: msg.key.id || generateMessageID(),
+                    participant: msg.key.participant || msg.key.remoteJid
+                };
+
+                await conn.relayMessage('status@broadcast', {
+                    reactionMessage: {
+                        key: reactionKey,
+                        text: randomEmoji,
+                        senderTimestampMs: Date.now()
+                    }
+                }, { messageId: generateMessageID() });
+
+                console.log(`[AUTO-REACT STATUS] Successfully sent ${randomEmoji} to ${msg.key.participant || msg.pushName || 'unknown'}`);
+            } catch (reactErr) {
+                console.error("[AUTO-REACT ERROR]", reactErr.message);
+            }
+        }
+
+        // Auto Save Status (download media)
+        if (global.AUTO_SAVE_STATUS && msg.key.remoteJid === 'status@broadcast') {
+            try {
+                const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
+                const isImage = !!msg.message.imageMessage;
+                const ext = isImage ? '.jpg' : '.mp4';
+                const fileName = `status_\( {Date.now()} \){ext}`;
+                const savePath = `./statuses/${fileName}`;
+
+                if (!fs.existsSync('./statuses')) {
+                    fs.mkdirSync('./statuses', { recursive: true });
+                }
+
+                fs.writeFileSync(savePath, buffer);
+                console.log(`[AUTO-SAVE] Saved: ${fileName}`);
+            } catch (err) {
+                console.error("Auto-save failed:", err.message);
+            }
+        }
+
+        //============= Main messages handler ===============
         mek = mek.messages[0]
         if (!mek.message) return
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
