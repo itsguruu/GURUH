@@ -4,73 +4,50 @@ const { sleep } = require('../lib/functions');
 cmd({
     pattern: "selfdestruct",
     alias: ["sd", "burn", "disappear", "ephemeral"],
-    desc: "Send a self-destructing (view once) message",
+    desc: "Send a normal text message that deletes after specified time",
     category: "privacy",
-    use: ".sd <message or quote media>",
+    use: ".sd 30s Your secret text here",
     react: "💥"
-}, async (conn, mek, m, { from, quoted, text, reply, isGroup }) => {
+}, async (conn, mek, m, { from, text, args, reply }) => {
     try {
-        if (!text && !quoted) {
-            return reply(`*Usage:* .sd <secret message>\nOr quote image/video/sticker + .sd\n\nMessages disappear after one view (or after timer in fallback mode)`);
+        if (!args[0] || !text) {
+            return reply(`*Usage:* .sd <time> <text>\nExample: .sd 30s This will burn in 30 seconds! 🔥\nTime: s, m, h`);
         }
 
-        let content = {};
-        let caption = text || "🔒 Secret • View once only";
+        const timeArg = args[0].toLowerCase();
+        let seconds = 0;
 
-        // Try view-once for text (most reliable)
-        if (text && !quoted) {
-            content = {
-                text: caption,
-                viewOnce: true
-            };
-        } 
-        // For quoted media: try view-once, fallback if fails
-        else if (quoted) {
-            try {
-                const buffer = await conn.downloadMediaMessage(quoted);
-                const type = quoted.message?.imageMessage ? 'image' :
-                             quoted.message?.videoMessage ? 'video' :
-                             quoted.message?.stickerMessage ? 'sticker' :
-                             quoted.message?.documentMessage ? 'document' : null;
+        if (timeArg.endsWith('s')) seconds = parseInt(timeArg);
+        else if (timeArg.endsWith('m')) seconds = parseInt(timeArg) * 60;
+        else if (timeArg.endsWith('h')) seconds = parseInt(timeArg) * 3600;
+        else return reply("Invalid time! Use s, m, or h (e.g., 30s, 5m, 1h)");
 
-                if (!type || !buffer) throw new Error("No valid media found in quoted message");
-
-                content = {
-                    [type]: buffer,
-                    caption: caption,
-                    mimetype: quoted.message?.[type + 'Message']?.mimetype || 'application/octet-stream',
-                    viewOnce: true
-                };
-            } catch (mediaErr) {
-                console.log("[VIEW ONCE MEDIA ERROR]", mediaErr.message);
-                // Fallback: send normal media + countdown timer
-                await reply("⚠️ View-once media failed (old/expired). Sending normal with timer instead.");
-                const sent = await conn.sendMessage(from, {
-                    text: `⏳ Secret message incoming...\nWill disappear in 30 seconds!`,
-                    quoted: mek
-                });
-
-                await sleep(30000); // 30 seconds
-                try {
-                    await conn.sendMessage(from, { delete: sent.key });
-                    await reply("💥 Message auto-destructed!");
-                } catch {
-                    await reply("Message sent normally (couldn't delete for everyone).");
-                }
-                return;
-            }
+        if (seconds < 10 || seconds > 86400) {
+            return reply("Time must be between 10 seconds and 24 hours!");
         }
 
-        // Send the final message
-        const sentMsg = await conn.sendMessage(from, content, { quoted: mek });
+        const messageText = args.slice(1).join(' ');
+        if (!messageText) return reply("Please provide the text to send!");
+
+        // Send the text message
+        const sentMsg = await conn.sendMessage(from, {
+            text: `🔥 *SELF-DESTRUCTING TEXT*\n\n${messageText}\n\n*Will delete in ${timeArg}* ⏳`
+        }, { quoted: mek });
 
         // Success reaction
         await conn.sendMessage(from, { react: { text: "💥", key: mek.key } });
 
-        await reply(`🔒 View-once message sent successfully!\nIt will disappear after the recipient views it once.`);
+        // Wait and delete
+        await sleep(seconds * 1000);
+
+        try {
+            await conn.sendMessage(from, { delete: sentMsg.key });
+            await reply("💥 Text message self-destructed!");
+        } catch (e) {
+            await reply("Message sent, but couldn't delete for everyone (bot needs admin in group).");
+        }
 
     } catch (error) {
-        console.error("[SELF-DESTRUCT PLUGIN ERROR]", error.message || error);
-        reply("❌ Failed to send self-destruct message: " + (error.message || "Unknown error"));
+        reply("❌ Error: " + error.message);
     }
 });
