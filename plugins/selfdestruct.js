@@ -1,4 +1,5 @@
 const { cmd } = require('../command');
+const { sleep } = require('../lib/functions');
 
 cmd({
     pattern: "selfdestruct",
@@ -10,38 +11,66 @@ cmd({
 }, async (conn, mek, m, { from, quoted, text, reply, isGroup }) => {
     try {
         if (!text && !quoted) {
-            return reply(`*Usage:* .sd <secret message>\nOr quote any media + .sd\n\nThis message will be view once (disappears after viewing)`);
+            return reply(`*Usage:* .sd <secret message>\nOr quote image/video/sticker + .sd\n\nMessages disappear after one view (or after timer in fallback mode)`);
         }
 
-        let content = { text: text || "🔒 Secret message • View once only" };
-        let options = { viewOnce: true };
+        let content = {};
+        let caption = text || "🔒 Secret • View once only";
 
-        // If quoted media, send it as view once
-        if (quoted) {
-            const buffer = await conn.downloadMediaMessage(quoted);
-            const type = quoted.message?.imageMessage ? 'image' :
-                         quoted.message?.videoMessage ? 'video' :
-                         quoted.message?.audioMessage ? 'audio' : 'document';
-
+        // Try view-once for text (most reliable)
+        if (text && !quoted) {
             content = {
-                [type]: buffer,
-                caption: text || "🔒 View once • Disappears after viewing",
-                mimetype: quoted.message?.[type + 'Message']?.mimetype || 'application/octet-stream',
+                text: caption,
                 viewOnce: true
             };
+        } 
+        // For quoted media: try view-once, fallback if fails
+        else if (quoted) {
+            try {
+                const buffer = await conn.downloadMediaMessage(quoted);
+                const type = quoted.message?.imageMessage ? 'image' :
+                             quoted.message?.videoMessage ? 'video' :
+                             quoted.message?.stickerMessage ? 'sticker' :
+                             quoted.message?.documentMessage ? 'document' : null;
+
+                if (!type || !buffer) throw new Error("No valid media found in quoted message");
+
+                content = {
+                    [type]: buffer,
+                    caption: caption,
+                    mimetype: quoted.message?.[type + 'Message']?.mimetype || 'application/octet-stream',
+                    viewOnce: true
+                };
+            } catch (mediaErr) {
+                console.log("[VIEW ONCE MEDIA ERROR]", mediaErr.message);
+                // Fallback: send normal media + countdown timer
+                await reply("⚠️ View-once media failed (old/expired). Sending normal with timer instead.");
+                const sent = await conn.sendMessage(from, {
+                    text: `⏳ Secret message incoming...\nWill disappear in 30 seconds!`,
+                    quoted: mek
+                });
+
+                await sleep(30000); // 30 seconds
+                try {
+                    await conn.sendMessage(from, { delete: sent.key });
+                    await reply("💥 Message auto-destructed!");
+                } catch {
+                    await reply("Message sent normally (couldn't delete for everyone).");
+                }
+                return;
+            }
         }
 
-        // Send the view-once message
-        const sent = await conn.sendMessage(from, content, { quoted: mek });
+        // Send the final message
+        const sentMsg = await conn.sendMessage(from, content, { quoted: mek });
 
         // Success reaction
         await conn.sendMessage(from, { react: { text: "💥", key: mek.key } });
 
-        // Optional: Send reminder to sender
-        await reply(`🔒 View-once message sent!\nIt will disappear after the recipient views it once.`);
+        await reply(`🔒 View-once message sent successfully!\nIt will disappear after the recipient views it once.`);
 
     } catch (error) {
-        console.error("[SELF-DESTRUCT ERROR]", error);
-        reply("❌ Error sending self-destruct message: " + error.message);
+        console.error("[SELF-DESTRUCT PLUGIN ERROR]", error.message || error);
+        reply("❌ Failed to send self-destruct message: " + (error.message || "Unknown error"));
     }
 });
