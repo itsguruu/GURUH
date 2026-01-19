@@ -1,78 +1,84 @@
-const { cmd, commands } = require('../command');
-const fs = require('fs');
-const path = require('path');
+const axios = require("axios");
+const { cmd } = require("../command");
 
 cmd({
-    pattern: "get",
-    alias: ["source", "js"],
-    desc: "Fetch the full source code of a command",
-    category: "owner",
-    react: "📜",
-    filename: __filename
-},
-async (conn, mek, m, { from, args, reply, isOwner }) => {
-    try {
-        if (!isOwner) return reply("❌ You don't have permission to use this command!");
-        if (!args[0]) return reply("❌ Please provide a command name. Example: `.get alive`");
-
-        const commandName = args[0].toLowerCase();
-        const commandData = commands.find(cmd => cmd.pattern === commandName || (cmd.alias && cmd.alias.includes(commandName)));
-
-        if (!commandData) return reply("❌ Command not found!");
-
-        // Get the command file path
-        const commandPath = commandData.filename;
-
-        // Read the full source code
-        const fullCode = fs.readFileSync(commandPath, 'utf-8');
-
-        // Truncate long messages for WhatsApp
-        let truncatedCode = fullCode;
-        if (truncatedCode.length > 4000) {
-            truncatedCode = fullCode.substring(0, 4000) + "\n\n// Code too long, sending full file 📂";
-        }
-
-        // Formatted caption with truncated code
-        const formattedCode = `⬤───〔 *📜 Command Source* 〕───⬤
-\`\`\`js
-${truncatedCode}
-\`\`\`
-╰──────────⊷  
-⚡ Full file sent below 📂  
-Powered By *ʜᴜɴᴛᴇʀ xᴍᴅ* 💜`;
-
-        // Send image with truncated source code
-        await conn.sendMessage(from, { 
-            image: { url: `https://res.cloudinary.com/dgy2dutjs/image/upload/v1751707342/url.crissvevo.co.tz/%E1%B4%8F%CA%99%E1%B4%87%E1%B4%85%E1%B4%9B%E1%B4%87%E1%B4%84%CA%9C1_exmbht.jpg` },
-                caption: dec,
-                contextInfo: {
-                    mentionedJid: [m.sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363416335506023@newsletter',
-                        newsletterName: 'ʜᴜɴᴛᴇʀ xᴍᴅ',
-                        serverMessageId: 143
-                }
-            }
-        }, { quoted: mek });
-
-        // Send full source file
-        const fileName = `${commandName}.js`;
-        const tempPath = path.join(__dirname, fileName);
-        fs.writeFileSync(tempPath, fullCode);
-
-        await conn.sendMessage(from, { 
-            document: fs.readFileSync(tempPath),
-            mimetype: 'text/javascript',
-            fileName: fileName
-        }, { quoted: mek });
-
-        // Delete the temporary file
-        fs.unlinkSync(tempPath);
-
-    } catch (e) {
-        console.error("Error in .get command:", e);
-        reply(`❌ Error: ${e.message}`);
+  pattern: "npm",
+  desc: "Search and get detailed info about an npm package with preview image",
+  react: '📦',
+  category: "info",  // Changed to "info" — feels more appropriate than "convert"
+  filename: __filename,
+  use: ".npm <package-name>   e.g. .npm axios"
+}, async (conn, mek, m, { from, args, reply }) => {
+  try {
+    if (!args.length) {
+      return reply("❓ Please enter a package name!\nExample: *.npm express* or *.npm axios*");
     }
+
+    const packageName = args.join(" ").trim();
+    const apiUrl = `https://registry.npmjs.org/${encodeURIComponent(packageName)}`;
+
+    const response = await axios.get(apiUrl, {
+      timeout: 10000,
+      validateStatus: status => status === 200 || status === 404
+    });
+
+    if (response.status === 404) {
+      return reply(`❌ Package *${packageName}* not found.\nPlease check the spelling!`);
+    }
+
+    if (response.status !== 200) {
+      throw new Error(`npm registry error: ${response.status}`);
+    }
+
+    const pkg = response.data;
+
+    const latest = pkg["dist-tags"]?.latest || "unknown";
+    const description = pkg.description || "No description available.";
+    const license = pkg.license || "Not specified";
+    const repo = pkg.repository?.url?.replace(/^git\+/, "").replace(/\.git$/, "") || "Not available";
+    const homepage = pkg.homepage || pkg.repository?.url || "Not available";
+
+    // Optional: real weekly downloads (separate request)
+    let weeklyDownloads = "N/A";
+    try {
+      const dlRes = await axios.get(`https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(packageName)}`);
+      weeklyDownloads = dlRes.data.downloads?.toLocaleString() || "0";
+    } catch {} // silent fail
+
+    const caption = `
+╔═════ *GURU MD • NPM SEARCH* ═════╗
+│
+│ 📦 *Package:* ${packageName}
+│ 📝 *Description:* ${description}
+│ 🏷️ *Latest Version:* ${latest}
+│ 📊 *Weekly Downloads:* ${weeklyDownloads}
+│ 🪪 *License:* ${license}
+│ 🔗 *NPM:* https://www.npmjs.com/package/${packageName}
+│ 🌐 *Homepage:* ${homepage}
+│ 📁 *Repository:* ${repo}
+│
+╚══════════════════════════════════╝
+
+> Powered by npm • © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
+
+    // Send your custom image + caption
+    await conn.sendMessage(from, {
+      image: { url: "https://files.catbox.moe/ntfw9h.jpg" },
+      caption: caption,
+      contextInfo: {
+        mentionedJid: [m.sender],
+        forwardingScore: 999,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+          newsletterJid: '120363421164015033@newsletter',
+          newsletterName: 'GURU MD',
+          serverMessageId: 143
+        }
+      }
+    }, { quoted: mek });
+
+  } catch (error) {
+    console.error("NPM command error:", error.message);
+    reply(`❌ Error: ${error.message.includes("404") ? "Package not found" : "Failed to connect to npm"}. Try again!`);
+  }
 });
