@@ -18,22 +18,43 @@ cmd({
     try {
         await reply("🔍 Checking for GURU-MD updates...");
 
-        // Fetch latest commit hash
-        const { data: commitData } = await axios.get("https://api.github.com/repos/itsguruu/GURUH/commits/main");
-        const latestCommitHash = commitData.sha;
+        // Fetch latest commit hash with proper headers & timeout
+        const commitRes = await axios.get("https://api.github.com/repos/itsguruu/GURUH/commits/main", {
+            timeout: 10000,
+            headers: { 'User-Agent': 'GURU-MD-Bot/1.0' }
+        });
+
+        if (!commitRes.data || typeof commitRes.data !== 'object' || !commitRes.data.sha) {
+            throw new Error("Invalid GitHub commit response - missing SHA");
+        }
+
+        const latestCommitHash = commitRes.data.sha;
 
         const currentHash = await getCommitHash();
 
-        // Fetch remote version from package.json on GitHub
-        const { data: remotePkg } = await axios.get("https://raw.githubusercontent.com/itsguruu/GURUH/main/package.json");
-        const remoteVersion = JSON.parse(remotePkg).version || "unknown";
+        // Fetch remote package.json
+        const remotePkgRes = await axios.get("https://raw.githubusercontent.com/itsguruu/GURUH/main/package.json", {
+            timeout: 8000
+        });
 
-        // Get local version from package.json
+        let remoteVersion = "unknown";
+        try {
+            const remotePkg = JSON.parse(remotePkgRes.data);
+            remoteVersion = remotePkg.version || "unknown";
+        } catch (parseErr) {
+            console.error("Failed to parse remote package.json:", parseErr.message);
+        }
+
+        // Local package.json
         let localVersion = "unknown";
         const localPkgPath = path.join(__dirname, '..', 'package.json');
         if (fs.existsSync(localPkgPath)) {
-            const localPkg = JSON.parse(fs.readFileSync(localPkgPath, 'utf8'));
-            localVersion = localPkg.version || "unknown";
+            try {
+                const localPkg = JSON.parse(fs.readFileSync(localPkgPath, 'utf8'));
+                localVersion = localPkg.version || "unknown";
+            } catch (parseErr) {
+                console.error("Failed to parse local package.json:", parseErr.message);
+            }
         }
 
         await reply(`Current version: ${localVersion} | Latest on repo: ${remoteVersion}`);
@@ -42,17 +63,16 @@ cmd({
             return reply("✅ Your GURU-MD is already on the latest commit (no new changes).");
         }
 
-        // Optional: simple version comparison (you can improve with semver lib if needed)
-        if (localVersion !== "unknown" && remoteVersion !== "unknown" && localVersion === remoteVersion) {
-            return reply("✅ Versions match, but new commit detected. Updating anyway...");
-        }
-
+        // Proceed with update even if versions match but commit differs
         await reply(`🚀 Updating GURU-MD to version ${remoteVersion} from https://github.com/itsguruu/GURUH ...`);
 
         // Download ZIP
         const zipPath = path.join(__dirname, "latest.zip");
-        const { data: zipData } = await axios.get("https://github.com/itsguruu/GURUH/archive/main.zip", { responseType: "arraybuffer" });
-        fs.writeFileSync(zipPath, zipData);
+        const zipRes = await axios.get("https://github.com/itsguruu/GURUH/archive/main.zip", {
+            responseType: "arraybuffer",
+            timeout: 30000
+        });
+        fs.writeFileSync(zipPath, zipRes.data);
 
         // Extract
         await reply("📦 Extracting latest code...");
@@ -60,13 +80,13 @@ cmd({
         const zip = new AdmZip(zipPath);
         zip.extractAllTo(extractPath, true);
 
-        // Copy files, skip config & app.json
+        // Copy files
         await reply("🔄 Applying updates (preserving your config.js & app.json)...");
         const sourcePath = path.join(extractPath, "GURUH-main");
         const destinationPath = path.join(__dirname, '..');
         copyFolderSync(sourcePath, destinationPath);
 
-        // Update commit hash
+        // Save new hash
         await setCommitHash(latestCommitHash);
 
         // Cleanup
@@ -77,12 +97,16 @@ cmd({
         process.exit(0);
 
     } catch (error) {
-        console.error("Update error:", error.message);
-        return reply(`❌ Update failed: ${error.message || "Unknown error"}. Try manual pull.`);
+        console.error("Update error details:", error.message, error.response?.data || error.stack);
+        let errMsg = error.message || "Unknown error";
+        if (error.response) {
+            errMsg += ` (HTTP ${error.response.status})`;
+        }
+        return reply(`❌ Update failed: ${errMsg}\nPossible causes: Network issue, GitHub rate limit, or API error.\nTry again later or do manual git pull in Termux.`);
     }
 });
 
-// Same copy helper as before
+// copyFolderSync remains unchanged
 function copyFolderSync(source, target) {
     if (!fs.existsSync(target)) {
         fs.mkdirSync(target, { recursive: true });
