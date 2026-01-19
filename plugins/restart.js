@@ -3,7 +3,7 @@ const { sleep } = require("../lib/functions");
 
 cmd({  
     pattern: "restart",  
-    desc: "Restart CRISS-AI",  
+    desc: "Restart GURU-MD",  
     category: "owner",  
     filename: __filename  
 },  
@@ -14,7 +14,7 @@ async (conn, mek, m, { reply, isCreator }) => {
         }  
 
         const { exec } = require("child_process");  
-        reply("Restarting...");  
+        reply("Restarting GURU-MD...");  
         await sleep(1500);  
         exec("pm2 restart all");  
     } catch (e) {  
