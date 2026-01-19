@@ -6,7 +6,7 @@ const config = require('../config');
 cmd({
     pattern: "alive",
     alias: ["status", "online", "a"],
-    desc: "Check bot is alive or not",
+    desc: "Check if bot is alive",
     category: "main",
     react: "⚡",
     filename: __filename
@@ -14,27 +14,34 @@ cmd({
 async (conn, mek, m, { from, sender, reply }) => {
     try {
         const status = `
-╭───💙〔 *GURU MD* 〕💙───◉
-│🔵 *Bot is Active & Online!*
-│
-│💙 *Owner:* +254 778 074353
-│💙 *Created by:* GuruTech
-│💙 *Version:* 5.0.0 max
-│💙 *Prefix:* [${config.PREFIX}]
-│💙 *Mode:* [${config.MODE}]
-│💙 *RAM:* ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)}MB / ${(os.totalmem() / 1024 / 1024).toFixed(2)}MB
-│💙 *Host:* ${os.hostname()}
-│💙 *Uptime:* ${runtime(process.uptime())}
-│💙 *Repo:* https://github.com/itsguruu/GURU
-╰────────────────────💙◉
-> *© ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech*`;
+╔══════════════════════════════════════╗
+║          ✦ G U R U   M D ✦           ║
+║     v5.0.0  •  ALWAYS AWAKE 🔥       ║
+╠══════════════════════════════════════╣
+║  STATUS     ❯  ONLINE & VICIOUS      ║
+║  BOT        ❯  GURU-MD               ║
+║  CREATOR    ❯  GuruTech              ║
+║  PREFIX     ❯  ${config.PREFIX.padEnd(14)}            ║
+║  MODE       ❯  ${config.MODE.padEnd(14)}             ║
+║  RAM        ❯  ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} / ${(os.totalmem() / 1024 / 1024).toFixed(2)} MB ║
+║  HOST       ❯  ${os.hostname().slice(0,22).padEnd(14)}║
+║  UPTIME     ❯  ${runtime(process.uptime()).padEnd(14)}║
+╠══════════════════════════════════════╣
+║                                      ║
+║         𝐍𝐈 𝐌𝐁𝐀𝐘𝐀 😅                 ║
+║       𝙽𝙸 𝙼𝙱𝙰𝚈𝙰 😅                   ║
+║                ║
+║   • 𝐅𝐀𝐒𝐓 • 𝐒𝐇𝐀𝐑𝐏 • 𝐔𝐍𝐅𝐎𝐑𝐆𝐈𝐕𝐈𝐍𝐆 •   ║
+╚══════════════════════════════════════╝
+
+   > © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
 
         await conn.sendMessage(from, {
             image: { url: "https://files.catbox.moe/ntfw9h.jpg" },
             caption: status,
             contextInfo: {
                 mentionedJid: [m.sender],
-                forwardingScore: 1000,
+                forwardingScore: 999,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
                     newsletterJid: '120363421164015033@newsletter',
@@ -46,6 +53,6 @@ async (conn, mek, m, { from, sender, reply }) => {
 
     } catch (e) {
         console.error("Alive Error:", e);
-        reply(`An error occurred: ${e.message}`);
+        reply(`Error: ${e.message}`);
     }
 });
