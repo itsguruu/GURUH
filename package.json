@@ -52,6 +52,7 @@
     "@mrnima/tiktok-downloader": "1.0.0",
     "@mrnima/facebook-downloader": "1.0.0",
     "mrnima-moviedl": "1.0.0",
-    "ytdlp-nodejs": "^2.3.5"
+    "ytdlp-nodejs": "^2.3.5",
+    "cli-table3": "^0.6.5"
   }
 }
