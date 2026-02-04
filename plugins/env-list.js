@@ -2,6 +2,7 @@ const config = require('../config');
 const { cmd, commands } = require('../command');
 const { runtime } = require('../lib/functions');
 const axios = require('axios');
+const { sendButtons } = require('gifted-btns');
 
 function isEnabled(value) {
     // Function to check if a value represents a "true" boolean state
@@ -19,9 +20,9 @@ cmd({
 async (conn, mek, m, { from, quoted, reply }) => {
     try {
         // Define the settings message with the correct boolean checks
-        let envSettings = `╭━━━〔 *CRISS-AI* 〕━━━┈⊷
+        let envSettings = `╭━━━〔 *GURU MD* 〕━━━┈⊷
 ┃▸╭───────────
-┃▸┃๏ *ENV SETTINGS 🗿*
+┃▸┃๏ *ENV SETTINGS 💢*
 ┃▸└───────────···๏
 ╰────────────────┈⊷
 ╭━━〔 *Enabled Disabled* 〕━━┈⊷
@@ -41,21 +42,21 @@ async (conn, mek, m, { from, quoted, reply }) => {
 ┇๏ *Public Mode:* ${isEnabled(config.PUBLIC_MODE) ? "Enabled ✅" : "Disabled ❌"}
 ┇๏ *Read Message:* ${isEnabled(config.READ_MESSAGE) ? "Enabled ✅" : "Disabled ❌"}
 ╰━━━━━━━━━━━━──┈⊷
-> ${config.DESCRIPTION}`;
+> *© ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech*`;
 
         // Send message with an image
         await conn.sendMessage(
             from,
             {
-                image: { url: `https://files.catbox.moe/4ggu0a.jpg` },
-                caption: dec,
+                image: { url: `https://files.catbox.moe/ntfw9h.jpg` },
+                caption: envSettings,
                 contextInfo: {
                     mentionedJid: [m.sender],
                     forwardingScore: 999,
                     isForwarded: true,
                     forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363417599637828@newsletter',
-                        newsletterName: 'CRISS AI',
+                        newsletterJid: '120363421164015033@newsletter',
+                        newsletterName: 'GURU MD',
                         serverMessageId: 143
                     }
                 }
@@ -63,9 +64,23 @@ async (conn, mek, m, { from, quoted, reply }) => {
             { quoted: mek }
         );
 
+        // Send interactive buttons using gifted-btns
+        await sendButtons(conn, from, {
+            title: 'GURU MD Settings',
+            text: 'Quick toggle common features:',
+            footer: 'Powered by GuruTech 💢',
+            buttons: [
+                { id: 'toggle_status_view', text: `Status View: ${isEnabled(config.AUTO_STATUS_SEEN) ? 'ON' : 'OFF'}` },
+                { id: 'toggle_auto_reply', text: `Auto Reply: ${isEnabled(config.AUTO_REPLY) ? 'ON' : 'OFF'}` },
+                { id: 'toggle_anti_link', text: `Anti-Link: ${isEnabled(config.ANTI_LINK) ? 'ON' : 'OFF'}` },
+                { id: 'toggle_read_msg', text: `Read Msg: ${isEnabled(config.READ_MESSAGE) ? 'ON' : 'OFF'}` },
+                { id: 'back_to_menu', text: 'Back to Main Menu' }
+            ]
+        }, { quoted: mek });
+
         // Send an audio file
         await conn.sendMessage(from, {
-            audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' }, // Audio URL
+            audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
             mimetype: 'audio/mp4',
             ptt: true
         }, { quoted: mek });
