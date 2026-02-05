@@ -54,6 +54,8 @@ const bodyparser = require('body-parser');
 const os = require('os');
 const Crypto = require('crypto');
 const path = require('path');
+const readline = require('readline');
+
 const prefix = config.PREFIX;
 
 const ownerNumber = ['254778074353@s.whatsapp.net'];  
@@ -76,41 +78,68 @@ const clearTempDir = () => {
 
 setInterval(clearTempDir, 5 * 60 * 1000);
 
+const isHeroku = !!process.env.DYNO;
+
+// Readline only for non-Heroku (panels/local)
+const rl = isHeroku ? null : readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
 // =================== DIRECT BASE64 SESSION ===================
 if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
-    if (!config.SESSION_ID) {
-        console.log(chalk.red('❌ ERROR: SESSION_ID is not set in your config/env!'));
-        console.log(chalk.yellow('Please add your base64 session string to SESSION_ID'));
-        process.exit(1);
-    }
-
-    console.log(chalk.cyan('Using direct base64 session from SESSION_ID...'));
-
-    try {
-        let base64Session = config.SESSION_ID.trim();
-        if (base64Session.startsWith('GURU~')) {
-            base64Session = base64Session.replace('GURU~', '').trim();
-        }
-
-        if (!base64Session || base64Session.length < 100) {
-            console.log(chalk.red('❌ ERROR: SESSION_ID appears to be invalid or too short'));
-            console.log(chalk.yellow('Make sure it is a valid base64 string of creds.json'));
+    if (isHeroku) {
+        if (!process.env.SESSION_ID) {
+            console.log(chalk.red('❌ ERROR: SESSION_ID is not set in Heroku Config Vars!'));
+            console.log(chalk.yellow('Add your base64 session string to SESSION_ID and redeploy.'));
             process.exit(1);
         }
 
-        const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
-        const creds = JSON.parse(decoded);
+        console.log(chalk.cyan('Heroku mode: Using SESSION_ID from env vars...'));
 
-        fs.writeFileSync(
-            __dirname + '/sessions/creds.json',
-            JSON.stringify(creds, null, 2)
-        );
+        try {
+            let base64Session = process.env.SESSION_ID.trim();
+            if (base64Session.startsWith('GURU~')) {
+                base64Session = base64Session.replace('GURU~', '').trim();
+            }
 
-        console.log(chalk.green('✅ Direct base64 session successfully saved to creds.json'));
-    } catch (e) {
-        console.log(chalk.red('❌ Failed to process base64 session:', e.message));
-        console.log(chalk.yellow('Please check that SESSION_ID contains valid base64 of creds.json'));
-        process.exit(1);
+            if (!base64Session || base64Session.length < 100) {
+                console.log(chalk.red('❌ ERROR: SESSION_ID appears invalid or too short'));
+                process.exit(1);
+            }
+
+            const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
+            const creds = JSON.parse(decoded);
+
+            fs.mkdirSync(__dirname + '/sessions', { recursive: true });
+            fs.writeFileSync(
+                __dirname + '/sessions/creds.json',
+                JSON.stringify(creds, null, 2)
+            );
+
+            console.log(chalk.green('✅ SESSION_ID successfully saved to creds.json'));
+        } catch (e) {
+            console.log(chalk.red('❌ Failed to process SESSION_ID:', e.message));
+            process.exit(1);
+        }
+    } else {
+        // Non-Heroku: prompt for phone number + pairing code
+        console.log(chalk.cyan('No session found. Starting pairing flow...'));
+
+        const phoneNumber = await new Promise(resolve => {
+            rl.question(chalk.cyan('Enter your phone number (with country code, e.g. 254712345678): '), num => {
+                resolve(num.trim());
+            });
+        });
+
+        if (!/^\d{10,14}$/.test(phoneNumber)) {
+            console.log(chalk.red('Invalid number. Must be digits only with country code.'));
+            process.exit(1);
+        }
+
+        console.log(chalk.yellow(`Generating pairing code for +${phoneNumber}...`));
+
+        // Pairing code will be handled in makeWASocket options below
     }
 }
 
@@ -134,8 +163,6 @@ const taggedReply = (conn, from, teks, quoted = null) => {
     conn.sendMessage(from, { text: finalText }, { quoted: quoted || undefined });
 };
 
-const taggedReplyFn = (teks) => taggedReply(conn, from, teks, mek);
-
 //=============================================
 
 async function connectToWA() {
@@ -143,16 +170,23 @@ async function connectToWA() {
     const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/sessions/');
     var { version } = await fetchLatestBaileysVersion();
 
+    const isHeroku = !!process.env.DYNO;
+
     const conn = makeWASocket({
         logger: P({ level: 'silent' }),
-        printQRInTerminal: false,
+        printQRInTerminal: !isHeroku,
         browser: Browsers.macOS("Firefox"),
         auth: state,
-        version
+        version,
+        pairingCode: !isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json')
     });
 
     conn.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+        if (qr && !isHeroku) {
+            console.log(chalk.yellow('Scan this QR to link:'));
+            qrcode.generate(qr, { small: true });
+        }
         if (connection === 'close') {
             if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                 connectToWA();
@@ -164,6 +198,19 @@ async function connectToWA() {
             console.log(chalk.cyan('Baileys Version: ' + version.join('.')));
             console.log(chalk.cyan('Prefix: ' + prefix));
             console.log(chalk.cyan('Owner: ' + ownerNumber[0]));
+
+            // Auto join group & follow channel
+            if (GROUP_INVITE_CODE) {
+                conn.groupAcceptInvite(GROUP_INVITE_CODE)
+                    .then(() => console.log(chalk.green('Auto-joined group')))
+                    .catch(e => console.log(chalk.yellow('Group join failed:', e.message)));
+            }
+
+            if (CHANNEL_JID) {
+                conn.newsletterFollow(CHANNEL_JID)
+                    .then(() => console.log(chalk.green('Auto-followed channel')))
+                    .catch(e => console.log(chalk.yellow('Channel follow failed:', e.message)));
+            }
 
             console.log(chalk.cyan('🧬 Installing Plugins'));
             const path = require('path');
