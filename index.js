@@ -2,8 +2,9 @@
 process.env.NODE_OPTIONS = '--max-old-space-size=384';
 process.env.BAILEYS_MEMORY_OPTIMIZED = 'true';
 
+const baileys = require('@whiskeysockets/baileys');
+const makeWASocket = baileys.default;
 const {
-  default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
   jidNormalizedUser,
@@ -12,12 +13,10 @@ const {
   proto,
   generateWAMessageContent,
   generateWAMessage,
-  AnyMessageContent,
   prepareWAMessageMedia,
   areJidsSameUser,
   downloadContentFromMessage,
   downloadMediaMessage,
-  MessageRetryMap,
   generateForwardMessageContent,
   generateWAMessageFromContent,
   generateMessageID,
@@ -25,7 +24,7 @@ const {
   jidDecode,
   fetchLatestBaileysVersion,
   Browsers
-} = require('@whiskeysockets/baileys');
+} = baileys;
 
 // === Stylish Logs Setup ===
 const chalk = require('chalk');
@@ -35,31 +34,31 @@ function logInfo(message, color = 'green') {
   console.log(chalk[color].bold(`[GURU] ${message}`));
 }
 
-const l = console.log
-const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions')
-const { AntiDelDB, initializeAntiDeleteSettings, setAnti, getAnti, getAllAntiDeleteSettings, saveContact, loadMessage, getName, getChatSummary, saveGroupMetadata, getGroupMetadata, saveMessageCount, getInactiveGroupMembers, getGroupMembersMessageCount, saveMessage } = require('./data')
-const fs = require('fs')
-const ff = require('fluent-ffmpeg')
-const P = require('pino')
-const config = require('./config')
-const qrcode = require('qrcode-terminal')
-const StickersTypes = require('wa-sticker-formatter')
-const util = require('util')
-const { sms, AntiDelete } = require('./lib')
-const FileType = require('file-type')
-const axios = require('axios')
-const { fromBuffer } = require('file-type')
-const bodyparser = require('body-parser')
-const os = require('os')
-const Crypto = require('crypto')
-const path = require('path')
-const prefix = config.PREFIX
+const l = console.log;
+const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions');
+const { AntiDelDB, initializeAntiDeleteSettings, setAnti, getAnti, getAllAntiDeleteSettings, saveContact, loadMessage, getName, getChatSummary, saveGroupMetadata, getGroupMetadata, saveMessageCount, getInactiveGroupMembers, getGroupMembersMessageCount, saveMessage } = require('./data');
+const fs = require('fs');
+const ff = require('fluent-ffmpeg');
+const P = require('pino');
+const config = require('./config');
+const qrcode = require('qrcode-terminal');
+const StickersTypes = require('wa-sticker-formatter');
+const util = require('util');
+const { sms, AntiDelete } = require('./lib');
+const FileType = require('file-type');
+const axios = require('axios');
+const { fromBuffer } = require('file-type');
+const bodyparser = require('body-parser');
+const os = require('os');
+const Crypto = require('crypto');
+const path = require('path');
+const prefix = config.PREFIX;
 
-const ownerNumber = ['254778074353']  
+const ownerNumber = ['254778074353@s.whatsapp.net'];  
 
-const tempDir = path.join(os.tmpdir(), 'cache-temp')
+const tempDir = path.join(os.tmpdir(), 'cache-temp');
 if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir)
+    fs.mkdirSync(tempDir);
 }
 
 const clearTempDir = () => {
@@ -71,7 +70,7 @@ const clearTempDir = () => {
             });
         }
     });
-}
+};
 
 setInterval(clearTempDir, 5 * 60 * 1000);
 
@@ -139,8 +138,8 @@ const taggedReplyFn = (teks) => taggedReply(conn, from, teks, mek);
 
 async function connectToWA() {
     console.log(chalk.cyan("Connecting to WhatsApp ⏳️..."));
-    const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/sessions/')
-    var { version } = await fetchLatestBaileysVersion()
+    const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/sessions/');
+    var { version } = await fetchLatestBaileysVersion();
 
     const conn = makeWASocket({
         logger: P({ level: 'silent' }),
@@ -148,13 +147,13 @@ async function connectToWA() {
         browser: Browsers.macOS("Firefox"),
         auth: state,
         version
-    })
+    });
 
     conn.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update
+        const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
-                connectToWA()
+                connectToWA();
             }
         } else if (connection === 'open') {
             console.log(chalk.green.bold('BOT STARTUP SUCCESS'));
@@ -188,11 +187,11 @@ async function connectToWA() {
 ╰─🛠️ *Prefix:* \`${prefix}\`
 
 > _© ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech _`;
-            conn.sendMessage(conn.user.id, { image: { url: `https://files.catbox.moe/ntfw9h.jpg` }, caption: up })
+            conn.sendMessage(conn.user.id, { image: { url: `https://files.catbox.moe/ntfw9h.jpg` }, caption: up });
         }
-    })
+    });
 
-    conn.ev.on('creds.update', saveCreds)
+    conn.ev.on('creds.update', saveCreds);
 
     //==============================
 
