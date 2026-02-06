@@ -245,21 +245,12 @@ async function connectToWA() {
 
     //==============================
 
-    conn.ev.on('messages.update', async (updates) => {
-        // Ensure updates is always an array
-        const updateArray = Array.isArray(updates) ? updates : [updates];
-
-        for (const update of updateArray) {
-            if (update.update && update.update.message === null) {
+    conn.ev.on('messages.update', async updates => {
+        for (const update of updates) {
+            if (update.update.message === null) {
                 console.log(chalk.red.bold('DELETE DETECTED'));
                 console.log(chalk.red('Update: ' + JSON.stringify(update, null, 2)));
-
-                // Call AntiDelete with conn and single update object
-                try {
-                    await AntiDelete(conn, update);
-                } catch (err) {
-                    console.log(chalk.red('AntiDelete failed: ' + (err.message || err)));
-                }
+                await AntiDelete(conn, updates);
             }
         }
     });
@@ -355,17 +346,8 @@ async function connectToWA() {
         }
 
         // === CONTINUOUS SMART AUTO-REPLY (Guru style, works in groups & private) ===
-        // Re-use variables declared later (body, from, isCmd, senderNumber, mek.key.fromMe)
-        const type = getContentType(msg.message);
-        const body = (type === 'conversation') ? msg.message.conversation :
-                     (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : '';
-        const isCmd = body.startsWith(prefix);
-        const from = msg.key.remoteJid;
-        const sender = msg.key.fromMe ? conn.user.id : (msg.key.participant || from);
-        const senderNumber = sender.split('@')[0];
-        const isMe = msg.key.fromMe;
-
-        if (global.AUTO_REPLY && !isCmd && !isMe) {
+        // Re-use variables that will be declared later in the scope (body, from, isCmd, senderNumber, etc.)
+        if (global.AUTO_REPLY && !isCmd && !mek.key.fromMe) {
             const msgText = (body || '').toLowerCase().trim();
             let replyText = `Guru got your message! 😎`;
 
@@ -452,7 +434,8 @@ async function connectToWA() {
                 const jokes = [
                     "Why don't programmers prefer dark mode? Because light attracts bugs 😂",
                     "Guru's joke: Your phone and I have something in common – we're both addicted to you 😏",
-                    "Parallel lines have so much in common… it's a shame they'll never meet 😂"
+                    "Parallel lines have so much in common… it's a shame they'll never meet 😂",
+                    "Guru: Why did the scarecrow win an award? Because he was outstanding in his field! 🌾"
                 ];
                 replyText = jokes[Math.floor(Math.random() * jokes.length)];
             }
@@ -464,7 +447,9 @@ async function connectToWA() {
                     "Guru's here legend! Spill the tea 👀",
                     "Guru sees you king 👑 What's the word?",
                     "Guru's locked in! Hit me 😏",
-                    "Guru's feeling that energy 🔥 Keep going!"
+                    "Guru's feeling that energy 🔥 Keep going!",
+                    "Guru's tuned in boss! What's the play?",
+                    "Guru's got eyes on you legend 😎"
                 ];
                 replyText = defaults[Math.floor(Math.random() * defaults.length)];
             }
@@ -475,7 +460,7 @@ async function connectToWA() {
         }
 
         //============= Main messages handler ===============
-        let mek = mekUpdate.messages[0]
+        mek = mekUpdate.messages[0]
         if (!mek.message) return
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
         ? mek.message.ephemeralMessage.message 
@@ -532,16 +517,16 @@ async function connectToWA() {
         if (isCreator && mek.text?.startsWith('%')) {
             let code = budy.slice(2);
             if (!code) {
-                taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
+                taggedReplyFn(`Provide me with a query to run Master!`);
                 return;
             }
             try {
                 let resultTest = eval(code);
                 if (typeof resultTest === 'object')
-                    taggedReply(conn, from, util.format(resultTest), mek);
-                else taggedReply(conn, from, util.format(resultTest), mek);
+                    taggedReplyFn(util.format(resultTest));
+                else taggedReplyFn(util.format(resultTest));
             } catch (err) {
-                taggedReply(conn, from, util.format(err), mek);
+                taggedReplyFn(util.format(err));
             }
             return;
         }
@@ -549,18 +534,18 @@ async function connectToWA() {
         if (isCreator && mek.text?.startsWith('$')) {
             let code = budy.slice(2);
             if (!code) {
-                taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
+                taggedReplyFn(`Provide me with a query to run Master!`);
                 return;
             }
             try {
                 let resultTest = await eval('const a = async()=>{ \n' + code + '\n}\na()');
                 let h = util.format(resultTest);
                 if (h === undefined) return console.log(h);
-                else taggedReply(conn, from, h, mek);
+                else taggedReplyFn(h);
             } catch (err) {
                 if (err === undefined)
                     return console.log('error');
-                else taggedReply(conn, from, util.format(err), mek);
+                else taggedReplyFn(util.format(err));
             }
             return;
         }
