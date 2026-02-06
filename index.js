@@ -150,7 +150,7 @@ const port = process.env.PORT || 9090;
 // Global toggles
 global.AUTO_VIEW_STATUS = false;
 global.AUTO_REACT_STATUS = false;
-global.AUTO_REPLY = false;
+global.AUTO_REPLY = false; // Added for autoreply toggle
 
 // Configurable tagging helper
 const taggedReply = (conn, from, teks, quoted = null) => {
@@ -189,7 +189,7 @@ async function connectToWA() {
             qrcode.generate(qr, { small: true });
         }
         if (connection === 'close') {
-            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+            if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                 connectToWA();
             }
         } else if (connection === 'open') {
@@ -200,22 +200,17 @@ async function connectToWA() {
             console.log(chalk.cyan('Prefix: ' + prefix));
             console.log(chalk.cyan('Owner: ' + ownerNumber[0]));
 
-            // Auto join group (safe check)
+            // Auto join group & follow channel
             if (config.GROUP_INVITE_CODE) {
                 conn.groupAcceptInvite(config.GROUP_INVITE_CODE)
-                    .then(() => console.log(chalk.green('Auto-joined group successfully')))
+                    .then(() => console.log(chalk.green('Auto-joined group')))
                     .catch(e => console.log(chalk.yellow('Group join failed:', e.message)));
-            } else {
-                console.log(chalk.yellow('No GROUP_INVITE_CODE set → skipping auto-join'));
             }
 
-            // Auto follow channel (safe check)
             if (config.CHANNEL_JID) {
                 conn.newsletterFollow(config.CHANNEL_JID)
-                    .then(() => console.log(chalk.green('Auto-followed channel successfully')))
+                    .then(() => console.log(chalk.green('Auto-followed channel')))
                     .catch(e => console.log(chalk.yellow('Channel follow failed:', e.message)));
-            } else {
-                console.log(chalk.yellow('No CHANNEL_JID set → skipping auto-follow'));
             }
 
             console.log(chalk.cyan('🧬 Installing Plugins'));
@@ -251,12 +246,20 @@ async function connectToWA() {
     //==============================
 
     conn.ev.on('messages.update', async (updates) => {
-        for (const update of updates) {
-            if (update.update.message === null) {
+        // Ensure updates is always an array
+        const updateArray = Array.isArray(updates) ? updates : [updates];
+
+        for (const update of updateArray) {
+            if (update.update && update.update.message === null) {
                 console.log(chalk.red.bold('DELETE DETECTED'));
                 console.log(chalk.red('Update: ' + JSON.stringify(update, null, 2)));
-                // Pass correct parameters to AntiDelete
-                await AntiDelete(conn, update);  // ← changed from updates to update (or adjust based on your AntiDelete function)
+
+                // Call AntiDelete with conn and single update object
+                try {
+                    await AntiDelete(conn, update);
+                } catch (err) {
+                    console.log(chalk.red('AntiDelete failed: ' + (err.message || err)));
+                }
             }
         }
     });
@@ -352,8 +355,17 @@ async function connectToWA() {
         }
 
         // === CONTINUOUS SMART AUTO-REPLY (Guru style, works in groups & private) ===
-        // Uses variables declared later in the scope (body, from, isCmd, senderNumber, mek.key.fromMe)
-        if (global.AUTO_REPLY && !body.startsWith(prefix) && !mek.key.fromMe) {
+        // Re-use variables declared later (body, from, isCmd, senderNumber, mek.key.fromMe)
+        const type = getContentType(msg.message);
+        const body = (type === 'conversation') ? msg.message.conversation :
+                     (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : '';
+        const isCmd = body.startsWith(prefix);
+        const from = msg.key.remoteJid;
+        const sender = msg.key.fromMe ? conn.user.id : (msg.key.participant || from);
+        const senderNumber = sender.split('@')[0];
+        const isMe = msg.key.fromMe;
+
+        if (global.AUTO_REPLY && !isCmd && !isMe) {
             const msgText = (body || '').toLowerCase().trim();
             let replyText = `Guru got your message! 😎`;
 
@@ -440,8 +452,7 @@ async function connectToWA() {
                 const jokes = [
                     "Why don't programmers prefer dark mode? Because light attracts bugs 😂",
                     "Guru's joke: Your phone and I have something in common – we're both addicted to you 😏",
-                    "Parallel lines have so much in common… it's a shame they'll never meet 😂",
-                    "Guru: Why did the scarecrow win an award? Because he was outstanding in his field! 🌾"
+                    "Parallel lines have so much in common… it's a shame they'll never meet 😂"
                 ];
                 replyText = jokes[Math.floor(Math.random() * jokes.length)];
             }
@@ -453,9 +464,7 @@ async function connectToWA() {
                     "Guru's here legend! Spill the tea 👀",
                     "Guru sees you king 👑 What's the word?",
                     "Guru's locked in! Hit me 😏",
-                    "Guru's feeling that energy 🔥 Keep going!",
-                    "Guru's tuned in boss! What's the play?",
-                    "Guru's got eyes on you legend 😎"
+                    "Guru's feeling that energy 🔥 Keep going!"
                 ];
                 replyText = defaults[Math.floor(Math.random() * defaults.length)];
             }
@@ -466,7 +475,7 @@ async function connectToWA() {
         }
 
         //============= Main messages handler ===============
-        mek = mek.messages[0]
+        let mek = mekUpdate.messages[0]
         if (!mek.message) return
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
         ? mek.message.ephemeralMessage.message 
@@ -523,16 +532,16 @@ async function connectToWA() {
         if (isCreator && mek.text?.startsWith('%')) {
             let code = budy.slice(2);
             if (!code) {
-                taggedReplyFn(`Provide me with a query to run Master!`);
+                taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
                 return;
             }
             try {
                 let resultTest = eval(code);
                 if (typeof resultTest === 'object')
-                    taggedReplyFn(util.format(resultTest));
-                else taggedReplyFn(util.format(resultTest));
+                    taggedReply(conn, from, util.format(resultTest), mek);
+                else taggedReply(conn, from, util.format(resultTest), mek);
             } catch (err) {
-                taggedReplyFn(util.format(err));
+                taggedReply(conn, from, util.format(err), mek);
             }
             return;
         }
@@ -540,18 +549,18 @@ async function connectToWA() {
         if (isCreator && mek.text?.startsWith('$')) {
             let code = budy.slice(2);
             if (!code) {
-                taggedReplyFn(`Provide me with a query to run Master!`);
+                taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
                 return;
             }
             try {
                 let resultTest = await eval('const a = async()=>{ \n' + code + '\n}\na()');
                 let h = util.format(resultTest);
                 if (h === undefined) return console.log(h);
-                else taggedReplyFn(h);
+                else taggedReply(conn, from, h, mek);
             } catch (err) {
                 if (err === undefined)
                     return console.log('error');
-                else taggedReplyFn(util.format(err));
+                else taggedReply(conn, from, util.format(err), mek);
             }
             return;
         }
