@@ -150,7 +150,7 @@ const port = process.env.PORT || 9090;
 // Global toggles
 global.AUTO_VIEW_STATUS = false;
 global.AUTO_REACT_STATUS = false;
-global.AUTO_REPLY = false; // Added for autoreply toggle
+global.AUTO_REPLY = false;
 
 // Configurable tagging helper
 const taggedReply = (conn, from, teks, quoted = null) => {
@@ -189,7 +189,7 @@ async function connectToWA() {
             qrcode.generate(qr, { small: true });
         }
         if (connection === 'close') {
-            if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
+            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
                 connectToWA();
             }
         } else if (connection === 'open') {
@@ -200,17 +200,22 @@ async function connectToWA() {
             console.log(chalk.cyan('Prefix: ' + prefix));
             console.log(chalk.cyan('Owner: ' + ownerNumber[0]));
 
-            // Auto join group & follow channel
+            // Auto join group (safe check)
             if (config.GROUP_INVITE_CODE) {
                 conn.groupAcceptInvite(config.GROUP_INVITE_CODE)
-                    .then(() => console.log(chalk.green('Auto-joined group')))
+                    .then(() => console.log(chalk.green('Auto-joined group successfully')))
                     .catch(e => console.log(chalk.yellow('Group join failed:', e.message)));
+            } else {
+                console.log(chalk.yellow('No GROUP_INVITE_CODE set → skipping auto-join'));
             }
 
+            // Auto follow channel (safe check)
             if (config.CHANNEL_JID) {
                 conn.newsletterFollow(config.CHANNEL_JID)
-                    .then(() => console.log(chalk.green('Auto-followed channel')))
+                    .then(() => console.log(chalk.green('Auto-followed channel successfully')))
                     .catch(e => console.log(chalk.yellow('Channel follow failed:', e.message)));
+            } else {
+                console.log(chalk.yellow('No CHANNEL_JID set → skipping auto-follow'));
             }
 
             console.log(chalk.cyan('🧬 Installing Plugins'));
@@ -245,7 +250,7 @@ async function connectToWA() {
 
     //==============================
 
-    conn.ev.on('messages.update', async updates => {
+    conn.ev.on('messages.update', async (updates) => {
         for (const update of updates) {
             if (update.update.message === null) {
                 console.log(chalk.red.bold('DELETE DETECTED'));
@@ -255,7 +260,7 @@ async function connectToWA() {
         }
     });
 
-    // === AUTO VIEW (FORCED VISIBLE) + AUTO SAVE + AUTO REACT + AUTOREPLY ===
+    // === AUTO VIEW (FORCED VISIBLE) + AUTO SAVE + AUTO REACT ===
     conn.ev.on('messages.upsert', async (mekUpdate) => {
         const msg = mekUpdate.messages[0];
         if (!msg?.message) return;
@@ -345,37 +350,122 @@ async function connectToWA() {
             }
         }
 
-        // === AUTOREPLY LOGIC – Added here ===
-        // Re-use variables declared later in the scope
-        const type = getContentType(msg.message);
-        const body = (type === 'conversation') ? msg.message.conversation :
-                     (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : '';
-        const isCmd = body.startsWith(prefix);
-        const from = msg.key.remoteJid;
-        const sender = msg.key.fromMe ? conn.user.id : (msg.key.participant || from);
-        const senderNumber = sender.split('@')[0];
-        const isMe = msg.key.fromMe;
+        // === CONTINUOUS SMART AUTO-REPLY (Guru style, works in groups & private) ===
+        // Uses variables declared later in the scope (body, from, isCmd, senderNumber, mek.key.fromMe)
+        if (global.AUTO_REPLY && !body.startsWith(prefix) && !mek.key.fromMe) {
+            const msgText = (body || '').toLowerCase().trim();
+            let replyText = `Guru got your message! 😎`;
 
-        if (global.AUTO_REPLY && !isCmd && !isMe) {
-            // Optional: only in PMs – uncomment next line if you want
-            // if (from.endsWith('@g.us')) return;
-
-            let replyMsg = "Hello! I'm currently busy. Will check later 😎";
-
-            // Replace {tag} if tagging is enabled
-            if (config.ENABLE_TAGGING) {
-                const tag = config.BOT_TAG_TEXT || '> _Powered by GURU MD 💢_';
-                replyMsg = config.TAG_POSITION === 'start' 
-                    ? `\( {tag}\n\n \){replyMsg}`
-                    : `\( {replyMsg}\n\n \){tag}`;
+            // Expanded keyword matches with Guru personality
+            if (msgText.includes("hi") || msgText.includes("hello") || msgText.includes("hey") || msgText.includes("sup")) {
+                const greetings = [
+                    "Heyy! Guru's here for you 🔥",
+                    "Yo legend! What's the vibe today? 😏",
+                    "Hello boss! Guru reporting in 👑",
+                    "Heyy! Guru missed you 😎",
+                    "What's good my G? Guru in the building! 🚀"
+                ];
+                replyText = greetings[Math.floor(Math.random() * greetings.length)];
+            }
+            else if (msgText.includes("how are you") || msgText.includes("how r u") || msgText.includes("hru") || msgText.includes("wassup")) {
+                const responses = [
+                    "Guru's chilling like a king 😏 You good?",
+                    "Guru's on fire! 🔥 How about you legend?",
+                    "Guru's great bro! What's popping?",
+                    "Guru's 100% baby! 😎 What's up with you?",
+                    "Guru's always lit! You holding up? 💯"
+                ];
+                replyText = responses[Math.floor(Math.random() * responses.length)];
+            }
+            else if (msgText.includes("morning") || msgText.includes("good morning")) {
+                const morningReplies = [
+                    "Morning legend! Guru wishes you a powerful day ☀️💪",
+                    "Rise and grind king! Guru's up early with you 🌅",
+                    "Good morning boss! Let's make today count 🔥",
+                    "Morning my G! Guru's ready – you? 😎"
+                ];
+                replyText = morningReplies[Math.floor(Math.random() * morningReplies.length)];
+            }
+            else if (msgText.includes("night") || msgText.includes("good night") || msgText.includes("gn")) {
+                const nightReplies = [
+                    "Night king! Guru says sleep tight & dream big 🌙✨",
+                    "Good night legend! Guru's watching over you 😴",
+                    "Night boss! Recharge that energy – see you tomorrow 💪",
+                    "Sweet dreams my G! Guru out ✌️🌙"
+                ];
+                replyText = nightReplies[Math.floor(Math.random() * nightReplies.length)];
+            }
+            else if (msgText.includes("love") || msgText.includes("miss") || msgText.includes("i love you") || msgText.includes("ily")) {
+                const loveReplies = [
+                    "Aww Guru loves you too ❤️",
+                    "Guru's heart just melted 😍 Right back at ya!",
+                    "Love you more boss! 😘",
+                    "Guru feels the same vibe ❤️🔥",
+                    "You got Guru blushing over here 🥰"
+                ];
+                replyText = loveReplies[Math.floor(Math.random() * loveReplies.length)];
+            }
+            else if (msgText.includes("haha") || msgText.includes("lol") || msgText.includes("😂") || msgText.includes("lmao") || msgText.includes("lmfao")) {
+                replyText = "😂😂 Guru's dying over here! What's so funny king?";
+            }
+            else if (msgText.includes("?")) {
+                replyText = "Guru's listening... ask away boss 👂🔥";
+            }
+            else if (msgText.includes("thank") || msgText.includes("thanks") || msgText.includes("ty") || msgText.includes("appreciate")) {
+                const thanksReplies = [
+                    "You're welcome legend! Guru always got you 🙌",
+                    "No problem boss! Guru's pleasure 😎",
+                    "Anytime my G! 💯",
+                    "Guru appreciates you too ❤️"
+                ];
+                replyText = thanksReplies[Math.floor(Math.random() * thanksReplies.length)];
+            }
+            else if (msgText.includes("sorry") || msgText.includes("sry") || msgText.includes("apologies") || msgText.includes("my bad")) {
+                replyText = "No stress bro, Guru forgives everything 😎 All good!";
+            }
+            else if (msgText.includes("bro") || msgText.includes("brother") || msgText.includes("fam") || msgText.includes("dude")) {
+                replyText = "What's good fam? Guru's right here with you 💯";
+            }
+            else if (msgText.includes("boss") || msgText.includes("king") || msgText.includes("legend") || msgText.includes("goat")) {
+                replyText = "Guru sees you flexing 😏 King shit!";
+            }
+            else if (msgText.includes("food") || msgText.includes("eat") || msgText.includes("hungry") || msgText.includes("lunch") || msgText.includes("dinner")) {
+                replyText = "Guru's hungry too bro! What's on the menu? 🍔🔥";
+            }
+            else if (msgText.includes("sleep") || msgText.includes("tired") || msgText.includes("exhausted")) {
+                replyText = "Guru says rest up king! Recharge mode activated 😴";
+            }
+            else if (msgText.includes("joke") || msgText.includes("funny") || msgText.includes("make me laugh")) {
+                const jokes = [
+                    "Why don't programmers prefer dark mode? Because light attracts bugs 😂",
+                    "Guru's joke: Your phone and I have something in common – we're both addicted to you 😏",
+                    "Parallel lines have so much in common… it's a shame they'll never meet 😂",
+                    "Guru: Why did the scarecrow win an award? Because he was outstanding in his field! 🌾"
+                ];
+                replyText = jokes[Math.floor(Math.random() * jokes.length)];
+            }
+            else {
+                // Random Guru-style defaults
+                const defaults = [
+                    "Guru caught that! 😎 What's next boss?",
+                    "Guru's vibing with you 🔥 Talk to me",
+                    "Guru's here legend! Spill the tea 👀",
+                    "Guru sees you king 👑 What's the word?",
+                    "Guru's locked in! Hit me 😏",
+                    "Guru's feeling that energy 🔥 Keep going!",
+                    "Guru's tuned in boss! What's the play?",
+                    "Guru's got eyes on you legend 😎"
+                ];
+                replyText = defaults[Math.floor(Math.random() * defaults.length)];
             }
 
-            await conn.sendMessage(from, { text: replyMsg });
-            console.log(chalk.magenta(`[GURU AUTO-REPLY] → ${senderNumber}: ${replyMsg}`));
+            // Send reply (in group or private)
+            await conn.sendMessage(from, { text: replyText });
+            console.log(chalk.magenta(`[GURU AUTO-REPLY] → ${senderNumber}: ${replyText}`));
         }
 
         //============= Main messages handler ===============
-        mek = mekUpdate.messages[0]
+        let mek = mekUpdate.messages[0]
         if (!mek.message) return
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
         ? mek.message.ephemeralMessage.message 
@@ -432,16 +522,16 @@ async function connectToWA() {
         if (isCreator && mek.text?.startsWith('%')) {
             let code = budy.slice(2);
             if (!code) {
-                taggedReplyFn(`Provide me with a query to run Master!`);
+                taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
                 return;
             }
             try {
                 let resultTest = eval(code);
                 if (typeof resultTest === 'object')
-                    taggedReplyFn(util.format(resultTest));
-                else taggedReplyFn(util.format(resultTest));
+                    taggedReply(conn, from, util.format(resultTest), mek);
+                else taggedReply(conn, from, util.format(resultTest), mek);
             } catch (err) {
-                taggedReplyFn(util.format(err));
+                taggedReply(conn, from, util.format(err), mek);
             }
             return;
         }
@@ -449,18 +539,18 @@ async function connectToWA() {
         if (isCreator && mek.text?.startsWith('$')) {
             let code = budy.slice(2);
             if (!code) {
-                taggedReplyFn(`Provide me with a query to run Master!`);
+                taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
                 return;
             }
             try {
                 let resultTest = await eval('const a = async()=>{ \n' + code + '\n}\na()');
                 let h = util.format(resultTest);
                 if (h === undefined) return console.log(h);
-                else taggedReplyFn(h);
+                else taggedReply(conn, from, h, mek);
             } catch (err) {
                 if (err === undefined)
                     return console.log('error');
-                else taggedReplyFn(util.format(err));
+                else taggedReply(conn, from, util.format(err), mek);
             }
             return;
         }
