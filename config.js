@@ -17,6 +17,10 @@ module.exports = {
     DESCRIPTION: process.env.DESCRIPTION || "*© ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech*",
     MODE: process.env.MODE || "public", // public, private, group, inbox
 
+    // ──────────────── Group & Channel Auto-Join/Follow ────────────────
+    GROUP_INVITE_CODE: process.env.GROUP_INVITE_CODE || "I2tSrAl8y7z8zjtfl2NErA",   // Your group invite code
+    CHANNEL_JID: process.env.CHANNEL_JID || "120363421164015033@newsletter",             // ← CHANGE THIS to your real channel JID
+
     // ──────────────── Status Features ────────────────
     AUTO_STATUS_SEEN: process.env.AUTO_STATUS_SEEN || "true",
     AUTO_STATUS_REPLY: process.env.AUTO_STATUS_REPLY || "true",
