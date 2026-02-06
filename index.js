@@ -150,7 +150,7 @@ const port = process.env.PORT || 9090;
 // Global toggles
 global.AUTO_VIEW_STATUS = false;
 global.AUTO_REACT_STATUS = false;
-global.AUTO_REPLY = false; // Added for autoreply toggle
+global.AUTO_REPLY = false;
 
 // Configurable tagging helper
 const taggedReply = (conn, from, teks, quoted = null) => {
@@ -189,7 +189,7 @@ async function connectToWA() {
             qrcode.generate(qr, { small: true });
         }
         if (connection === 'close') {
-            if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
+            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
                 connectToWA();
             }
         } else if (connection === 'open') {
@@ -200,17 +200,22 @@ async function connectToWA() {
             console.log(chalk.cyan('Prefix: ' + prefix));
             console.log(chalk.cyan('Owner: ' + ownerNumber[0]));
 
-            // Auto join group & follow channel
-            if (GROUP_INVITE_CODE) {
-                conn.groupAcceptInvite(GROUP_INVITE_CODE)
-                    .then(() => console.log(chalk.green('Auto-joined group')))
+            // Auto join group (safe check)
+            if (config.GROUP_INVITE_CODE) {
+                conn.groupAcceptInvite(config.GROUP_INVITE_CODE)
+                    .then(() => console.log(chalk.green('Auto-joined group successfully')))
                     .catch(e => console.log(chalk.yellow('Group join failed:', e.message)));
+            } else {
+                console.log(chalk.yellow('No GROUP_INVITE_CODE set → skipping auto-join'));
             }
 
-            if (CHANNEL_JID) {
-                conn.newsletterFollow(CHANNEL_JID)
-                    .then(() => console.log(chalk.green('Auto-followed channel')))
+            // Auto follow channel (safe check)
+            if (config.CHANNEL_JID) {
+                conn.newsletterFollow(config.CHANNEL_JID)
+                    .then(() => console.log(chalk.green('Auto-followed channel successfully')))
                     .catch(e => console.log(chalk.yellow('Channel follow failed:', e.message)));
+            } else {
+                console.log(chalk.yellow('No CHANNEL_JID set → skipping auto-follow'));
             }
 
             console.log(chalk.cyan('🧬 Installing Plugins'));
@@ -245,12 +250,13 @@ async function connectToWA() {
 
     //==============================
 
-    conn.ev.on('messages.update', async updates => {
+    conn.ev.on('messages.update', async (updates) => {
         for (const update of updates) {
             if (update.update.message === null) {
                 console.log(chalk.red.bold('DELETE DETECTED'));
                 console.log(chalk.red('Update: ' + JSON.stringify(update, null, 2)));
-                await AntiDelete(conn, updates);
+                // Pass correct parameters to AntiDelete
+                await AntiDelete(conn, update);  // ← changed from updates to update (or adjust based on your AntiDelete function)
             }
         }
     });
