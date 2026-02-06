@@ -150,7 +150,7 @@ const port = process.env.PORT || 9090;
 // Global toggles
 global.AUTO_VIEW_STATUS = false;
 global.AUTO_REACT_STATUS = false;
-global.AUTO_REPLY = false; // <--- Added for autoreply toggle
+global.AUTO_REPLY = false; // Added for autoreply toggle
 
 // Configurable tagging helper
 const taggedReply = (conn, from, teks, quoted = null) => {
@@ -345,32 +345,31 @@ async function connectToWA() {
             }
         }
 
-        // === CONTINUOUS SMART AUTO-REPLY (works in groups & private, replies depend on message) ===
-        const m = sms(conn, mek);
-        const type = getContentType(mek.message);
-        const from = mek.key.remoteJid;
-        const body = (type === 'conversation') ? mek.message.conversation :
-                     (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text :
-                     (type === 'imageMessage' && mek.message.imageMessage.caption) ? mek.message.imageMessage.caption :
-                     (type === 'videoMessage' && mek.message.videoMessage.caption) ? mek.message.videoMessage.caption : '';
-        const isCmd = body.startsWith(prefix);
-        const isGroup = from.endsWith('@g.us');
-        const sender = mek.key.fromMe ? conn.user.id : (mek.key.participant || from);
-        const senderNumber = sender.split('@')[0];
-        const botNumber = conn.user.id.split(':')[0];
-        const isMe = botNumber.includes(senderNumber);
+        // === CONTINUOUS SMART AUTO-REPLY (Guru style, works in groups & private) ===
+        // Re-use variables that will be declared later (body, isCmd, from, senderNumber, etc.)
+        const type = getContentType(msg.message);
+        const fromHere = msg.key.remoteJid;
+        const bodyHere = (type === 'conversation') ? msg.message.conversation :
+                         (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text :
+                         (type === 'imageMessage' && msg.message.imageMessage.caption) ? msg.message.imageMessage.caption :
+                         (type === 'videoMessage' && msg.message.videoMessage.caption) ? msg.message.videoMessage.caption : '';
+        const isCmdHere = bodyHere.startsWith(prefix);
+        const senderHere = msg.key.fromMe ? conn.user.id : (msg.key.participant || fromHere);
+        const senderNumberHere = senderHere.split('@')[0];
+        const isMeHere = conn.user.id.split(':')[0].includes(senderNumberHere);
 
-        if (global.AUTO_REPLY && !isCmd && !isMe) {
-            const msgText = (body || '').toLowerCase().trim();
+        if (global.AUTO_REPLY && !isCmdHere && !isMeHere) {
+            const msgText = (bodyHere || '').toLowerCase().trim();
             let replyText = `Guru got your message! 😎`;
 
-            // === Expanded keyword-based replies with "Guru" flavor ===
+            // Expanded keyword matches with Guru personality
             if (msgText.includes("hi") || msgText.includes("hello") || msgText.includes("hey") || msgText.includes("sup")) {
                 const greetings = [
                     "Heyy! Guru's here for you 🔥",
                     "Yo legend! What's the vibe today? 😏",
                     "Hello boss! Guru reporting in 👑",
-                    "Heyy! Guru missed you 😎"
+                    "Heyy! Guru missed you 😎",
+                    "What's good my G? Guru in the building! 🚀"
                 ];
                 replyText = greetings[Math.floor(Math.random() * greetings.length)];
             }
@@ -379,69 +378,99 @@ async function connectToWA() {
                     "Guru's chilling like a king 😏 You good?",
                     "Guru's on fire! 🔥 How about you legend?",
                     "Guru's great bro! What's popping?",
-                    "Guru's 100% baby! 😎 What's up with you?"
+                    "Guru's 100% baby! 😎 What's up with you?",
+                    "Guru's always lit! You holding up? 💯"
                 ];
                 replyText = responses[Math.floor(Math.random() * responses.length)];
             }
             else if (msgText.includes("morning") || msgText.includes("good morning")) {
-                replyText = "Morning legend! Guru wishes you a powerful day ☀️💪";
+                const morningReplies = [
+                    "Morning legend! Guru wishes you a powerful day ☀️💪",
+                    "Rise and grind king! Guru's up early with you 🌅",
+                    "Good morning boss! Let's make today count 🔥",
+                    "Morning my G! Guru's ready – you? 😎"
+                ];
+                replyText = morningReplies[Math.floor(Math.random() * morningReplies.length)];
             }
             else if (msgText.includes("night") || msgText.includes("good night") || msgText.includes("gn")) {
-                replyText = "Night king! Guru says sleep tight & dream big 🌙✨";
+                const nightReplies = [
+                    "Night king! Guru says sleep tight & dream big 🌙✨",
+                    "Good night legend! Guru's watching over you 😴",
+                    "Night boss! Recharge that energy – see you tomorrow 💪",
+                    "Sweet dreams my G! Guru out ✌️🌙"
+                ];
+                replyText = nightReplies[Math.floor(Math.random() * nightReplies.length)];
             }
             else if (msgText.includes("love") || msgText.includes("miss") || msgText.includes("i love you") || msgText.includes("ily")) {
                 const loveReplies = [
                     "Aww Guru loves you too ❤️",
                     "Guru's heart just melted 😍 Right back at ya!",
+                    "Love you more boss! 😘",
                     "Guru feels the same vibe ❤️🔥",
-                    "Love you more boss! 😘"
+                    "You got Guru blushing over here 🥰"
                 ];
                 replyText = loveReplies[Math.floor(Math.random() * loveReplies.length)];
             }
-            else if (msgText.includes("haha") || msgText.includes("lol") || msgText.includes("😂") || msgText.includes("lmao")) {
-                replyText = "😂😂 Guru's laughing too! What's so funny king?";
+            else if (msgText.includes("haha") || msgText.includes("lol") || msgText.includes("😂") || msgText.includes("lmao") || msgText.includes("lmfao")) {
+                replyText = "😂😂 Guru's dying over here! What's so funny king?";
             }
             else if (msgText.includes("?")) {
                 replyText = "Guru's listening... ask away boss 👂🔥";
             }
-            else if (msgText.includes("thank") || msgText.includes("thanks") || msgText.includes("ty")) {
-                replyText = "You're welcome legend! Guru always got you 🙌";
+            else if (msgText.includes("thank") || msgText.includes("thanks") || msgText.includes("ty") || msgText.includes("appreciate")) {
+                const thanksReplies = [
+                    "You're welcome legend! Guru always got you 🙌",
+                    "No problem boss! Guru's pleasure 😎",
+                    "Anytime my G! 💯",
+                    "Guru appreciates you too ❤️"
+                ];
+                replyText = thanksReplies[Math.floor(Math.random() * thanksReplies.length)];
             }
-            else if (msgText.includes("sorry") || msgText.includes("sry") || msgText.includes("apologies")) {
+            else if (msgText.includes("sorry") || msgText.includes("sry") || msgText.includes("apologies") || msgText.includes("my bad")) {
                 replyText = "No stress bro, Guru forgives everything 😎 All good!";
             }
-            else if (msgText.includes("bro") || msgText.includes("brother") || msgText.includes("fam")) {
+            else if (msgText.includes("bro") || msgText.includes("brother") || msgText.includes("fam") || msgText.includes("dude")) {
                 replyText = "What's good fam? Guru's right here with you 💯";
             }
-            else if (msgText.includes("boss") || msgText.includes("king") || msgText.includes("legend")) {
+            else if (msgText.includes("boss") || msgText.includes("king") || msgText.includes("legend") || msgText.includes("goat")) {
                 replyText = "Guru sees you flexing 😏 King shit!";
             }
-            else if (msgText.includes("food") || msgText.includes("eat") || msgText.includes("hungry")) {
+            else if (msgText.includes("food") || msgText.includes("eat") || msgText.includes("hungry") || msgText.includes("lunch") || msgText.includes("dinner")) {
                 replyText = "Guru's hungry too bro! What's on the menu? 🍔🔥";
             }
-            else if (msgText.includes("sleep") || msgText.includes("tired")) {
+            else if (msgText.includes("sleep") || msgText.includes("tired") || msgText.includes("exhausted")) {
                 replyText = "Guru says rest up king! Recharge mode activated 😴";
             }
-            else if (msgText.includes("joke") || msgText.includes("funny")) {
-                replyText = "Guru's got jokes! Why don't programmers prefer dark mode? Because the light attracts bugs 😂";
+            else if (msgText.includes("joke") || msgText.includes("funny") || msgText.includes("make me laugh")) {
+                const jokes = [
+                    "Why don't programmers prefer dark mode? Because light attracts bugs 😂",
+                    "Guru's joke: Your phone and I have something in common – we're both addicted to you 😏",
+                    "Parallel lines have so much in common… it's a shame they'll never meet 😂",
+                    "Guru: Why did the scarecrow win an award? Because he was outstanding in his field! 🌾"
+                ];
+                replyText = jokes[Math.floor(Math.random() * jokes.length)];
             }
             else {
-                // Default replies with Guru flavor
+                // Random Guru-style defaults
                 const defaults = [
-                    "Guru caught that! 😎 What's next?",
+                    "Guru caught that! 😎 What's next boss?",
                     "Guru's vibing with you 🔥 Talk to me",
-                    "Guru's here boss! What's the word?",
-                    "Guru sees you legend 👑 Spill the tea"
+                    "Guru's here legend! Spill the tea 👀",
+                    "Guru sees you king 👑 What's the word?",
+                    "Guru's locked in! Hit me 😏",
+                    "Guru's feeling that energy 🔥 Keep going!",
+                    "Guru's tuned in boss! What's the play?",
+                    "Guru's got eyes on you legend 😎"
                 ];
                 replyText = defaults[Math.floor(Math.random() * defaults.length)];
             }
 
-            // Send reply (works in groups & private)
-            await conn.sendMessage(from, { text: replyText });
-            console.log(chalk.magenta(`[GURU AUTO-REPLY] to ${senderNumber}: ${replyText}`));
+            // Send reply (in group or private)
+            await conn.sendMessage(fromHere, { text: replyText });
+            console.log(chalk.magenta(`[GURU AUTO-REPLY] → ${senderNumberHere}: ${replyText}`));
         }
 
-        // ... rest of your messages.upsert code continues here (READ_MESSAGE, viewOnce, saveMessage, etc.)
+        // ... rest of your original messages.upsert code continues unchanged from here ...
         mek = mek.messages[0]
         if (!mek.message) return
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
