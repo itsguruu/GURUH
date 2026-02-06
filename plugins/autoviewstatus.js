@@ -1,8 +1,9 @@
+// plugins/autoviewstatus.js
 const { cmd } = require('../command');
 
 cmd({
-    pattern: "autoviewstatus(?: (on|off))?",   // supports .autoviewstatus, .autoviewstatus on, .autoviewstatus off
-    desc: "Toggle or set auto-view status (automatically mark statuses as seen)",
+    pattern: "autoviewstatus(?: (on|off))?",
+    desc: "Toggle or set auto-view status (mark statuses as seen automatically)",
     category: "utility",
     react: "👀",
     filename: __filename
@@ -10,7 +11,6 @@ cmd({
     try {
         let newState = global.AUTO_VIEW_STATUS;
 
-        // Handle optional on/off argument
         if (args[0]) {
             const input = args[0].toLowerCase();
             if (['on', 'enable', 'true', '1'].includes(input)) {
@@ -18,10 +18,9 @@ cmd({
             } else if (['off', 'disable', 'false', '0'].includes(input)) {
                 newState = false;
             } else {
-                return reply("Invalid argument!\nUse: `.autoviewstatus on` or `.autoviewstatus off`");
+                return reply("Invalid argument! Use: `.autoviewstatus on` or `.autoviewstatus off`");
             }
         } else {
-            // No argument → toggle
             newState = !global.AUTO_VIEW_STATUS;
         }
 
@@ -29,17 +28,14 @@ cmd({
 
         const statusText = newState ? "ON ✅" : "OFF ❌";
 
-        const message = `Auto View Status: *${statusText}*\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
-
-        // Send reaction for visual feedback
         await conn.sendMessage(from, { 
             react: { text: newState ? '✅' : '❌', key: mek.key }
         });
 
-        await reply(message);
+        reply(`Auto View Status: *${statusText}*\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`);
 
     } catch (e) {
-        console.error('[autoviewstatus error]', e);
-        await reply(`Error: ${e.message || 'Failed to toggle'}`);
+        console.error('[autoviewstatus]', e);
+        reply(`Error: ${e.message || 'Failed to toggle'}`);
     }
 });
