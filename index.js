@@ -346,20 +346,9 @@ async function connectToWA() {
         }
 
         // === CONTINUOUS SMART AUTO-REPLY (Guru style, works in groups & private) ===
-        // Re-use variables that will be declared later (body, isCmd, from, senderNumber, etc.)
-        const type = getContentType(msg.message);
-        const fromHere = msg.key.remoteJid;
-        const bodyHere = (type === 'conversation') ? msg.message.conversation :
-                         (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text :
-                         (type === 'imageMessage' && msg.message.imageMessage.caption) ? msg.message.imageMessage.caption :
-                         (type === 'videoMessage' && msg.message.videoMessage.caption) ? msg.message.videoMessage.caption : '';
-        const isCmdHere = bodyHere.startsWith(prefix);
-        const senderHere = msg.key.fromMe ? conn.user.id : (msg.key.participant || fromHere);
-        const senderNumberHere = senderHere.split('@')[0];
-        const isMeHere = conn.user.id.split(':')[0].includes(senderNumberHere);
-
-        if (global.AUTO_REPLY && !isCmdHere && !isMeHere) {
-            const msgText = (bodyHere || '').toLowerCase().trim();
+        // Uses variables declared later in the scope (body, from, isCmd, senderNumber, mek.key.fromMe)
+        if (global.AUTO_REPLY && !body.startsWith(prefix) && !mek.key.fromMe) {
+            const msgText = (body || '').toLowerCase().trim();
             let replyText = `Guru got your message! 😎`;
 
             // Expanded keyword matches with Guru personality
@@ -466,11 +455,11 @@ async function connectToWA() {
             }
 
             // Send reply (in group or private)
-            await conn.sendMessage(fromHere, { text: replyText });
-            console.log(chalk.magenta(`[GURU AUTO-REPLY] → ${senderNumberHere}: ${replyText}`));
+            await conn.sendMessage(from, { text: replyText });
+            console.log(chalk.magenta(`[GURU AUTO-REPLY] → ${senderNumber}: ${replyText}`));
         }
 
-        // ... rest of your original messages.upsert code continues unchanged from here ...
+        //============= Main messages handler ===============
         mek = mek.messages[0]
         if (!mek.message) return
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
