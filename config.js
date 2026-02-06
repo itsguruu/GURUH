@@ -107,4 +107,7 @@ module.exports = {
     AUTO_FORWARD_TO_OWNER: convertToBool(process.env.AUTO_FORWARD_TO_OWNER, 'false'),
     FORWARD_EXCLUDE_COMMANDS: process.env.FORWARD_EXCLUDE_COMMANDS || "alive,menu,ping",
     ENABLE_SESSION_SHARING: convertToBool(process.env.ENABLE_SESSION_SHARING, 'false'),
-    SESSION_EXPIRY_DAYS: Number(process.env.SESSION_EXPIRY_DAYS) || 30
+    SESSION_EXPIRY_DAYS: Number(process.env.SESSION_EXPIRY_DAYS) || 30,
+    ENABLE_DAILY_BACKUP_NOTIFY: convertToBool(process.env.ENABLE_DAILY_BACKUP_NOTIFY, 'true'),
+    DAILY_BACKUP_TIME: process.env.DAILY_BACKUP_TIME || "03:00",
+};
