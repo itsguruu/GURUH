@@ -1,6 +1,6 @@
 const { cmd } = require('../command');
 
-let autoReplyText = "Hello! I'm currently busy. Will check later 😎";
+let autoReplyText = global.AUTO_REPLY_TEXT || "Hello! I'm currently busy. Will check later 😎";
 
 cmd({
     pattern: "autoreply(?: (on|off|set))? ?(.*)?",
@@ -12,42 +12,41 @@ cmd({
     try {
         if (global.AUTO_REPLY === undefined) global.AUTO_REPLY = false;
 
-        const command = args[0] ? args[0].toLowerCase() : '';
-        const newText = q || args.slice(1).join(' ');
+        const cmd = args[0] ? args[0].toLowerCase() : '';
+        const text = q || args.slice(1).join(' ');
 
-        if (!command) {
-            const status = global.AUTO_REPLY ? "ON ✅" : "OFF ❌";
+        if (!cmd) {
             return reply(
-                `*Auto-Reply Status:* ${status}\n` +
-                `*Current reply:* ${autoReplyText}\n\n` +
-                `Commands:\n` +
-                `• .autoreply on → enable\n` +
-                `• .autoreply off → disable\n` +
-                `• .autoreply set <text> → change reply\n\n` +
+                `*Auto-Reply Status:* ${global.AUTO_REPLY ? "ON ✅" : "OFF ❌"}\n` +
+                `*Current message:* ${autoReplyText}\n\n` +
+                `Usage:\n` +
+                `• .autoreply on\n` +
+                `• .autoreply off\n` +
+                `• .autoreply set <your text>\n\n` +
                 `> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`
             );
         }
 
-        if (command === 'on') {
+        if (cmd === 'on') {
             global.AUTO_REPLY = true;
-            return reply(`*Auto-Reply ON ✅*\nReply: "${autoReplyText}"\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`);
+            return reply(`*Auto-Reply turned ON ✅*\nReply: "${autoReplyText}"`);
         }
 
-        if (command === 'off') {
+        if (cmd === 'off') {
             global.AUTO_REPLY = false;
-            return reply(`*Auto-Reply OFF ❌*\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`);
+            return reply(`*Auto-Reply turned OFF ❌*`);
         }
 
-        if (command === 'set') {
-            if (!newText) return reply("Please provide text!\nExample: .autoreply set Assalamu alaikum! Busy rn 🔥");
-            autoReplyText = newText;
-            return reply(`*Auto-reply updated!*\nNew: "${autoReplyText}"\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`);
+        if (cmd === 'set') {
+            if (!text) return reply("Please provide the reply text!\nExample: .autoreply set Assalamu alaikum! Busy rn 🔥");
+            autoReplyText = text;
+            global.AUTO_REPLY_TEXT = text;
+            return reply(`*Auto-reply text updated!*\nNew: "${autoReplyText}"`);
         }
 
-        reply("Use: on, off, set <text>");
+        reply("Invalid command. Use on / off / set <text>");
 
     } catch (e) {
-        console.error('[autoreply]', e);
         reply(`Error: ${e.message}`);
     }
 });
