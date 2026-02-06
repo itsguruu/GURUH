@@ -150,6 +150,7 @@ const port = process.env.PORT || 9090;
 // Global toggles
 global.AUTO_VIEW_STATUS = false;
 global.AUTO_REACT_STATUS = false;
+global.AUTO_REPLY = false; // <--- Added for autoreply toggle
 
 // Configurable tagging helper
 const taggedReply = (conn, from, teks, quoted = null) => {
@@ -343,10 +344,104 @@ async function connectToWA() {
                 }
             }
         }
-    });
 
-    //============= Main messages handler ===============
-    conn.ev.on('messages.upsert', async(mek) => {
+        // === CONTINUOUS SMART AUTO-REPLY (works in groups & private, replies depend on message) ===
+        const m = sms(conn, mek);
+        const type = getContentType(mek.message);
+        const from = mek.key.remoteJid;
+        const body = (type === 'conversation') ? mek.message.conversation :
+                     (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text :
+                     (type === 'imageMessage' && mek.message.imageMessage.caption) ? mek.message.imageMessage.caption :
+                     (type === 'videoMessage' && mek.message.videoMessage.caption) ? mek.message.videoMessage.caption : '';
+        const isCmd = body.startsWith(prefix);
+        const isGroup = from.endsWith('@g.us');
+        const sender = mek.key.fromMe ? conn.user.id : (mek.key.participant || from);
+        const senderNumber = sender.split('@')[0];
+        const botNumber = conn.user.id.split(':')[0];
+        const isMe = botNumber.includes(senderNumber);
+
+        if (global.AUTO_REPLY && !isCmd && !isMe) {
+            const msgText = (body || '').toLowerCase().trim();
+            let replyText = `Guru got your message! 😎`;
+
+            // === Expanded keyword-based replies with "Guru" flavor ===
+            if (msgText.includes("hi") || msgText.includes("hello") || msgText.includes("hey") || msgText.includes("sup")) {
+                const greetings = [
+                    "Heyy! Guru's here for you 🔥",
+                    "Yo legend! What's the vibe today? 😏",
+                    "Hello boss! Guru reporting in 👑",
+                    "Heyy! Guru missed you 😎"
+                ];
+                replyText = greetings[Math.floor(Math.random() * greetings.length)];
+            }
+            else if (msgText.includes("how are you") || msgText.includes("how r u") || msgText.includes("hru") || msgText.includes("wassup")) {
+                const responses = [
+                    "Guru's chilling like a king 😏 You good?",
+                    "Guru's on fire! 🔥 How about you legend?",
+                    "Guru's great bro! What's popping?",
+                    "Guru's 100% baby! 😎 What's up with you?"
+                ];
+                replyText = responses[Math.floor(Math.random() * responses.length)];
+            }
+            else if (msgText.includes("morning") || msgText.includes("good morning")) {
+                replyText = "Morning legend! Guru wishes you a powerful day ☀️💪";
+            }
+            else if (msgText.includes("night") || msgText.includes("good night") || msgText.includes("gn")) {
+                replyText = "Night king! Guru says sleep tight & dream big 🌙✨";
+            }
+            else if (msgText.includes("love") || msgText.includes("miss") || msgText.includes("i love you") || msgText.includes("ily")) {
+                const loveReplies = [
+                    "Aww Guru loves you too ❤️",
+                    "Guru's heart just melted 😍 Right back at ya!",
+                    "Guru feels the same vibe ❤️🔥",
+                    "Love you more boss! 😘"
+                ];
+                replyText = loveReplies[Math.floor(Math.random() * loveReplies.length)];
+            }
+            else if (msgText.includes("haha") || msgText.includes("lol") || msgText.includes("😂") || msgText.includes("lmao")) {
+                replyText = "😂😂 Guru's laughing too! What's so funny king?";
+            }
+            else if (msgText.includes("?")) {
+                replyText = "Guru's listening... ask away boss 👂🔥";
+            }
+            else if (msgText.includes("thank") || msgText.includes("thanks") || msgText.includes("ty")) {
+                replyText = "You're welcome legend! Guru always got you 🙌";
+            }
+            else if (msgText.includes("sorry") || msgText.includes("sry") || msgText.includes("apologies")) {
+                replyText = "No stress bro, Guru forgives everything 😎 All good!";
+            }
+            else if (msgText.includes("bro") || msgText.includes("brother") || msgText.includes("fam")) {
+                replyText = "What's good fam? Guru's right here with you 💯";
+            }
+            else if (msgText.includes("boss") || msgText.includes("king") || msgText.includes("legend")) {
+                replyText = "Guru sees you flexing 😏 King shit!";
+            }
+            else if (msgText.includes("food") || msgText.includes("eat") || msgText.includes("hungry")) {
+                replyText = "Guru's hungry too bro! What's on the menu? 🍔🔥";
+            }
+            else if (msgText.includes("sleep") || msgText.includes("tired")) {
+                replyText = "Guru says rest up king! Recharge mode activated 😴";
+            }
+            else if (msgText.includes("joke") || msgText.includes("funny")) {
+                replyText = "Guru's got jokes! Why don't programmers prefer dark mode? Because the light attracts bugs 😂";
+            }
+            else {
+                // Default replies with Guru flavor
+                const defaults = [
+                    "Guru caught that! 😎 What's next?",
+                    "Guru's vibing with you 🔥 Talk to me",
+                    "Guru's here boss! What's the word?",
+                    "Guru sees you legend 👑 Spill the tea"
+                ];
+                replyText = defaults[Math.floor(Math.random() * defaults.length)];
+            }
+
+            // Send reply (works in groups & private)
+            await conn.sendMessage(from, { text: replyText });
+            console.log(chalk.magenta(`[GURU AUTO-REPLY] to ${senderNumber}: ${replyText}`));
+        }
+
+        // ... rest of your messages.upsert code continues here (READ_MESSAGE, viewOnce, saveMessage, etc.)
         mek = mek.messages[0]
         if (!mek.message) return
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
