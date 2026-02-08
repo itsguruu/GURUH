@@ -113,65 +113,71 @@ setInterval(clearTempDir, 5 * 60 * 1000);
 const isHeroku = !!process.env.DYNO;
 
 // Readline only for non-Heroku (panels/local)
-const rl = isHeroku ? null : readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+let rl = null;
+if (!isHeroku) {
+    rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+}
 
 // =================== DIRECT BASE64 SESSION ===================
-if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
-    if (isHeroku) {
-        if (!process.env.SESSION_ID) {
-            console.log(gurumdStyle('SESSION_ID is not set in Heroku Config Vars!', 'error'));
-            console.log(gurumdStyle('Add your base64 session string to SESSION_ID and redeploy.', 'warning'));
-            
-            // Create empty session directory for pairing
-            fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-            console.log(gurumdStyle('Created empty session directory for pairing', 'info'));
+// Fix: Wrap the async session initialization in an async IIFE
+(async () => {
+    if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
+        if (isHeroku) {
+            if (!process.env.SESSION_ID) {
+                console.log(gurumdStyle('SESSION_ID is not set in Heroku Config Vars!', 'error'));
+                console.log(gurumdStyle('Add your base64 session string to SESSION_ID and redeploy.', 'warning'));
+                
+                // Create empty session directory for pairing
+                fs.mkdirSync(__dirname + '/sessions', { recursive: true });
+                console.log(gurumdStyle('Created empty session directory for pairing', 'info'));
+            } else {
+                console.log(gurumdStyle('Heroku mode: Using SESSION_ID from env vars...', 'info'));
+
+                try {
+                    let base64Session = process.env.SESSION_ID.trim();
+                    if (base64Session.startsWith('GURU~')) {
+                        base64Session = base64Session.replace('GURU~', '').trim();
+                    }
+
+                    if (!base64Session || base64Session.length < 100) {
+                        console.log(gurumdStyle('SESSION_ID appears invalid or too short, falling back to pairing', 'warning'));
+                    } else {
+                        const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
+                        const creds = JSON.parse(decoded);
+
+                        fs.mkdirSync(__dirname + '/sessions', { recursive: true });
+                        fs.writeFileSync(
+                            __dirname + '/sessions/creds.json',
+                            JSON.stringify(creds, null, 2)
+                        );
+                        console.log(gurumdStyle('SESSION_ID successfully saved to creds.json', 'success'));
+                    }
+                } catch (e) {
+                    console.log(gurumdStyle('Failed to process SESSION_ID, falling back to pairing:', 'error'), e.message);
+                }
+            }
         } else {
-            console.log(gurumdStyle('Heroku mode: Using SESSION_ID from env vars...', 'info'));
+            // Non-Heroku: prompt for phone number + pairing code
+            console.log(gurumdStyle('No session found. Starting pairing flow...', 'info'));
 
-            try {
-                let base64Session = process.env.SESSION_ID.trim();
-                if (base64Session.startsWith('GURU~')) {
-                    base64Session = base64Session.replace('GURU~', '').trim();
-                }
-
-                if (!base64Session || base64Session.length < 100) {
-                    console.log(gurumdStyle('SESSION_ID appears invalid or too short, falling back to pairing', 'warning'));
-                } else {
-                    const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
-                    const creds = JSON.parse(decoded);
-
-                    fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-                    fs.writeFileSync(
-                        __dirname + '/sessions/creds.json',
-                        JSON.stringify(creds, null, 2)
-                    );
-                    console.log(gurumdStyle('SESSION_ID successfully saved to creds.json', 'success'));
-                }
-            } catch (e) {
-                console.log(gurumdStyle('Failed to process SESSION_ID, falling back to pairing:', 'error'), e.message);
+            // Fix: Use promise without await at top level - handle in connectToWA function
+            if (rl) {
+                rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), (phoneNumber) => {
+                    const trimmedNumber = phoneNumber.trim();
+                    if (!/^\d{10,14}$/.test(trimmedNumber)) {
+                        console.log(gurumdStyle('Invalid number. Must be digits only with country code.', 'error'));
+                        process.exit(1);
+                    }
+                    console.log(gurumdStyle(`Generating pairing code for +${trimmedNumber}...`, 'info'));
+                    // The pairing code will be handled in makeWASocket options
+                });
             }
         }
-    } else {
-        // Non-Heroku: prompt for phone number + pairing code
-        console.log(gurumdStyle('No session found. Starting pairing flow...', 'info'));
-
-        const phoneNumber = await new Promise(resolve => {
-            rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), num => {
-                resolve(num.trim());
-            });
-        });
-
-        if (!/^\d{10,14}$/.test(phoneNumber)) {
-            console.log(gurumdStyle('Invalid number. Must be digits only with country code.', 'error'));
-            process.exit(1);
-        }
-
-        console.log(gurumdStyle(`Generating pairing code for +${phoneNumber}...`, 'info'));
     }
-}
+})();
 
 // Configuration validation
 function validateConfig() {
