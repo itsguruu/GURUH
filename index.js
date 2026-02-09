@@ -29,10 +29,298 @@ const {
   Browsers
 } = baileys;
 
-// === GURUMD BRANDING & STYLISH LOGS ===
+// === ULTRA STYLISH LOGS DESIGN ===
 const chalk = require('chalk');
+const gradient = require('gradient-string');
+const figlet = require('figlet');
+const boxen = require('boxen');
 
-// Gurumd Branding Functions
+// Color schemes
+const colorSchemes = {
+  primary: ['#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0', '#118AB2'],
+  neon: ['#00FF9D', '#00B8FF', '#FF00E4', '#FFD600', '#FF0080'],
+  sunset: ['#FF6B6B', '#FFA726', '#66BB6A', '#42A5F5', '#AB47BC'],
+  ocean: ['#00BCD4', '#0097A7', '#00838F', '#006064', '#004D40']
+};
+
+// Current color scheme
+const colors = colorSchemes.primary;
+
+// Banner Generator
+function printBanner() {
+  const banner = figlet.textSync('GURUMD', {
+    font: 'ANSI Shadow',
+    horizontalLayout: 'default',
+    verticalLayout: 'default'
+  });
+  
+  const gradientBanner = gradient(colors[0], colors[1], colors[2]).multiline(banner);
+  const boxedBanner = boxen(gradientBanner, {
+    padding: 1,
+    margin: 1,
+    borderStyle: 'double',
+    borderColor: colors[3],
+    backgroundColor: '#0A0A0A'
+  });
+  
+  console.log(boxedBanner);
+  console.log(gradient(colors[2], colors[3])(`╔══════════════════════════════════════════════════════════╗`));
+  console.log(gradient(colors[3], colors[4])(`║           ᴳᵁᴿᵁᴹᴰ • ULTIMATE WHATSAPP BOT • v3.0           ║`));
+  console.log(gradient(colors[2], colors[3])(`╚══════════════════════════════════════════════════════════╝\n`));
+}
+
+// Enhanced Log Functions
+function logSuccess(message, emoji = '✅') {
+  const formatted = boxen(`${emoji} ${chalk.hex(colors[1]).bold(message)}`, {
+    padding: 1,
+    margin: { left: 2, right: 0, top: 0, bottom: 0 },
+    borderStyle: 'round',
+    borderColor: colors[1],
+    backgroundColor: '#0A0A0A'
+  });
+  console.log(formatted);
+}
+
+function logError(message, emoji = '❌') {
+  const formatted = boxen(`${emoji} ${chalk.hex(colors[0]).bold(message)}`, {
+    padding: 1,
+    margin: { left: 2, right: 0, top: 0, bottom: 0 },
+    borderStyle: 'round',
+    borderColor: colors[0],
+    backgroundColor: '#0A0A0A'
+  });
+  console.log(formatted);
+}
+
+function logWarning(message, emoji = '⚠️') {
+  const formatted = boxen(`${emoji} ${chalk.hex(colors[2]).bold(message)}`, {
+    padding: 1,
+    margin: { left: 2, right: 0, top: 0, bottom: 0 },
+    borderStyle: 'round',
+    borderColor: colors[2],
+    backgroundColor: '#0A0A0A'
+  });
+  console.log(formatted);
+}
+
+function logInfo(message, emoji = 'ℹ️') {
+  const formatted = boxen(`${emoji} ${chalk.hex(colors[3]).bold(message)}`, {
+    padding: 1,
+    margin: { left: 2, right: 0, top: 0, bottom: 0 },
+    borderStyle: 'round',
+    borderColor: colors[3],
+    backgroundColor: '#0A0A0A'
+  });
+  console.log(formatted);
+}
+
+function logSystem(message, emoji = '⚙️') {
+  const formatted = boxen(`${emoji} ${chalk.hex(colors[4]).bold(message)}`, {
+    padding: 1,
+    margin: { left: 2, right: 0, top: 0, bottom: 0 },
+    borderStyle: 'round',
+    borderColor: colors[4],
+    backgroundColor: '#0A0A0A'
+  });
+  console.log(formatted);
+}
+
+// Beautiful Divider
+function logDivider(text = '') {
+  const dividerLength = 60;
+  const textLength = text.length;
+  const sideLength = Math.floor((dividerLength - textLength - 4) / 2);
+  
+  if (text) {
+    const divider = '═'.repeat(sideLength) + '『 ' + text + ' 』' + '═'.repeat(sideLength);
+    console.log(gradient(colors[1], colors[2])(divider));
+  } else {
+    console.log(gradient(colors[0], colors[4])('═'.repeat(dividerLength)));
+  }
+}
+
+// Message Log with timestamp and color
+function logMessage(type, from, content = '', extra = '') {
+  const timestamp = chalk.gray(`[${new Date().toLocaleTimeString()}]`);
+  const types = {
+    'RECEIVED': { emoji: '📥', color: colors[1] },
+    'SENT': { emoji: '📤', color: colors[2] },
+    'COMMAND': { emoji: '⚡', color: colors[3] },
+    'EVENT': { emoji: '🎯', color: colors[4] },
+    'STATUS': { emoji: '📱', color: colors[0] }
+  };
+  
+  const typeInfo = types[type] || { emoji: '📝', color: colors[3] };
+  const fromDisplay = chalk.hex(typeInfo.color).bold(from);
+  const contentDisplay = content ? chalk.white(content) : '';
+  const extraDisplay = extra ? chalk.gray(extra) : '';
+  
+  console.log(`${timestamp} ${typeInfo.emoji} ${fromDisplay} ${contentDisplay} ${extraDisplay}`);
+}
+
+// Connection Status Log
+function logConnection(status, details = '') {
+  const statusIcons = {
+    'CONNECTING': { icon: '🔄', color: colors[2] },
+    'CONNECTED': { icon: '✅', color: colors[1] },
+    'DISCONNECTED': { icon: '❌', color: colors[0] },
+    'RECONNECTING': { icon: '🔄', color: colors[2] },
+    'READY': { icon: '🚀', color: colors[3] }
+  };
+  
+  const statusInfo = statusIcons[status] || { icon: '❓', color: colors[3] };
+  const statusText = chalk.hex(statusInfo.color).bold(status);
+  const box = boxen(`${statusInfo.icon} ${statusText} ${details}`, {
+    padding: 1,
+    margin: 1,
+    borderStyle: 'double',
+    borderColor: statusInfo.color,
+    backgroundColor: '#0A0A0A'
+  });
+  
+  console.log(box);
+}
+
+// Memory Usage Log
+function logMemory() {
+  const used = process.memoryUsage();
+  const rss = Math.round(used.rss / 1024 / 1024);
+  const heap = Math.round(used.heapUsed / 1024 / 1024);
+  const total = Math.round(used.heapTotal / 1024 / 1024);
+  
+  const memoryBar = createProgressBar(heap, 512, 20); // Assuming 512MB max
+  
+  const memoryBox = boxen(`🧠 ${chalk.hex(colors[3]).bold('MEMORY USAGE')}\n\n` +
+    `${chalk.hex(colors[1])('RSS:')} ${chalk.white(`${rss} MB`)}\n` +
+    `${chalk.hex(colors[1])('Heap Used:')} ${chalk.white(`${heap} MB`)}\n` +
+    `${chalk.hex(colors[1])('Heap Total:')} ${chalk.white(`${total} MB`)}\n\n` +
+    `${memoryBar}\n` +
+    `${chalk.gray(`${heap}MB / 512MB`)}`, {
+    padding: 1,
+    margin: { left: 2, right: 0, top: 0, bottom: 0 },
+    borderStyle: 'single',
+    borderColor: colors[3],
+    backgroundColor: '#0A0A0A'
+  });
+  
+  console.log(memoryBox);
+}
+
+// Progress Bar Creator
+function createProgressBar(current, max, length = 20) {
+  const percentage = Math.min(current / max, 1);
+  const filledLength = Math.floor(length * percentage);
+  const emptyLength = length - filledLength;
+  
+  const filledBar = '█'.repeat(filledLength);
+  const emptyBar = '░'.repeat(emptyLength);
+  
+  const color = percentage < 0.5 ? colors[1] : 
+                percentage < 0.75 ? colors[2] : colors[0];
+  
+  return chalk.hex(color)(filledBar) + chalk.gray(emptyBar);
+}
+
+// Plugin Loader Log
+function logPlugin(name, version, status = 'LOADED') {
+  const statusIcons = {
+    'LOADED': { icon: '✅', color: colors[1] },
+    'FAILED': { icon: '❌', color: colors[0] },
+    'UPDATED': { icon: '🔄', color: colors[2] },
+    'UNLOADED': { icon: '🗑️', color: colors[3] }
+  };
+  
+  const statusInfo = statusIcons[status] || { icon: '❓', color: colors[3] };
+  const pluginName = chalk.hex(colors[4]).bold(name);
+  const pluginVersion = chalk.gray(`v${version}`);
+  
+  console.log(`   ${statusInfo.icon} ${pluginName} ${pluginVersion} ${chalk.gray(status)}`);
+}
+
+// Command Execution Log
+function logCommand(user, command, success = true) {
+  const userDisplay = chalk.hex(colors[4])(user);
+  const commandDisplay = chalk.hex(colors[3]).bold(command);
+  const status = success ? chalk.hex(colors[1])('✓') : chalk.hex(colors[0])('✗');
+  
+  console.log(`🎮 ${userDisplay} ${chalk.gray('executed')} ${commandDisplay} ${status}`);
+}
+
+// Status Update Log
+function logStatusUpdate(action, target, details = '') {
+  const actions = {
+    'VIEWED': { icon: '👁️', color: colors[1] },
+    'REACTED': { icon: '🎭', color: colors[2] },
+    'SAVED': { icon: '💾', color: colors[3] },
+    'FOLLOWED': { icon: '➕', color: colors[4] }
+  };
+  
+  const actionInfo = actions[action] || { icon: '📝', color: colors[3] };
+  const targetDisplay = chalk.hex(actionInfo.color).bold(target);
+  const detailsDisplay = details ? chalk.gray(`(${details})`) : '';
+  
+  console.log(`${actionInfo.icon} ${targetDisplay} ${chalk.gray(action.toLowerCase())} ${detailsDisplay}`);
+}
+
+// Media Log
+function logMedia(type, size, from = '') {
+  const types = {
+    'IMAGE': { icon: '🖼️', color: colors[1] },
+    'VIDEO': { icon: '🎬', color: colors[2] },
+    'AUDIO': { icon: '🎵', color: colors[3] },
+    'STICKER': { icon: '🩹', color: colors[4] },
+    'DOCUMENT': { icon: '📄', color: colors[0] }
+  };
+  
+  const typeInfo = types[type] || { icon: '📦', color: colors[3] };
+  const sizeDisplay = chalk.gray(`(${(size / (1024 * 1024)).toFixed(2)} MB)`);
+  const fromDisplay = from ? chalk.hex(colors[4])(`from ${from}`) : '';
+  
+  console.log(`${typeInfo.icon} ${chalk.hex(typeInfo.color).bold(type)} ${sizeDisplay} ${fromDisplay}`);
+}
+
+// Group Activity Log
+function logGroupAction(action, group, user = '') {
+  const actions = {
+    'JOIN': { icon: '👥', color: colors[1] },
+    'LEAVE': { icon: '👋', color: colors[0] },
+    'PROMOTE': { icon: '⬆️', color: colors[2] },
+    'DEMOTE': { icon: '⬇️', color: colors[3] },
+    'MESSAGE': { icon: '💬', color: colors[4] }
+  };
+  
+  const actionInfo = actions[action] || { icon: '📝', color: colors[3] };
+  const groupDisplay = chalk.hex(actionInfo.color).bold(group);
+  const userDisplay = user ? chalk.hex(colors[4])(`by ${user}`) : '';
+  
+  console.log(`${actionInfo.icon} ${groupDisplay} ${chalk.gray(action.toLowerCase())} ${userDisplay}`);
+}
+
+// Performance Log
+function logPerformance(operation, timeMs) {
+  const color = timeMs < 100 ? colors[1] : 
+                timeMs < 500 ? colors[2] : 
+                timeMs < 1000 ? colors[3] : colors[0];
+  
+  const timeColor = timeMs < 100 ? 'fast' : 
+                    timeMs < 500 ? 'good' : 
+                    timeMs < 1000 ? 'slow' : 'critical';
+  
+  const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
+  const operationDisplay = chalk.hex(colors[4])(operation);
+  
+  console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} ${chalk.gray(`(${timeColor})`)}`);
+}
+
+// Initialize logging system
+function initLogging() {
+  console.clear();
+  printBanner();
+  logDivider('SYSTEM INITIALIZATION');
+  logSystem('Starting Gurumd WhatsApp Bot...', '🚀');
+}
+
+// Keep original functions for compatibility
 function gurumdStyle(text, type = 'normal') {
     const styles = {
         normal: chalk.hex('#FF6B6B').bold(`ᴳᵁᴿᵁᴹᴰ ${text}`),
@@ -45,14 +333,12 @@ function gurumdStyle(text, type = 'normal') {
     return styles[type] || styles.normal;
 }
 
-function gurumdReply(text) {
-    const fadedTag = chalk.hex('#666666').italic('ᴳᵁᴿᵁᴹᴰ');
-    return `${fadedTag}\n\n${text}`;
-}
-
 function logInfo(message, color = 'green') {
   console.log(chalk[color].bold(`[ᴳᵁᴿᵁᴹᴰ] ${message}`));
 }
+
+// Initialize logging
+initLogging();
 
 const l = console.log;
 const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions');
@@ -83,11 +369,11 @@ if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
 
-// Improved temp directory cleanup
+// Improved temp directory cleanup with new logs
 const clearTempDir = () => {
     fs.readdir(tempDir, (err, files) => {
         if (err) {
-            console.log(gurumdStyle('Temp cleanup error:', 'warning'), err.message);
+            logWarning(`Temp cleanup error: ${err.message}`, '🧹');
             return;
         }
         
@@ -97,13 +383,13 @@ const clearTempDir = () => {
             const filePath = path.join(tempDir, file);
             return fs.promises.unlink(filePath)
                 .catch(err => {
-                    console.log(gurumdStyle(`Failed to delete ${file}:`, 'warning'), err.message);
+                    logWarning(`Failed to delete ${file}: ${err.message}`, '⚠️');
                 });
         });
         
         Promise.allSettled(cleanupPromises)
             .then(() => {
-                console.log(gurumdStyle(`Cleaned ${files.length} temp files`, 'success'));
+                logSuccess(`Cleaned ${files.length} temp files`, '🧹');
             });
     });
 };
@@ -127,14 +413,14 @@ if (!isHeroku) {
     if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
         if (isHeroku) {
             if (!process.env.SESSION_ID) {
-                console.log(gurumdStyle('SESSION_ID is not set in Heroku Config Vars!', 'error'));
-                console.log(gurumdStyle('Add your base64 session string to SESSION_ID and redeploy.', 'warning'));
+                logError('SESSION_ID is not set in Heroku Config Vars!', '🔑');
+                logWarning('Add your base64 session string to SESSION_ID and redeploy.', '💡');
                 
                 // Create empty session directory for pairing
                 fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-                console.log(gurumdStyle('Created empty session directory for pairing', 'info'));
+                logInfo('Created empty session directory for pairing', '📁');
             } else {
-                console.log(gurumdStyle('Heroku mode: Using SESSION_ID from env vars...', 'info'));
+                logSystem('Heroku mode: Using SESSION_ID from env vars...', '☁️');
 
                 try {
                     let base64Session = process.env.SESSION_ID.trim();
@@ -143,7 +429,7 @@ if (!isHeroku) {
                     }
 
                     if (!base64Session || base64Session.length < 100) {
-                        console.log(gurumdStyle('SESSION_ID appears invalid or too short, falling back to pairing', 'warning'));
+                        logWarning('SESSION_ID appears invalid or too short, falling back to pairing', '⚠️');
                     } else {
                         const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
                         const creds = JSON.parse(decoded);
@@ -153,25 +439,25 @@ if (!isHeroku) {
                             __dirname + '/sessions/creds.json',
                             JSON.stringify(creds, null, 2)
                         );
-                        console.log(gurumdStyle('SESSION_ID successfully saved to creds.json', 'success'));
+                        logSuccess('SESSION_ID successfully saved to creds.json', '✅');
                     }
                 } catch (e) {
-                    console.log(gurumdStyle('Failed to process SESSION_ID, falling back to pairing:', 'error'), e.message);
+                    logError(`Failed to process SESSION_ID: ${e.message}`, '❌');
                 }
             }
         } else {
             // Non-Heroku: prompt for phone number + pairing code
-            console.log(gurumdStyle('No session found. Starting pairing flow...', 'info'));
+            logSystem('No session found. Starting pairing flow...', '🔗');
 
             // Fix: Use promise without await at top level - handle in connectToWA function
             if (rl) {
                 rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), (phoneNumber) => {
                     const trimmedNumber = phoneNumber.trim();
                     if (!/^\d{10,14}$/.test(trimmedNumber)) {
-                        console.log(gurumdStyle('Invalid number. Must be digits only with country code.', 'error'));
+                        logError('Invalid number. Must be digits only with country code.', '❌');
                         process.exit(1);
                     }
-                    console.log(gurumdStyle(`Generating pairing code for +${trimmedNumber}...`, 'info'));
+                    logSystem(`Generating pairing code for +${trimmedNumber}...`, '🔢');
                     // The pairing code will be handled in makeWASocket options
                 });
             }
@@ -185,19 +471,19 @@ function validateConfig() {
     const missing = required.filter(key => !config[key]);
     
     if (missing.length > 0) {
-        console.log(gurumdStyle(`Missing required config: ${missing.join(', ')}`, 'error'));
+        logError(`Missing required config: ${missing.join(', ')}`, '❌');
         return false;
     }
     
     if (config.ENABLE_TAGGING && !config.BOT_TAG_TEXT) {
-        console.log(gurumdStyle('ENABLE_TAGGING is true but BOT_TAG_TEXT is not set', 'warning'));
+        logWarning('ENABLE_TAGGING is true but BOT_TAG_TEXT is not set', '⚠️');
     }
     
     return true;
 }
 
 if (!validateConfig()) {
-    console.log(gurumdStyle('Invalid configuration, check config.js', 'error'));
+    logError('Invalid configuration, check config.js', '❌');
     process.exit(1);
 }
 
@@ -206,8 +492,8 @@ const app = express();
 const port = process.env.PORT || 9090;
 
 // Global toggles
-global.AUTO_VIEW_STATUS = false;
-global.AUTO_REACT_STATUS = false;
+global.AUTO_VIEW_STATUS = true;
+global.AUTO_REACT_STATUS = true;
 global.AUTO_REPLY = false;
 global.AUTO_SAVE_STATUS = false;
 
@@ -229,7 +515,7 @@ const taggedReply = (conn, from, teks, quoted = null) => {
     conn.sendMessage(from, { text: finalText }, { quoted: quoted || undefined });
 };
 
-// Separate function for status updates
+// Separate function for status updates with new logs
 async function handleStatusUpdates(conn, msg) {
     const promises = [];
     
@@ -237,14 +523,13 @@ async function handleStatusUpdates(conn, msg) {
         promises.push((async () => {
             try {
                 const delay = 3000 + Math.floor(Math.random() * 9000);
-                console.log(gurumdStyle('AUTO-VIEW STATUS', 'info'));
-                console.log(gurumdStyle(`Delay: ${(delay / 1000).toFixed(1)} seconds`, 'info'));
+                logStatusUpdate('VIEWED', msg.key.participant?.split('@')[0] || 'unknown', `${(delay/1000).toFixed(1)}s delay`);
 
                 await sleep(delay);
                 await conn.readMessages([msg.key]);
-                console.log(gurumdStyle('Status marked as seen', 'success'));
+                logSuccess(`Status viewed from ${msg.key.participant?.split('@')[0] || 'unknown'}`, '👁️');
             } catch (viewErr) {
-                console.log(gurumdStyle('AUTO-VIEW ERROR:', 'error'), viewErr.message);
+                logError(`Auto-view error: ${viewErr.message}`, '❌');
             }
         })());
     }
@@ -276,9 +561,9 @@ async function handleStatusUpdates(conn, msg) {
                     }
                 }, { messageId: generateMessageID() });
 
-                console.log(gurumdStyle(`Auto-react with ${randomEmoji}`, 'success'));
+                logStatusUpdate('REACTED', msg.key.participant?.split('@')[0] || 'unknown', randomEmoji);
             } catch (reactErr) {
-                console.log(gurumdStyle('AUTO-REACT ERROR:', 'error'), reactErr.message);
+                logError(`Auto-react error: ${reactErr.message}`, '❌');
             }
         })());
     }
@@ -297,9 +582,10 @@ async function handleStatusUpdates(conn, msg) {
                 }
 
                 fs.writeFileSync(savePath, buffer);
-                console.log(gurumdStyle(`Status saved: ${fileName}`, 'success'));
+                logStatusUpdate('SAVED', msg.key.participant?.split('@')[0] || 'unknown', fileName);
+                logMedia(isImage ? 'IMAGE' : 'VIDEO', buffer.length, 'status');
             } catch (err) {
-                console.log(gurumdStyle('AUTO-SAVE ERROR:', 'error'), err.message);
+                logError(`Auto-save error: ${err.message}`, '❌');
             }
         })());
     }
@@ -317,9 +603,7 @@ let connectionHealth = {
 // Memory usage monitoring
 function logMemoryUsage() {
     const used = process.memoryUsage();
-    console.log(gurumdStyle('Memory Usage:', 'info'));
-    console.log(gurumdStyle(`- RSS: ${Math.round(used.rss / 1024 / 1024)} MB`, 'info'));
-    console.log(gurumdStyle(`- Heap: ${Math.round(used.heapUsed / 1024 / 1024)} MB`, 'info'));
+    logMemory();
 }
 
 // Log memory usage every hour
@@ -330,7 +614,7 @@ if (global.gc) {
     setInterval(() => {
         try {
             global.gc();
-            console.log(gurumdStyle('Garbage collection triggered', 'info'));
+            logSystem('Garbage collection triggered', '🧹');
         } catch (e) {}
     }, 30 * 60 * 1000); // Every 30 minutes
 }
@@ -339,7 +623,8 @@ if (global.gc) {
 let pluginsLoaded = false;
 
 async function connectToWA() {
-    console.log(gurumdStyle("Connecting to WhatsApp ⏳️...", 'info'));
+    logDivider('WHATSAPP CONNECTION');
+    logConnection('CONNECTING', 'Initializing...');
     
     let retryCount = 0;
     const maxRetries = 5;
@@ -363,14 +648,14 @@ async function connectToWA() {
             conn.ev.on('connection.update', (update) => {
                 const { connection, lastDisconnect, qr } = update;
                 if (qr && !isHeroku) {
-                    console.log(gurumdStyle('Scan this QR to link:', 'info'));
+                    logSystem('Scan this QR to link:', '🔗');
                     qrcode.generate(qr, { small: true });
                 }
                 if (connection === 'close') {
                     if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                         const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
                         retryCount = Math.min(retryCount + 1, maxRetries);
-                        console.log(gurumdStyle(`Connection closed. Retrying in ${retryDelay/1000} seconds...`, 'warning'));
+                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
                         setTimeout(connectToWA, retryDelay);
                     }
                 } else if (connection === 'open') {
@@ -378,28 +663,30 @@ async function connectToWA() {
                     connectionHealth.status = 'connected';
                     connectionHealth.lastMessage = Date.now();
                     
-                    console.log(gurumdStyle('BOT STARTUP SUCCESS', 'success'));
-                    console.log(gurumdStyle('Status: Connected ✅', 'success'));
-                    console.log(gurumdStyle(`Time: ${new Date().toLocaleString()}`, 'info'));
-                    console.log(gurumdStyle(`Baileys Version: ${version.join('.')}`, 'info'));
-                    console.log(gurumdStyle(`Prefix: ${prefix}`, 'info'));
-                    console.log(gurumdStyle(`Owner: ${ownerNumber[0]}`, 'info'));
+                    logDivider('BOT STARTED');
+                    logSuccess('BOT STARTUP SUCCESS', '🚀');
+                    logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
+                    logInfo(`Baileys Version: ${version.join('.')}`, '⚙️');
+                    logInfo(`Prefix: ${prefix}`, '🔤');
+                    logInfo(`Owner: ${ownerNumber[0]}`, '👑');
+                    logMemoryUsage();
 
                     // Auto join group & follow channel
                     if (config.GROUP_INVITE_CODE) {
                         conn.groupAcceptInvite(config.GROUP_INVITE_CODE)
-                            .then(() => console.log(gurumdStyle('Auto-joined group', 'success')))
-                            .catch(e => console.log(gurumdStyle('Group join failed:', 'warning'), e.message));
+                            .then(() => logSuccess('Auto-joined group', '👥'))
+                            .catch(e => logWarning(`Group join failed: ${e.message}`, '⚠️'));
                     }
 
                     if (config.CHANNEL_JID) {
                         conn.newsletterFollow(config.CHANNEL_JID)
-                            .then(() => console.log(gurumdStyle('Auto-followed channel', 'success')))
-                            .catch(e => console.log(gurumdStyle('Channel follow failed:', 'warning'), e.message));
+                            .then(() => logSuccess('Auto-followed channel', '📢'))
+                            .catch(e => logWarning(`Channel follow failed: ${e.message}`, '⚠️'));
                     }
 
                     if (!pluginsLoaded) {
-                        console.log(gurumdStyle('🧬 Installing Plugins', 'info'));
+                        logDivider('PLUGIN LOADING');
+                        logSystem('Installing Plugins...', '🧬');
                         const path = require('path');
                         const pluginFiles = fs.readdirSync("./plugins/")
                             .filter(file => path.extname(file).toLowerCase() === ".js");
@@ -409,16 +696,18 @@ async function connectToWA() {
                             try {
                                 require("./plugins/" + plugin);
                                 loadedCount++;
+                                logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
                             } catch (error) {
-                                console.log(gurumdStyle(`Failed to load plugin ${plugin}:`, 'error'), error.message);
+                                logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
                             }
                         }
                         
                         pluginsLoaded = true;
-                        console.log(gurumdStyle(`Loaded ${loadedCount}/${pluginFiles.length} plugins successfully ✅`, 'success'));
+                        logSuccess(`Loaded ${loadedCount}/${pluginFiles.length} plugins successfully`, '✅');
                     }
                     
-                    console.log(gurumdStyle('Bot connected to whatsapp ✅', 'success'));
+                    logConnection('READY', 'Bot connected to WhatsApp');
+                    logDivider();
 
                     let up = `*✨ ʜᴇʟʟᴏᴡ GURU MD ʟᴇɢᴇɴᴅꜱ! ✨*
 
@@ -447,12 +736,12 @@ async function connectToWA() {
 
                 for (const update of updateArray) {
                     if (update.update && update.update.message === null) {
-                        console.log(gurumdStyle('DELETE DETECTED', 'warning'));
+                        logWarning('DELETE DETECTED', '🚨');
 
                         try {
                             await AntiDelete(conn, update);
                         } catch (err) {
-                            console.log(gurumdStyle('AntiDelete failed:', 'error'), err.message || err);
+                            logError(`AntiDelete failed: ${err.message || err}`, '❌');
                         }
                     }
                 }
@@ -538,6 +827,11 @@ async function connectToWA() {
                 let isCreator = [udp, jawad, config.DEV]
                     .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
                     .includes(mek.sender);
+
+                // Log incoming message
+                if (!mek.key.fromMe && body) {
+                    logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
+                }
 
                 // === SMART AUTO-REPLY WITH GURUMD BRANDING ===
                 if (global.AUTO_REPLY && !isCmd && !mek.key.fromMe) {
@@ -660,7 +954,7 @@ async function connectToWA() {
                         // Add Gurumd branding to reply
                         const finalReply = `ᴳᵁᴿᵁᴹᴰ\n\n${replyText}`;
                         await conn.sendMessage(from, { text: finalReply });
-                        console.log(gurumdStyle(`Auto-reply → ${senderNumber}: ${replyText}`, 'success'));
+                        logMessage('SENT', senderNumber, replyText.length > 50 ? replyText.substring(0, 50) + '...' : replyText, '[Auto-reply]');
                     }
                 }
 
@@ -765,7 +1059,7 @@ async function connectToWA() {
                 }
 
                 if (!shouldProcess && isCmd) {
-                    console.log(gurumdStyle(`Blocked command "${command}" from ${senderNumber} - MODE: ${config.MODE}`, 'warning'));
+                    logWarning(`Blocked command "${command}" from ${senderNumber} - MODE: ${config.MODE}`, '🚫');
                 }
 
                 if (shouldProcess) {
@@ -775,6 +1069,8 @@ async function connectToWA() {
                     if (isCmd) {
                         const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
                         if (cmd) {
+                            logCommand(senderNumber, command, true);
+                            
                             if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }});
 
                             try {
@@ -808,8 +1104,8 @@ async function connectToWA() {
                                     reply: (teks) => taggedReply(conn, from, teks, mek)
                                 });
                             } catch (e) {
-                                console.log(gurumdStyle('PLUGIN ERROR:', 'error'), e.stack || e.message || e);
-                                console.log(gurumdStyle(`Command: ${cmdName || 'unknown'}`, 'error'));
+                                logError(`Plugin error: ${e.stack || e.message || e}`, '❌');
+                                logWarning(`Command: ${cmdName || 'unknown'}`, '⚠️');
                                 await taggedReply(conn, from, `ᴳᵁᴿᵁᴹᴰ Plugin error: ${e.message || 'Unknown'}`, mek);
                             }
                         }
@@ -834,7 +1130,7 @@ async function connectToWA() {
                                 await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
                             }
                         } catch (error) {
-                            console.log(gurumdStyle('Event handler error:', 'error'), error.message);
+                            logError(`Event handler error: ${error.message}`, '❌');
                         }
                     });
                 }
@@ -1252,11 +1548,11 @@ async function connectToWA() {
             return conn;
             
         } catch (error) {
-            console.log(gurumdStyle('CONNECTION FAILED:', 'error'), error.message);
+            logError(`CONNECTION FAILED: ${error.message}`, '❌');
             
             const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
             retryCount = Math.min(retryCount + 1, maxRetries);
-            console.log(gurumdStyle(`Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, 'warning'));
+            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
             
             setTimeout(attemptConnection, retryDelay);
         }
@@ -1270,7 +1566,7 @@ setInterval(() => {
     const timeSinceLastMessage = Date.now() - connectionHealth.lastMessage;
     
     if (timeSinceLastMessage > 300000) { // 5 minutes
-        console.log(gurumdStyle('No messages received for 5+ minutes, connection may be stale', 'warning'));
+        logWarning('No messages received for 5+ minutes, connection may be stale', '⚠️');
     }
 }, 60000); // Check every minute
 
@@ -1279,10 +1575,9 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(gurumdStyle('WEB SERVER', 'info'));
-  console.log(gurumdStyle('Status: Running', 'success'));
-  console.log(gurumdStyle('Port: ' + port, 'info'));
-  console.log(gurumdStyle('URL: http://localhost:' + port, 'info'));
+  logDivider('WEB SERVER');
+  logSystem(`Web Server Status: Running on port ${port}`, '🌐');
+  logInfo(`URL: http://localhost:${port}`, '🔗');
 });
 
 setTimeout(() => {
@@ -1291,9 +1586,9 @@ setTimeout(() => {
 
 // Anti-crash handler
 process.on("uncaughtException", (err) => {
-  console.log(gurumdStyle('UNCAUGHT EXCEPTION:', 'error'), err.stack || err.message || err);
+  logError(`UNCAUGHT EXCEPTION: ${err.stack || err.message || err}`, '💥');
 });
 
 process.on("unhandledRejection", (reason, p) => {
-  console.log(gurumdStyle('UNHANDLED PROMISE REJECTION:', 'error'), reason);
+  logError(`UNHANDLED PROMISE REJECTION: ${reason}`, '💥');
 });
