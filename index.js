@@ -1,52 +1,46 @@
+/*
 ╔════════════════════════════════════════════════════════════╗
 ║      ~GURU MD 5.0 PRO – ~THE~ ~LEGEND~ ~CONTINUES~      ║
 ╚════════════════════════════════════════════════════════════╝
 
-~A bot~ ~that~ ~doesn’t~ ~just~ ~exist…~ ~it~ ~dominates~ 💫
+~A~ ~bot~ ~that~ ~doesn’t~ ~just~ ~exist…~ ~it~ ~dominates~ 💫
 
-~Prefix~ →  ~.*~
-~Owner~ →  ~@254778074353~
-~Mode~ →  ~${config.MODE || 'public'}~
-~Version~ →  ~5.0.0 Pro~
-~Developer~ →  ~*GuruTech Lab*~
-~Location~ →  ~Nairobi, Kenya~ 🌍
-~Born~ →  ~2025~ – ~still~ ~ruling~ ~2026~ 🔥
-~Users~ →  ~Thousands~ ~of~ ~legends~ ~worldwide~ 👑
+~Prefix~        →  ~.*~
+~Owner~         →  ~@254778074353~
+~Mode~          →  ~public / private~
+~Version~       →  ~5.0.0 Pro~
+~Developer~     →  ~GuruTech Lab~
+~Location~      →  ~Nairobi, Kenya~ 🌍
+~Born~          →  ~2025~ – ~still~ ~ruling~ ~2026~ 🔥
+~Users~         →  ~Thousands~ ~of~ ~legends~ ~worldwide~ 👑
 
-~What~ ~makes~ ~GURU MD~ ~unstoppable~ ~in~ ~the~ ~shadows~:
+~What~ ~makes~ ~GURU MD~ ~unstoppable~:
 
-• ~AI~ ~Chat~ → ~Deep~ ~talks~, ~savage~ ~roasts~, ~genius~ ~answers~  
-• ~Image~ ~Generation~ → ~Words~ → ~art~ ~(DALL·E~ ~level~ ~quality)~  
-• ~TikTok~ ~/ ~FB~ ~/ ~IG~ ~/ ~Twitter~ ~Downloader~ → ~No~ ~watermark~, ~ultra-fast~  
-• ~Group~ ~Tools~ → ~Anti-delete~, ~welcome/goodbye~, ~lock/unlock~, ~tag/hidetag~  
-• ~Reactions~ ~&~ ~Stickers~ → ~Bully~, ~hug~, ~cry~, ~dance~, ~cringe~ – ~full~ ~vibe~ ~pack~  
-• ~Quran~ ~&~ ~Prayer~ ~Times~ → ~Daily~ ~surah~, ~reminders~, ~spiritual~ ~boost~  
-• ~Logo~ ~Maker~ → ~Neon~, ~blackpink~, ~galaxy~, ~hacker~, ~30+~ ~styles~  
-• ~Fun~ ~&~ ~Games~ → ~Roast~ ~battles~, ~truth~ ~or~ ~dare~, ~games~ ~inside~ ~chat~  
-• ~Media~ ~Editing~ → ~Filters~, ~video~ ~trim~, ~sticker~ ~creator~  
-• ~300+~ ~Commands~ → ~And~ ~we~ ~keep~ ~dropping~ ~new~ ~ones~ ~every~ ~week~ 😈
+• ~AI~ ~Chat~ ~→~ ~Deep~ ~talks~, ~savage~ ~roasts~
+• ~Image~ ~Gen~ ~→~ ~Words~ → ~art~ ~(DALL·E~ ~style)~
+• ~Downloads~ ~→~ ~TikTok~ ~FB~ ~IG~ ~Twitter~ ~No~ ~watermark~
+• ~Group~ ~Tools~ ~→~ ~Anti-delete~, ~welcome/goodbye~, ~tag/hidetag~
+• ~Reactions~ ~→~ ~Bully~, ~hug~, ~cry~, ~dance~, ~cringe~
+• ~Quran~ ~&~ ~Prayer~ ~→~ ~Surah~ ~search~, ~daily~ ~reminders~
+• ~Logo~ ~Maker~ ~→~ ~Neon~, ~galaxy~, ~hacker~ ~&~ ~30+~ ~styles~
+• ~Fun~ ~Games~ ~→~ ~Roast~, ~truth~ ~or~ ~dare~
+• ~Media~ ~Edit~ ~→~ ~Filters~, ~stickers~, ~video~ ~trim~
+• ~300+~ ~Commands~ → ~And~ ~more~ ~dropping~ ~weekly~ 😈
 
-~Why~ ~thousands~ ~stay~ ~loyal~ ~in~ ~silence~:  
-~No~ ~ads~. ~No~ ~paywalls~. ~No~ ~limits~.  
-~Pure~ ~power~, ~personality~, ~speed~, ~privacy~, ~and~ ~vibes~ — ~all~ ~free~ ~forever~.
+~Why~ ~thousands~ ~stay~ ~loyal~:
+~No~ ~ads~ • ~No~ ~paywalls~ • ~No~ ~limits~
+~Pure~ ~power~ • ~personality~ • ~speed~ • ~privacy~ • ~vibes~
 
-~You’re~ ~not~ ~just~ ~using~ ~a~ ~bot~ — ~you’re~ ~part~ ~of~ ~the~ ~GURU~ ~MD~ ~family~.  
-~Every~ ~command~ ~you~ ~fire~, ~every~ ~group~ ~you~ ~own~, ~every~ ~reaction~ ~you~ ~send~ — ~you’re~ ~helping~ ~us~ ~build~ ~something~ ~legendary~.
+~You’re~ ~not~ ~just~ ~using~ ~a~ ~bot~ — ~you’re~ ~family~.
+~Every~ ~command~ ~helps~ ~build~ ~something~ ~legendary~.
 
-~More~ ~insane~ ~updates~ ~coming~ ~soon~…  
-~More~ ~AI~ ~madness~, ~more~ ~group~ ~domination~, ~more~ ~fun~, ~more~ ~everything~.
+~More~ ~insane~ ~updates~ ~coming~… ~Stay~ ~locked~ ~in~ 👑
 
-~So~ ~don’t~ ~switch~.  
-~Don’t~ ~fade~.  
-~Stay~ ~locked~ ~in~.
-
-~Continue~ ~riding~ ~with~ *~GURU MD~*  
-~The~ ~best~ ~chapters~ ~are~ ~still~ ~unwritten~… 👑
-
-> ~Powered~ ~by~ ~GuruTech~ ~Lab~  
+> ~Powered~ ~by~ ~GuruTech~ ~Lab~
 > © ~2026~ – ~We~ ~don’t~ ~stop…~ ~we~ ~transcend~ 💫
 
-~Official~ ~Repo~ – ~Star~ ~&~ ~Fork~ ~it~ ~now~  
-~https://github.com/Gurulabstech/GURU-MD~
+~Repo~ → ~https://github.com/Gurulabstech/GURU-MD~
+~Star~ ~&~ ~fork~ ~it~ ~now~ 🔥
 
 ~Drop~ ~🔥~ ~or~ ~👑~ ~if~ ~you’re~ ~still~ ~riding~ ~with~ ~GURU MD~ ~till~ ~the~ ~end!~
+*/
