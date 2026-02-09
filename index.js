@@ -29,100 +29,46 @@ const {
   Browsers
 } = baileys;
 
-// === ULTRA STYLISH LOGS DESIGN ===
+// === SIMPLIFIED LOGS DESIGN - Compatible with all environments ===
 const chalk = require('chalk');
-const gradient = require('gradient-string');
-const figlet = require('figlet');
-const boxen = require('boxen');
 
-// Color schemes
-const colorSchemes = {
-  primary: ['#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0', '#118AB2'],
-  neon: ['#00FF9D', '#00B8FF', '#FF00E4', '#FFD600', '#FF0080'],
-  sunset: ['#FF6B6B', '#FFA726', '#66BB6A', '#42A5F5', '#AB47BC'],
-  ocean: ['#00BCD4', '#0097A7', '#00838F', '#006064', '#004D40']
+// Color scheme
+const colors = {
+  primary: '#FF6B6B',
+  success: '#4ECDC4',
+  warning: '#FFD166',
+  info: '#06D6A0',
+  system: '#118AB2',
+  error: '#FF6B6B'
 };
 
-// Current color scheme
-const colors = colorSchemes.primary;
-
-// Banner Generator
+// Simple banner without external dependencies
 function printBanner() {
-  const banner = figlet.textSync('GURUMD', {
-    font: 'ANSI Shadow',
-    horizontalLayout: 'default',
-    verticalLayout: 'default'
-  });
-  
-  const gradientBanner = gradient(colors[0], colors[1], colors[2]).multiline(banner);
-  const boxedBanner = boxen(gradientBanner, {
-    padding: 1,
-    margin: 1,
-    borderStyle: 'double',
-    borderColor: colors[3],
-    backgroundColor: '#0A0A0A'
-  });
-  
-  console.log(boxedBanner);
-  console.log(gradient(colors[2], colors[3])(`╔══════════════════════════════════════════════════════════╗`));
-  console.log(gradient(colors[3], colors[4])(`║           ᴳᵁᴿᵁᴹᴰ • ULTIMATE WHATSAPP BOT • v3.0           ║`));
-  console.log(gradient(colors[2], colors[3])(`╚══════════════════════════════════════════════════════════╝\n`));
+  console.log(chalk.hex(colors.primary).bold('╔══════════════════════════════════════════════════════════╗'));
+  console.log(chalk.hex(colors.success).bold('║           ᴳᵁᴿᵁᴹᴰ • ULTIMATE WHATSAPP BOT • v3.0           ║'));
+  console.log(chalk.hex(colors.primary).bold('╚══════════════════════════════════════════════════════════╝'));
+  console.log('');
 }
 
-// Enhanced Log Functions
+// Enhanced Log Functions (simplified)
 function logSuccess(message, emoji = '✅') {
-  const formatted = boxen(`${emoji} ${chalk.hex(colors[1]).bold(message)}`, {
-    padding: 1,
-    margin: { left: 2, right: 0, top: 0, bottom: 0 },
-    borderStyle: 'round',
-    borderColor: colors[1],
-    backgroundColor: '#0A0A0A'
-  });
-  console.log(formatted);
+  console.log(`${emoji} ${chalk.hex(colors.success).bold(message)}`);
 }
 
 function logError(message, emoji = '❌') {
-  const formatted = boxen(`${emoji} ${chalk.hex(colors[0]).bold(message)}`, {
-    padding: 1,
-    margin: { left: 2, right: 0, top: 0, bottom: 0 },
-    borderStyle: 'round',
-    borderColor: colors[0],
-    backgroundColor: '#0A0A0A'
-  });
-  console.log(formatted);
+  console.log(`${emoji} ${chalk.hex(colors.error).bold(message)}`);
 }
 
 function logWarning(message, emoji = '⚠️') {
-  const formatted = boxen(`${emoji} ${chalk.hex(colors[2]).bold(message)}`, {
-    padding: 1,
-    margin: { left: 2, right: 0, top: 0, bottom: 0 },
-    borderStyle: 'round',
-    borderColor: colors[2],
-    backgroundColor: '#0A0A0A'
-  });
-  console.log(formatted);
+  console.log(`${emoji} ${chalk.hex(colors.warning).bold(message)}`);
 }
 
 function logInfo(message, emoji = 'ℹ️') {
-  const formatted = boxen(`${emoji} ${chalk.hex(colors[3]).bold(message)}`, {
-    padding: 1,
-    margin: { left: 2, right: 0, top: 0, bottom: 0 },
-    borderStyle: 'round',
-    borderColor: colors[3],
-    backgroundColor: '#0A0A0A'
-  });
-  console.log(formatted);
+  console.log(`${emoji} ${chalk.hex(colors.info).bold(message)}`);
 }
 
 function logSystem(message, emoji = '⚙️') {
-  const formatted = boxen(`${emoji} ${chalk.hex(colors[4]).bold(message)}`, {
-    padding: 1,
-    margin: { left: 2, right: 0, top: 0, bottom: 0 },
-    borderStyle: 'round',
-    borderColor: colors[4],
-    backgroundColor: '#0A0A0A'
-  });
-  console.log(formatted);
+  console.log(`${emoji} ${chalk.hex(colors.system).bold(message)}`);
 }
 
 // Beautiful Divider
@@ -132,10 +78,11 @@ function logDivider(text = '') {
   const sideLength = Math.floor((dividerLength - textLength - 4) / 2);
   
   if (text) {
-    const divider = '═'.repeat(sideLength) + '『 ' + text + ' 』' + '═'.repeat(sideLength);
-    console.log(gradient(colors[1], colors[2])(divider));
+    const left = '═'.repeat(sideLength);
+    const right = '═'.repeat(sideLength);
+    console.log(chalk.hex(colors.success)(`${left}『 ${text} 』${right}`));
   } else {
-    console.log(gradient(colors[0], colors[4])('═'.repeat(dividerLength)));
+    console.log(chalk.hex(colors.primary)('═'.repeat(dividerLength)));
   }
 }
 
@@ -143,14 +90,14 @@ function logDivider(text = '') {
 function logMessage(type, from, content = '', extra = '') {
   const timestamp = chalk.gray(`[${new Date().toLocaleTimeString()}]`);
   const types = {
-    'RECEIVED': { emoji: '📥', color: colors[1] },
-    'SENT': { emoji: '📤', color: colors[2] },
-    'COMMAND': { emoji: '⚡', color: colors[3] },
-    'EVENT': { emoji: '🎯', color: colors[4] },
-    'STATUS': { emoji: '📱', color: colors[0] }
+    'RECEIVED': { emoji: '📥', color: colors.success },
+    'SENT': { emoji: '📤', color: colors.info },
+    'COMMAND': { emoji: '⚡', color: colors.warning },
+    'EVENT': { emoji: '🎯', color: colors.system },
+    'STATUS': { emoji: '📱', color: colors.primary }
   };
   
-  const typeInfo = types[type] || { emoji: '📝', color: colors[3] };
+  const typeInfo = types[type] || { emoji: '📝', color: colors.info };
   const fromDisplay = chalk.hex(typeInfo.color).bold(from);
   const contentDisplay = content ? chalk.white(content) : '';
   const extraDisplay = extra ? chalk.gray(extra) : '';
@@ -161,24 +108,16 @@ function logMessage(type, from, content = '', extra = '') {
 // Connection Status Log
 function logConnection(status, details = '') {
   const statusIcons = {
-    'CONNECTING': { icon: '🔄', color: colors[2] },
-    'CONNECTED': { icon: '✅', color: colors[1] },
-    'DISCONNECTED': { icon: '❌', color: colors[0] },
-    'RECONNECTING': { icon: '🔄', color: colors[2] },
-    'READY': { icon: '🚀', color: colors[3] }
+    'CONNECTING': { icon: '🔄', color: colors.warning },
+    'CONNECTED': { icon: '✅', color: colors.success },
+    'DISCONNECTED': { icon: '❌', color: colors.error },
+    'RECONNECTING': { icon: '🔄', color: colors.warning },
+    'READY': { icon: '🚀', color: colors.system }
   };
   
-  const statusInfo = statusIcons[status] || { icon: '❓', color: colors[3] };
+  const statusInfo = statusIcons[status] || { icon: '❓', color: colors.info };
   const statusText = chalk.hex(statusInfo.color).bold(status);
-  const box = boxen(`${statusInfo.icon} ${statusText} ${details}`, {
-    padding: 1,
-    margin: 1,
-    borderStyle: 'double',
-    borderColor: statusInfo.color,
-    backgroundColor: '#0A0A0A'
-  });
-  
-  console.log(box);
+  console.log(`\n${statusInfo.icon} ${statusText} ${details}\n`);
 }
 
 // Memory Usage Log
@@ -188,50 +127,24 @@ function logMemory() {
   const heap = Math.round(used.heapUsed / 1024 / 1024);
   const total = Math.round(used.heapTotal / 1024 / 1024);
   
-  const memoryBar = createProgressBar(heap, 512, 20); // Assuming 512MB max
-  
-  const memoryBox = boxen(`🧠 ${chalk.hex(colors[3]).bold('MEMORY USAGE')}\n\n` +
-    `${chalk.hex(colors[1])('RSS:')} ${chalk.white(`${rss} MB`)}\n` +
-    `${chalk.hex(colors[1])('Heap Used:')} ${chalk.white(`${heap} MB`)}\n` +
-    `${chalk.hex(colors[1])('Heap Total:')} ${chalk.white(`${total} MB`)}\n\n` +
-    `${memoryBar}\n` +
-    `${chalk.gray(`${heap}MB / 512MB`)}`, {
-    padding: 1,
-    margin: { left: 2, right: 0, top: 0, bottom: 0 },
-    borderStyle: 'single',
-    borderColor: colors[3],
-    backgroundColor: '#0A0A0A'
-  });
-  
-  console.log(memoryBox);
-}
-
-// Progress Bar Creator
-function createProgressBar(current, max, length = 20) {
-  const percentage = Math.min(current / max, 1);
-  const filledLength = Math.floor(length * percentage);
-  const emptyLength = length - filledLength;
-  
-  const filledBar = '█'.repeat(filledLength);
-  const emptyBar = '░'.repeat(emptyLength);
-  
-  const color = percentage < 0.5 ? colors[1] : 
-                percentage < 0.75 ? colors[2] : colors[0];
-  
-  return chalk.hex(color)(filledBar) + chalk.gray(emptyBar);
+  console.log(chalk.hex(colors.system).bold('🧠 MEMORY USAGE'));
+  console.log(chalk.hex(colors.success)(`RSS:`) + ` ${chalk.white(`${rss} MB`)}`);
+  console.log(chalk.hex(colors.success)(`Heap Used:`) + ` ${chalk.white(`${heap} MB`)}`);
+  console.log(chalk.hex(colors.success)(`Heap Total:`) + ` ${chalk.white(`${total} MB`)}`);
+  console.log(chalk.gray(`${heap}MB / 512MB`));
 }
 
 // Plugin Loader Log
 function logPlugin(name, version, status = 'LOADED') {
   const statusIcons = {
-    'LOADED': { icon: '✅', color: colors[1] },
-    'FAILED': { icon: '❌', color: colors[0] },
-    'UPDATED': { icon: '🔄', color: colors[2] },
-    'UNLOADED': { icon: '🗑️', color: colors[3] }
+    'LOADED': { icon: '✅', color: colors.success },
+    'FAILED': { icon: '❌', color: colors.error },
+    'UPDATED': { icon: '🔄', color: colors.warning },
+    'UNLOADED': { icon: '🗑️', color: colors.info }
   };
   
-  const statusInfo = statusIcons[status] || { icon: '❓', color: colors[3] };
-  const pluginName = chalk.hex(colors[4]).bold(name);
+  const statusInfo = statusIcons[status] || { icon: '❓', color: colors.info };
+  const pluginName = chalk.hex(colors.system).bold(name);
   const pluginVersion = chalk.gray(`v${version}`);
   
   console.log(`   ${statusInfo.icon} ${pluginName} ${pluginVersion} ${chalk.gray(status)}`);
@@ -239,9 +152,9 @@ function logPlugin(name, version, status = 'LOADED') {
 
 // Command Execution Log
 function logCommand(user, command, success = true) {
-  const userDisplay = chalk.hex(colors[4])(user);
-  const commandDisplay = chalk.hex(colors[3]).bold(command);
-  const status = success ? chalk.hex(colors[1])('✓') : chalk.hex(colors[0])('✗');
+  const userDisplay = chalk.hex(colors.system)(user);
+  const commandDisplay = chalk.hex(colors.info).bold(command);
+  const status = success ? chalk.hex(colors.success)('✓') : chalk.hex(colors.error)('✗');
   
   console.log(`🎮 ${userDisplay} ${chalk.gray('executed')} ${commandDisplay} ${status}`);
 }
@@ -249,13 +162,13 @@ function logCommand(user, command, success = true) {
 // Status Update Log
 function logStatusUpdate(action, target, details = '') {
   const actions = {
-    'VIEWED': { icon: '👁️', color: colors[1] },
-    'REACTED': { icon: '🎭', color: colors[2] },
-    'SAVED': { icon: '💾', color: colors[3] },
-    'FOLLOWED': { icon: '➕', color: colors[4] }
+    'VIEWED': { icon: '👁️', color: colors.success },
+    'REACTED': { icon: '🎭', color: colors.warning },
+    'SAVED': { icon: '💾', color: colors.info },
+    'FOLLOWED': { icon: '➕', color: colors.system }
   };
   
-  const actionInfo = actions[action] || { icon: '📝', color: colors[3] };
+  const actionInfo = actions[action] || { icon: '📝', color: colors.info };
   const targetDisplay = chalk.hex(actionInfo.color).bold(target);
   const detailsDisplay = details ? chalk.gray(`(${details})`) : '';
   
@@ -265,16 +178,16 @@ function logStatusUpdate(action, target, details = '') {
 // Media Log
 function logMedia(type, size, from = '') {
   const types = {
-    'IMAGE': { icon: '🖼️', color: colors[1] },
-    'VIDEO': { icon: '🎬', color: colors[2] },
-    'AUDIO': { icon: '🎵', color: colors[3] },
-    'STICKER': { icon: '🩹', color: colors[4] },
-    'DOCUMENT': { icon: '📄', color: colors[0] }
+    'IMAGE': { icon: '🖼️', color: colors.success },
+    'VIDEO': { icon: '🎬', color: colors.warning },
+    'AUDIO': { icon: '🎵', color: colors.info },
+    'STICKER': { icon: '🩹', color: colors.system },
+    'DOCUMENT': { icon: '📄', color: colors.primary }
   };
   
-  const typeInfo = types[type] || { icon: '📦', color: colors[3] };
+  const typeInfo = types[type] || { icon: '📦', color: colors.info };
   const sizeDisplay = chalk.gray(`(${(size / (1024 * 1024)).toFixed(2)} MB)`);
-  const fromDisplay = from ? chalk.hex(colors[4])(`from ${from}`) : '';
+  const fromDisplay = from ? chalk.hex(colors.system)(`from ${from}`) : '';
   
   console.log(`${typeInfo.icon} ${chalk.hex(typeInfo.color).bold(type)} ${sizeDisplay} ${fromDisplay}`);
 }
@@ -282,32 +195,32 @@ function logMedia(type, size, from = '') {
 // Group Activity Log
 function logGroupAction(action, group, user = '') {
   const actions = {
-    'JOIN': { icon: '👥', color: colors[1] },
-    'LEAVE': { icon: '👋', color: colors[0] },
-    'PROMOTE': { icon: '⬆️', color: colors[2] },
-    'DEMOTE': { icon: '⬇️', color: colors[3] },
-    'MESSAGE': { icon: '💬', color: colors[4] }
+    'JOIN': { icon: '👥', color: colors.success },
+    'LEAVE': { icon: '👋', color: colors.error },
+    'PROMOTE': { icon: '⬆️', color: colors.warning },
+    'DEMOTE': { icon: '⬇️', color: colors.info },
+    'MESSAGE': { icon: '💬', color: colors.system }
   };
   
-  const actionInfo = actions[action] || { icon: '📝', color: colors[3] };
+  const actionInfo = actions[action] || { icon: '📝', color: colors.info };
   const groupDisplay = chalk.hex(actionInfo.color).bold(group);
-  const userDisplay = user ? chalk.hex(colors[4])(`by ${user}`) : '';
+  const userDisplay = user ? chalk.hex(colors.system)(`by ${user}`) : '';
   
   console.log(`${actionInfo.icon} ${groupDisplay} ${chalk.gray(action.toLowerCase())} ${userDisplay}`);
 }
 
 // Performance Log
 function logPerformance(operation, timeMs) {
-  const color = timeMs < 100 ? colors[1] : 
-                timeMs < 500 ? colors[2] : 
-                timeMs < 1000 ? colors[3] : colors[0];
+  const color = timeMs < 100 ? colors.success : 
+                timeMs < 500 ? colors.warning : 
+                timeMs < 1000 ? colors.info : colors.error;
   
   const timeColor = timeMs < 100 ? 'fast' : 
                     timeMs < 500 ? 'good' : 
                     timeMs < 1000 ? 'slow' : 'critical';
   
   const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
-  const operationDisplay = chalk.hex(colors[4])(operation);
+  const operationDisplay = chalk.hex(colors.system)(operation);
   
   console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} ${chalk.gray(`(${timeColor})`)}`);
 }
@@ -323,18 +236,14 @@ function initLogging() {
 // Keep original functions for compatibility
 function gurumdStyle(text, type = 'normal') {
     const styles = {
-        normal: chalk.hex('#FF6B6B').bold(`ᴳᵁᴿᵁᴹᴰ ${text}`),
+        normal: chalk.hex(colors.primary).bold(`ᴳᵁᴿᵁᴹᴰ ${text}`),
         faded: chalk.hex('#888888').italic(`ᴳᵁᴿᵁᴹᴰ ${text}`),
-        success: chalk.hex('#4ECDC4').bold(`✓ ᴳᵁᴿᵁᴹᴰ ${text}`),
-        error: chalk.hex('#FF6B6B').bold(`✗ ᴳᵁᴿᵁᴹᴰ ${text}`),
-        warning: chalk.hex('#FFD166').bold(`⚠ ᴳᵁᴿᵁᴹᴰ ${text}`),
-        info: chalk.hex('#06D6A0').bold(`ℹ ᴳᵁᴿᵁᴹᴰ ${text}`)
+        success: chalk.hex(colors.success).bold(`✓ ᴳᵁᴿᵁᴹᴰ ${text}`),
+        error: chalk.hex(colors.error).bold(`✗ ᴳᵁᴿᵁᴹᴰ ${text}`),
+        warning: chalk.hex(colors.warning).bold(`⚠ ᴳᵁᴿᵁᴹᴰ ${text}`),
+        info: chalk.hex(colors.info).bold(`ℹ ᴳᵁᴿᵁᴹᴰ ${text}`)
     };
     return styles[type] || styles.normal;
-}
-
-function logInfo(message, color = 'green') {
-  console.log(chalk[color].bold(`[ᴳᵁᴿᵁᴹᴰ] ${message}`));
 }
 
 // Initialize logging
