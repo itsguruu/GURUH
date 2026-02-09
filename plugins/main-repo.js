@@ -11,7 +11,7 @@ cmd({
     filename: __filename,
 },
 async (conn, mek, m, { from, reply }) => {
-    const githubRepoURL = 'https://github.com/itsguruu/GURUH';
+    const githubRepoURL = 'https://github.com/Gurulabstech/GURU-MD';
 
     try {
         // Extract username and repo name
