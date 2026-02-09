@@ -639,7 +639,7 @@ async function connectToWA() {
             conn.ev.on('creds.update', saveCreds);
 
             //==============================
-
+            // FIXED AntiDelete handler
             conn.ev.on('messages.update', async (updates) => {
                 try {
                     // Handle both single update object and array of updates
@@ -648,12 +648,15 @@ async function connectToWA() {
                     if (Array.isArray(updates)) {
                         updateArray = updates;
                     } else if (updates && typeof updates === 'object') {
-                        // Check if it's a single update object
-                        if (updates.update || updates.key) {
+                        // Check if it's a single update object with key property
+                        if (updates.key) {
+                            updateArray = [updates];
+                        } else if (updates.update) {
+                            // Handle nested update structure
                             updateArray = [updates];
                         } else {
-                            // Try to get values if it's an object with multiple updates
-                            updateArray = Object.values(updates);
+                            // Try to extract updates from the object
+                            updateArray = Object.values(updates).filter(item => item && typeof item === 'object');
                         }
                     } else {
                         logWarning('Invalid updates format in messages.update', '⚠️');
@@ -661,14 +664,17 @@ async function connectToWA() {
                     }
 
                     for (const update of updateArray) {
-                        if (update && update.update && update.update.message === null) {
-                            logWarning('DELETE DETECTED', '🚨');
-
-                            try {
+                        try {
+                            // Check if it's a delete event
+                            const isDelete = update.update && update.update.message === null;
+                            const hasKey = update.key && update.key.id && update.key.remoteJid;
+                            
+                            if (isDelete && hasKey) {
+                                logWarning('DELETE DETECTED', '🚨');
                                 await AntiDelete(conn, update);
-                            } catch (err) {
-                                logError(`AntiDelete failed: ${err.message || err}`, '❌');
                             }
+                        } catch (err) {
+                            logError(`AntiDelete processing error: ${err.message || err}`, '❌');
                         }
                     }
                 } catch (error) {
