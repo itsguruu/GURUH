@@ -24,60 +24,95 @@ const AntiDelDB = DATABASE.define('AntiDelete', {
 
 let isInitialized = false;
 
+/**
+ * Initialize anti-delete settings table and migrate if needed
+ */
 async function initializeAntiDeleteSettings() {
     if (isInitialized) return;
+
     try {
-        // First sync the model to ensure table exists
-        await AntiDelDB.sync();
-        
-        // Check if old schema exists
+        // Sync model (create table if missing)
+        await AntiDelDB.sync({ alter: true });
+
+        // Check for old schema (gc_status/dm_status)
         const tableInfo = await DATABASE.getQueryInterface().describeTable('antidelete');
-        if (tableInfo.gc_status) {
-            // Migrate from old schema to new schema
-            const oldRecord = await DATABASE.query('SELECT * FROM antidelete WHERE id = 1', { type: DATABASE.QueryTypes.SELECT });
-            if (oldRecord && oldRecord.length > 0) {
-                const newStatus = oldRecord[0].gc_status || oldRecord[0].dm_status;
-                await DATABASE.query('DROP TABLE antidelete');
-                await AntiDelDB.sync();
-                await AntiDelDB.create({ id: 1, status: newStatus });
+        if (tableInfo.gc_status || tableInfo.dm_status) {
+            console.log('[AntiDelete] Migrating from old schema...');
+
+            const [oldRecord] = await DATABASE.query(
+                'SELECT * FROM antidelete WHERE id = 1',
+                { type: DATABASE.QueryTypes.SELECT }
+            );
+
+            if (oldRecord) {
+                const oldStatus = oldRecord.gc_status ?? oldRecord.dm_status ?? config.ANTI_DELETE ?? false;
+
+                // Drop old table safely
+                await DATABASE.query('DROP TABLE IF EXISTS antidelete');
+
+                // Recreate new table
+                await AntiDelDB.sync({ force: true });
+
+                // Insert migrated record
+                await AntiDelDB.create({ id: 1, status: oldStatus });
             }
         } else {
-            // Create new record if doesn't exist
+            // Normal case: just ensure record exists
             await AntiDelDB.findOrCreate({
                 where: { id: 1 },
                 defaults: { status: config.ANTI_DELETE || false },
             });
         }
+
         isInitialized = true;
+        console.log('[AntiDelete] Settings initialized successfully');
     } catch (error) {
-        console.error('Error initializing anti-delete settings:', error);
-        // If table doesn't exist at all, create it
-        if (error.original && error.original.code === 'SQLITE_ERROR' && error.original.message.includes('no such table')) {
-            await AntiDelDB.sync();
+        console.error('[AntiDelete] Initialization error:', error.message);
+
+        // Fallback: force recreate table on critical errors
+        try {
+            await AntiDelDB.sync({ force: true });
             await AntiDelDB.create({ id: 1, status: config.ANTI_DELETE || false });
             isInitialized = true;
+        } catch (fallbackErr) {
+            console.error('[AntiDelete] Fallback sync failed:', fallbackErr.message);
         }
     }
 }
 
+/**
+ * Set anti-delete status (true/false)
+ * @param {boolean} status
+ * @returns {Promise<boolean>} success
+ */
 async function setAnti(status) {
     try {
         await initializeAntiDeleteSettings();
-        const [affectedRows] = await AntiDelDB.update({ status }, { where: { id: 1 } });
+
+        const [affectedRows] = await AntiDelDB.update(
+            { status: !!status },
+            { where: { id: 1 } }
+        );
+
         return affectedRows > 0;
     } catch (error) {
-        console.error('Error setting anti-delete status:', error);
+        console.error('[setAnti] Error:', error.message);
         return false;
     }
 }
 
+/**
+ * Get current anti-delete status
+ * @returns {Promise<boolean>}
+ */
 async function getAnti() {
     try {
         await initializeAntiDeleteSettings();
+
         const record = await AntiDelDB.findByPk(1);
         return record ? record.status : (config.ANTI_DELETE || false);
     } catch (error) {
-        console.error('Error getting anti-delete status:', error);
+        console.error('[getAnti] Error:', error.message);
         return config.ANTI_DELETE || false;
     }
 }
