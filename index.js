@@ -80,7 +80,7 @@ function logDivider(text = '') {
   if (text) {
     const left = '═'.repeat(sideLength);
     const right = '═'.repeat(sideLength);
-    console.log(chalk.hex(colors.success)(`${left}『 \( {text} 』 \){right}`));
+    console.log(chalk.hex(colors.success)(`${left}『 ${text} 』${right}`));
   } else {
     console.log(chalk.hex(colors.primary)('═'.repeat(dividerLength)));
   }
@@ -128,9 +128,9 @@ function logMemory() {
   const total = Math.round(used.heapTotal / 1024 / 1024);
   
   console.log(chalk.hex(colors.system).bold('🧠 MEMORY USAGE'));
-  console.log(chalk.hex(colors.success)(`RSS:`) + ` \( {chalk.white(` \){rss} MB`)}`);
-  console.log(chalk.hex(colors.success)(`Heap Used:`) + ` \( {chalk.white(` \){heap} MB`)}`);
-  console.log(chalk.hex(colors.success)(`Heap Total:`) + ` \( {chalk.white(` \){total} MB`)}`);
+  console.log(chalk.hex(colors.success)(`RSS:`) + ` ${chalk.white(`${rss} MB`)}`);
+  console.log(chalk.hex(colors.success)(`Heap Used:`) + ` ${chalk.white(`${heap} MB`)}`);
+  console.log(chalk.hex(colors.success)(`Heap Total:`) + ` ${chalk.white(`${total} MB`)}`);
   console.log(chalk.gray(`${heap}MB / 512MB`));
 }
 
@@ -222,7 +222,7 @@ function logPerformance(operation, timeMs) {
   const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
   const operationDisplay = chalk.hex(colors.system)(operation);
   
-  console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} \( {chalk.gray(`( \){timeColor})`)}`);
+  console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} ${chalk.gray(`(${timeColor})`)}`);
 }
 
 // Initialize logging system
@@ -330,64 +330,8 @@ if (!isHeroku) {
     });
 }
 
-// =================== DIRECT BASE64 SESSION ===================
-// Fix: Wrap the async session initialization in an async IIFE
-(async () => {
-    if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
-        if (isHeroku) {
-            if (!process.env.SESSION_ID) {
-                logError('SESSION_ID is not set in Heroku Config Vars!', '🔑');
-                logWarning('Add your base64 session string to SESSION_ID and redeploy.', '💡');
-                
-                // Create empty session directory for pairing
-                fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-                logInfo('Created empty session directory for pairing', '📁');
-            } else {
-                logSystem('Heroku mode: Using SESSION_ID from env vars...', '☁️');
-
-                try {
-                    let base64Session = process.env.SESSION_ID.trim();
-                    if (base64Session.startsWith('GURU~')) {
-                        base64Session = base64Session.replace('GURU~', '').trim();
-                    }
-
-                    if (!base64Session || base64Session.length < 100) {
-                        logWarning('SESSION_ID appears invalid or too short, falling back to pairing', '⚠️');
-                    } else {
-                        const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
-                        const creds = JSON.parse(decoded);
-
-                        fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-                        fs.writeFileSync(
-                            __dirname + '/sessions/creds.json',
-                            JSON.stringify(creds, null, 2)
-                        );
-                        logSuccess('SESSION_ID successfully saved to creds.json', '✅');
-                    }
-                } catch (e) {
-                    logError(`Failed to process SESSION_ID: ${e.message}`, '❌');
-                }
-            }
-        } else {
-            // Non-Heroku: prompt for phone number + pairing code
-            logSystem('No session found. Starting pairing flow...', '🔗');
-
-            // Fix: Use promise without await at top level - handle in connectToWA function
-            if (rl) {
-                rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), (phoneNumber) => {
-                    const trimmedNumber = phoneNumber.trim();
-                    if (!/^\d{10,14}$/.test(trimmedNumber)) {
-                        logError('Invalid number. Must be digits only with country code.', '❌');
-                        process.exit(1);
-                    }
-                    logSystem(`Generating pairing code for +${trimmedNumber}...`, '🔢');
-                    // The pairing code will be handled in makeWASocket options
-                });
-            }
-        }
-    }
-})();
-
+// =================== FIXED: DIRECT BASE64 SESSION ===================
+// Moved inside connectToWA function to avoid top-level await issues
 // Configuration validation
 function validateConfig() {
     const required = ['PREFIX'];
@@ -432,8 +376,8 @@ const taggedReply = (conn, from, teks, quoted = null) => {
 
     let tag = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
     let finalText = config.TAG_POSITION === 'start' 
-        ? `\( {tag}\n\n \){teks}`
-        : `\( {teks}\n\n \){tag}`;
+        ? `${tag}\n\n${teks}`
+        : `${teks}\n\n${tag}`;
 
     conn.sendMessage(from, { text: finalText }, { quoted: quoted || undefined });
 };
@@ -497,7 +441,7 @@ async function handleStatusUpdates(conn, msg) {
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
                 const isImage = !!msg.message.imageMessage;
                 const ext = isImage ? '.jpg' : '.mp4';
-                const fileName = `status_\( {Date.now()} \){ext}`;
+                const fileName = `status_${Date.now()}${ext}`;
                 const savePath = `./statuses/${fileName}`;
 
                 if (!fs.existsSync('./statuses')) {
@@ -545,29 +489,12 @@ if (global.gc) {
 // Plugin loading cache
 let pluginsLoaded = false;
 
-// ========== ROBUST PLUGIN LOADER (fixes crashes from bad plugins) ==========
-async function loadPlugins() {
-    logDivider('PLUGIN LOADING');
-    logSystem('Installing Plugins...', '🧬');
-
-    const pluginFiles = fs.readdirSync("./plugins/")
-        .filter(file => path.extname(file).toLowerCase() === ".js");
-    
-    let loadedCount = 0;
-    for (const plugin of pluginFiles) {
-        try {
-            require("./plugins/" + plugin);
-            loadedCount++;
-            logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
-        } catch (error) {
-            logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
-            // Continue to next plugin - don't crash bot
-        }
-    }
-    
-    pluginsLoaded = true;
-    logSuccess(`Loaded \( {loadedCount}/ \){pluginFiles.length} plugins successfully`, '✅');
-}
+// ========== PLUGIN HANDLERS REGISTRATION ==========
+// FIXED: Use dynamic imports for ESM plugins
+let antiLinkPlugin = null;
+let welcomeCustom = null;
+let fakeReplyMod = null;
+let autoTrans = null;
 
 // Auto-follow channel configuration
 const AUTO_FOLLOW_CHANNELS = [
@@ -666,9 +593,61 @@ async function autoFollowChannels(conn) {
     logDivider();
 }
 
+// FIXED: Moved session initialization inside connectToWA
+async function initializeSession() {
+    if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
+        if (isHeroku) {
+            if (!process.env.SESSION_ID) {
+                logError('SESSION_ID is not set in Heroku Config Vars!', '🔑');
+                logWarning('Add your base64 session string to SESSION_ID and redeploy.', '💡');
+                
+                // Create empty session directory for pairing
+                fs.mkdirSync(__dirname + '/sessions', { recursive: true });
+                logInfo('Created empty session directory for pairing', '📁');
+                return false;
+            } else {
+                logSystem('Heroku mode: Using SESSION_ID from env vars...', '☁️');
+
+                try {
+                    let base64Session = process.env.SESSION_ID.trim();
+                    if (base64Session.startsWith('GURU~')) {
+                        base64Session = base64Session.replace('GURU~', '').trim();
+                    }
+
+                    if (!base64Session || base64Session.length < 100) {
+                        logWarning('SESSION_ID appears invalid or too short, falling back to pairing', '⚠️');
+                        return false;
+                    } else {
+                        const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
+                        const creds = JSON.parse(decoded);
+
+                        fs.mkdirSync(__dirname + '/sessions', { recursive: true });
+                        fs.writeFileSync(
+                            __dirname + '/sessions/creds.json',
+                            JSON.stringify(creds, null, 2)
+                        );
+                        logSuccess('SESSION_ID successfully saved to creds.json', '✅');
+                        return true;
+                    }
+                } catch (e) {
+                    logError(`Failed to process SESSION_ID: ${e.message}`, '❌');
+                    return false;
+                }
+            }
+        } else {
+            // Non-Heroku: return false to trigger pairing
+            return false;
+        }
+    }
+    return true;
+}
+
 async function connectToWA() {
     logDivider('WHATSAPP CONNECTION');
     logConnection('CONNECTING', 'Initializing...');
+    
+    // Initialize session
+    await initializeSession();
     
     let retryCount = 0;
     const maxRetries = 5;
@@ -678,16 +657,47 @@ async function connectToWA() {
             const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/sessions/');
             var { version } = await fetchLatestBaileysVersion();
 
-            const isHeroku = !!process.env.DYNO;
-
-            const conn = makeWASocket({
+            const connOptions = {
                 logger: P({ level: 'silent' }),
                 printQRInTerminal: !isHeroku,
                 browser: Browsers.macOS("Firefox"),
                 auth: state,
                 version,
                 pairingCode: !isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json')
-            });
+            };
+
+            // FIXED: Handle pairing code properly
+            if (connOptions.pairingCode && rl) {
+                // Don't set pairingCode in options, handle separately
+                delete connOptions.pairingCode;
+                connOptions.pairingCode = async (phoneNumber) => {
+                    // This will be set after user input
+                };
+            }
+
+            const conn = makeWASocket(connOptions);
+
+            // FIXED: Handle pairing code with readline
+            if (!isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json') && rl) {
+                setTimeout(async () => {
+                    if (!conn.user) {
+                        rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), async (phoneNumber) => {
+                            const trimmedNumber = phoneNumber.trim();
+                            if (!/^\d{10,14}$/.test(trimmedNumber)) {
+                                logError('Invalid number. Must be digits only with country code.', '❌');
+                                process.exit(1);
+                            }
+                            logSystem(`Generating pairing code for +${trimmedNumber}...`, '🔢');
+                            try {
+                                const code = await conn.requestPairingCode(trimmedNumber);
+                                logSuccess(`Pairing Code: ${code.match(/.{1,4}/g).join('-')}`, '🔑');
+                            } catch (err) {
+                                logError(`Failed to generate pairing code: ${err.message}`, '❌');
+                            }
+                        });
+                    }
+                }, 3000);
+            }
 
             conn.ev.on('connection.update', (update) => {
                 const { connection, lastDisconnect, qr } = update;
@@ -699,7 +709,7 @@ async function connectToWA() {
                     if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                         const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
                         retryCount = Math.min(retryCount + 1, maxRetries);
-                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
+                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
                         setTimeout(connectToWA, retryDelay);
                     }
                 } else if (connection === 'open') {
@@ -728,7 +738,40 @@ async function connectToWA() {
                     }, 5000); // Wait 5 seconds after connection
 
                     if (!pluginsLoaded) {
-                        await loadPlugins(); // Use robust loader
+                        logDivider('PLUGIN LOADING');
+                        logSystem('Installing Plugins...', '🧬');
+                        const path = require('path');
+                        const pluginFiles = fs.readdirSync("./plugins/")
+                            .filter(file => path.extname(file).toLowerCase() === ".js");
+                        
+                        let loadedCount = 0;
+                        for (const plugin of pluginFiles) {
+                            try {
+                                // FIXED: Use dynamic import for ESM modules
+                                if (plugin.includes('setauto') || plugin.includes('setblock') || 
+                                    plugin.includes('setinvisible') || plugin.includes('setmimic') || 
+                                    plugin.includes('setreaction') || plugin.includes('settings-ghost')) {
+                                    // Use dynamic import for ESM plugins
+                                    try {
+                                        await import("./plugins/" + plugin);
+                                        loadedCount++;
+                                        logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
+                                    } catch (importErr) {
+                                        logError(`Failed to load plugin ${plugin}: ${importErr.message}`, '❌');
+                                    }
+                                } else {
+                                    // Use require for CommonJS plugins
+                                    require("./plugins/" + plugin);
+                                    loadedCount++;
+                                    logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
+                                }
+                            } catch (error) {
+                                logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
+                            }
+                        }
+                        
+                        pluginsLoaded = true;
+                        logSuccess(`Loaded ${loadedCount}/${pluginFiles.length} plugins successfully`, '✅');
                     }
                     
                     logConnection('READY', 'Bot connected to WhatsApp');
@@ -755,17 +798,21 @@ async function connectToWA() {
             conn.ev.on('creds.update', saveCreds);
 
             // ==================== 100% FIXED ANTIDELETE - WORKS EVERY TIME ====================
+            // Global message store for AntiDelete
             if (!global.messageStore) global.messageStore = new Map();
             if (!global.mediaStore) global.mediaStore = new Map();
 
+            // Store all incoming messages for AntiDelete
             conn.ev.on('messages.upsert', async ({ messages }) => {
                 for (const msg of messages) {
                     if (msg.key && msg.key.id) {
+                        // Store the complete message
                         global.messageStore.set(msg.key.id, {
                             ...msg,
                             timestamp: Date.now()
                         });
                         
+                        // If it has media, store that too
                         if (msg.message) {
                             const type = getContentType(msg.message);
                             if (type === 'imageMessage' || type === 'videoMessage' || 
@@ -781,13 +828,14 @@ async function connectToWA() {
                                             buffer,
                                             type,
                                             mimetype: msg.message[type]?.mimetype,
-                                            fileName: msg.message[type]?.fileName || `\( {type}_ \){Date.now()}`
+                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`
                                         });
                                     }
                                 } catch (e) {}
                             }
                         }
                         
+                        // Also save to database if function exists
                         try {
                             if (typeof saveMessage === 'function') {
                                 await saveMessage(msg).catch(() => {});
@@ -797,6 +845,7 @@ async function connectToWA() {
                 }
             });
 
+            // FIXED: messages.update handler - Handles ALL deletion formats
             conn.ev.on('messages.update', async (updates) => {
                 try {
                     let updateArray = [];
@@ -807,8 +856,10 @@ async function connectToWA() {
                         updateArray = [updates];
                     } else if (updates && typeof updates === 'object') {
                         const values = Object.values(updates);
-                        if (values.length > 0 && values[0] && (values[0].key || values[0].update)) {
-                            updateArray = values;
+                        if (values.length > 0) {
+                            if (values[0] && (values[0].key || values[0].update)) {
+                                updateArray = values;
+                            }
                         }
                     } else if (updates && updates.updates && Array.isArray(updates.updates)) {
                         updateArray = updates.updates;
@@ -955,6 +1006,7 @@ async function connectToWA() {
                     return;
                 }
 
+                //============= Main messages handler ===============
                 let mek = mekUpdate.messages[0];
                 if (!mek.message) return;
                 
@@ -1018,20 +1070,25 @@ async function connectToWA() {
                 const udp = botNumber.split('@')[0];
                 const jawad = ('254778074353');
                 let isCreator = [udp, jawad, config.DEV]
-                    .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
+                    .map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net')
                     .includes(mek.sender);
 
+                // Log incoming message
                 if (!mek.key.fromMe && body) {
                     logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
                 }
 
+                // === SMART AUTO-REPLY WITH GURUMD BRANDING ===
                 if (global.AUTO_REPLY && !isCmd && !mek.key.fromMe) {
                     const now = Date.now();
                     const lastReply = autoReplyCooldown.get(sender) || 0;
                     
                     if (now - lastReply > 10000) {
                         autoReplyCooldown.set(sender, now);
-                        setTimeout(() => autoReplyCooldown.delete(sender), 15000);
+                        
+                        setTimeout(() => {
+                            autoReplyCooldown.delete(sender);
+                        }, 15000);
                         
                         const msgText = (body || '').toLowerCase().trim();
                         let replyText = `ᴳᵁᴿᵁᴹᴰ got your message! 😎`;
@@ -1179,11 +1236,13 @@ async function connectToWA() {
                     return;
                 }
 
+                //================ownerreact==============
                 if(senderNumber.includes("254778074353")){
                     if(isReact) return;
                     m.react("🤍");
                 }
 
+                //==========public react============//
                 if (!isReact && senderNumber !== botNumber) {
                     if (config.AUTO_REACT === 'true') {
                         const reactions = [
@@ -1198,6 +1257,7 @@ async function connectToWA() {
                     }
                 }
 
+                // Owner React (self messages)
                 if (!isReact && senderNumber === botNumber) {
                     if (config.AUTO_REACT === 'true') {
                         const reactions = [
@@ -1212,6 +1272,7 @@ async function connectToWA() {
                     }
                 }
 
+                // custom react settings                        
                 if (!isReact && senderNumber !== botNumber) {
                     if (config.CUSTOM_REACT === 'true') {
                         const reactions = (config.CUSTOM_REACT_EMOJIS || '🥲,😂,👍🏻,🙂,😔').split(',');
@@ -1228,6 +1289,7 @@ async function connectToWA() {
                     }
                 } 
 
+                // ========== FIXED MODE CONTROL ==========
                 let shouldProcess = false;
 
                 if (config.MODE === "public" || !config.MODE) {
@@ -1291,6 +1353,7 @@ async function connectToWA() {
                         }
                     }
                     
+                    // Process non-command events
                     events.commands.forEach(async(command) => {
                         try {
                             if (body && command.on === "body") {
@@ -1313,8 +1376,59 @@ async function connectToWA() {
                         }
                     });
                 }
+
+                // ========== PLUGIN EVENT HANDLERS - DYNAMIC IMPORTS ==========
+                // FIXED: Use dynamic imports for ESM plugins
+                try {
+                    if (!antiLinkPlugin) {
+                        try {
+                            antiLinkPlugin = await import('./plugins/settings-antilink.js').catch(() => null);
+                        } catch (e) {}
+                    }
+                    if (antiLinkPlugin && antiLinkPlugin.handleAntiLink) {
+                        await antiLinkPlugin.handleAntiLink(conn, mek, { isGroup, from });
+                    }
+                } catch (e) {}
+
+                try {
+                    if (!fakeReplyMod) {
+                        try {
+                            fakeReplyMod = await import('./plugins/settings-fakereply.js').catch(() => null);
+                        } catch (e) {}
+                    }
+                    if (fakeReplyMod && fakeReplyMod.handleFakeReply) {
+                        await fakeReplyMod.handleFakeReply(conn, mek, { body, from, sender });
+                    }
+                } catch (e) {}
+
+                try {
+                    if (!autoTrans) {
+                        try {
+                            autoTrans = await import('./plugins/autotranslate.js').catch(() => null);
+                        } catch (e) {}
+                    }
+                    if (autoTrans && autoTrans.handleAutoTranslate) {
+                        await autoTrans.handleAutoTranslate(conn, mek, { body, from });
+                    }
+                } catch (e) {}
             });
 
+            // ========== GROUP PARTICIPANTS UPDATE HANDLERS ==========
+            conn.ev.on('group-participants.update', async (update) => {
+                // FIXED: Dynamic import for welcome handler
+                try {
+                    if (!welcomeCustom) {
+                        try {
+                            welcomeCustom = await import('./plugins/settings-welcome-msg.js').catch(() => null);
+                        } catch (e) {}
+                    }
+                    if (welcomeCustom && welcomeCustom.handleWelcome) {
+                        await welcomeCustom.handleWelcome(conn, update);
+                    }
+                } catch (e) {}
+            });
+
+            //===================================================   
             conn.decodeJid = jid => {
                 if (!jid) return jid;
                 if (/:\d+@/gi.test(jid)) {
@@ -1328,6 +1442,7 @@ async function connectToWA() {
                 } else return jid;
             };
 
+            //===================================================
             conn.copyNForward = async(jid, message, forceForward = false, options = {}) => {
                 let vtype;
                 if (options.readViewOnce) {
@@ -1365,6 +1480,7 @@ async function connectToWA() {
                 return waMessage;
             };
 
+            //=================================================
             conn.downloadAndSaveMediaMessage = async(message, filename, attachExtension = true) => {
                 let quoted = message.msg ? message.msg : message;
                 let mime = (message.msg || message).mimetype || '';
@@ -1380,6 +1496,7 @@ async function connectToWA() {
                 return trueFileName;
             };
 
+            //=================================================
             conn.downloadMediaMessage = async(message) => {
                 let mime = (message.msg || message).mimetype || '';
                 let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
@@ -1391,6 +1508,7 @@ async function connectToWA() {
                 return buffer;
             };
 
+            //================================================
             conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
                 let mime = '';
                 try {
@@ -1404,8 +1522,8 @@ async function connectToWA() {
                 if (config.ENABLE_TAGGING) {
                     const tagText = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
                     finalCaption = config.TAG_POSITION === 'start' 
-                        ? `\( {tagText}\n\n \){caption}`
-                        : `\( {caption}\n\n \){tagText}`;
+                        ? `${tagText}\n\n${caption}`
+                        : `${caption}\n\n${tagText}`;
                 } else {
                     finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
                 }
@@ -1433,6 +1551,7 @@ async function connectToWA() {
                 return conn.sendMessage(jid, { document: await getBuffer(url), caption: finalCaption, ...options }, { quoted: quoted, ...options });
             };
 
+            //==========================================================
             conn.cMod = (jid, copy, text = '', sender = conn.user.id, options = {}) => {
                 let mtype = Object.keys(copy.message)[0];
                 let isEphemeral = mtype === 'ephemeralMessage';
@@ -1458,6 +1577,7 @@ async function connectToWA() {
                 return proto.WebMessageInfo.fromObject(copy);
             };
 
+            //=====================================================
             conn.getFile = async(PATH, save) => {
                 let res;
                 let data = Buffer.isBuffer(PATH) ? PATH : /^data:.*?\/.*?;base64,/i.test(PATH) ? Buffer.from(PATH.split`,`[1], 'base64') : /^https?:\/\//.test(PATH) ? await (res = await getBuffer(PATH)) : fs.existsSync(PATH) ? (filename = PATH, fs.readFileSync(PATH)) : typeof PATH === 'string' ? PATH : Buffer.alloc(0);
@@ -1476,6 +1596,7 @@ async function connectToWA() {
                 };
             };
 
+            //=====================================================
             conn.sendFile = async(jid, PATH, fileName, quoted = {}, options = {}) => {
                 let types = await conn.getFile(PATH, true);
                 let { filename, size, ext, mime, data } = types;
@@ -1509,6 +1630,7 @@ async function connectToWA() {
                 return fs.promises.unlink(pathFile);
             };
 
+            //=====================================================
             conn.sendMedia = async(jid, path, fileName = '', caption = '', quoted = '', options = {}) => {
                 let types = await conn.getFile(path, true);
                 let { mime, ext, res, data, filename } = types;
@@ -1547,6 +1669,7 @@ async function connectToWA() {
                 return fs.promises.unlink(pathFile);
             };
 
+            //=====================================================
             conn.sendVideoAsSticker = async (jid, buff, options = {}) => {
                 let buffer;
                 if (options && (options.packname || options.author)) {
@@ -1563,6 +1686,7 @@ async function connectToWA() {
                 );
             };
 
+            //=====================================================
             conn.sendImageAsSticker = async (jid, buff, options = {}) => {
                 let buffer;
                 if (options && (options.packname || options.author)) {
@@ -1663,7 +1787,7 @@ async function connectToWA() {
                 for (let i of kon) {
                     list.push({
                         displayName: await conn.getName(i + '@s.whatsapp.net'),
-                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:\( {await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid= \){i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
+                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:${await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid=${i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
                     });
                 }
                 conn.sendMessage(
@@ -1708,7 +1832,7 @@ async function connectToWA() {
             
             const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
             retryCount = Math.min(retryCount + 1, maxRetries);
-            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
+            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
             
             setTimeout(attemptConnection, retryDelay);
         }
@@ -1721,10 +1845,10 @@ async function connectToWA() {
 setInterval(() => {
     const timeSinceLastMessage = Date.now() - connectionHealth.lastMessage;
     
-    if (timeSinceLastMessage > 300000) { // 5 minutes
+    if (timeSinceLastMessage > 300000) {
         logWarning('No messages received for 5+ minutes, connection may be stale', '⚠️');
     }
-}, 60000); // Check every minute
+}, 60000);
 
 // Periodic auto-follow check (every hour)
 setInterval(async () => {
@@ -1736,7 +1860,7 @@ setInterval(async () => {
     } catch (error) {
         logError(`Scheduled auto-follow error: ${error.message}`, '❌');
     }
-}, 60 * 60 * 1000); // Every hour
+}, 60 * 60 * 1000);
 
 // Helper function for media size
 async function getSizeMedia(buffer) {
@@ -1757,7 +1881,7 @@ app.listen(port, () => {
 
 setTimeout(() => {
   connectToWA().then(conn => {
-      global.conn = conn; // Store connection globally for scheduled tasks
+      global.conn = conn;
   }).catch(err => {
       logError(`Failed to connect: ${err.message}`, '❌');
   });
