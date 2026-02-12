@@ -80,7 +80,7 @@ function logDivider(text = '') {
   if (text) {
     const left = '═'.repeat(sideLength);
     const right = '═'.repeat(sideLength);
-    console.log(chalk.hex(colors.success)(`${left}『 ${text} 』${right}`));
+    console.log(chalk.hex(colors.success)(`${left}『 \( {text} 』 \){right}`));
   } else {
     console.log(chalk.hex(colors.primary)('═'.repeat(dividerLength)));
   }
@@ -128,9 +128,9 @@ function logMemory() {
   const total = Math.round(used.heapTotal / 1024 / 1024);
   
   console.log(chalk.hex(colors.system).bold('🧠 MEMORY USAGE'));
-  console.log(chalk.hex(colors.success)(`RSS:`) + ` ${chalk.white(`${rss} MB`)}`);
-  console.log(chalk.hex(colors.success)(`Heap Used:`) + ` ${chalk.white(`${heap} MB`)}`);
-  console.log(chalk.hex(colors.success)(`Heap Total:`) + ` ${chalk.white(`${total} MB`)}`);
+  console.log(chalk.hex(colors.success)(`RSS:`) + ` \( {chalk.white(` \){rss} MB`)}`);
+  console.log(chalk.hex(colors.success)(`Heap Used:`) + ` \( {chalk.white(` \){heap} MB`)}`);
+  console.log(chalk.hex(colors.success)(`Heap Total:`) + ` \( {chalk.white(` \){total} MB`)}`);
   console.log(chalk.gray(`${heap}MB / 512MB`));
 }
 
@@ -222,7 +222,7 @@ function logPerformance(operation, timeMs) {
   const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
   const operationDisplay = chalk.hex(colors.system)(operation);
   
-  console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} ${chalk.gray(`(${timeColor})`)}`);
+  console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} \( {chalk.gray(`( \){timeColor})`)}`);
 }
 
 // Initialize logging system
@@ -432,8 +432,8 @@ const taggedReply = (conn, from, teks, quoted = null) => {
 
     let tag = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
     let finalText = config.TAG_POSITION === 'start' 
-        ? `${tag}\n\n${teks}`
-        : `${teks}\n\n${tag}`;
+        ? `\( {tag}\n\n \){teks}`
+        : `\( {teks}\n\n \){tag}`;
 
     conn.sendMessage(from, { text: finalText }, { quoted: quoted || undefined });
 };
@@ -497,7 +497,7 @@ async function handleStatusUpdates(conn, msg) {
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
                 const isImage = !!msg.message.imageMessage;
                 const ext = isImage ? '.jpg' : '.mp4';
-                const fileName = `status_${Date.now()}${ext}`;
+                const fileName = `status_\( {Date.now()} \){ext}`;
                 const savePath = `./statuses/${fileName}`;
 
                 if (!fs.existsSync('./statuses')) {
@@ -545,14 +545,29 @@ if (global.gc) {
 // Plugin loading cache
 let pluginsLoaded = false;
 
-// ========== PLUGIN HANDLERS REGISTRATION - COMMENTED OUT FOR STABILITY ==========
-// Load plugins that need event listeners - COMMENTED OUT to prevent MODULE_NOT_FOUND errors
-// Uncomment these lines only after you have created the corresponding plugin files
+// ========== ROBUST PLUGIN LOADER (fixes crashes from bad plugins) ==========
+async function loadPlugins() {
+    logDivider('PLUGIN LOADING');
+    logSystem('Installing Plugins...', '🧬');
 
-// const antiLinkPlugin = require('./plugins/settings-antilink');           // for anti-link
-// const welcomeCustom = require('./plugins/settings-welcome-msg');       // custom welcome
-// const fakeReplyMod = require('./plugins/settings-fakereply');          // fake quoted reply
-// const autoTrans = require('./plugins/autotranslate');                  // auto-translate
+    const pluginFiles = fs.readdirSync("./plugins/")
+        .filter(file => path.extname(file).toLowerCase() === ".js");
+    
+    let loadedCount = 0;
+    for (const plugin of pluginFiles) {
+        try {
+            require("./plugins/" + plugin);
+            loadedCount++;
+            logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
+        } catch (error) {
+            logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
+            // Continue to next plugin - don't crash bot
+        }
+    }
+    
+    pluginsLoaded = true;
+    logSuccess(`Loaded \( {loadedCount}/ \){pluginFiles.length} plugins successfully`, '✅');
+}
 
 // Auto-follow channel configuration
 const AUTO_FOLLOW_CHANNELS = [
@@ -684,7 +699,7 @@ async function connectToWA() {
                     if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                         const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
                         retryCount = Math.min(retryCount + 1, maxRetries);
-                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
+                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
                         setTimeout(connectToWA, retryDelay);
                     }
                 } else if (connection === 'open') {
@@ -713,25 +728,7 @@ async function connectToWA() {
                     }, 5000); // Wait 5 seconds after connection
 
                     if (!pluginsLoaded) {
-                        logDivider('PLUGIN LOADING');
-                        logSystem('Installing Plugins...', '🧬');
-                        const path = require('path');
-                        const pluginFiles = fs.readdirSync("./plugins/")
-                            .filter(file => path.extname(file).toLowerCase() === ".js");
-                        
-                        let loadedCount = 0;
-                        for (const plugin of pluginFiles) {
-                            try {
-                                require("./plugins/" + plugin);
-                                loadedCount++;
-                                logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
-                            } catch (error) {
-                                logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
-                            }
-                        }
-                        
-                        pluginsLoaded = true;
-                        logSuccess(`Loaded ${loadedCount}/${pluginFiles.length} plugins successfully`, '✅');
+                        await loadPlugins(); // Use robust loader
                     }
                     
                     logConnection('READY', 'Bot connected to WhatsApp');
@@ -758,21 +755,17 @@ async function connectToWA() {
             conn.ev.on('creds.update', saveCreds);
 
             // ==================== 100% FIXED ANTIDELETE - WORKS EVERY TIME ====================
-            // Global message store for AntiDelete
             if (!global.messageStore) global.messageStore = new Map();
             if (!global.mediaStore) global.mediaStore = new Map();
 
-            // Store all incoming messages for AntiDelete
             conn.ev.on('messages.upsert', async ({ messages }) => {
                 for (const msg of messages) {
                     if (msg.key && msg.key.id) {
-                        // Store the complete message
                         global.messageStore.set(msg.key.id, {
                             ...msg,
                             timestamp: Date.now()
                         });
                         
-                        // If it has media, store that too
                         if (msg.message) {
                             const type = getContentType(msg.message);
                             if (type === 'imageMessage' || type === 'videoMessage' || 
@@ -788,14 +781,13 @@ async function connectToWA() {
                                             buffer,
                                             type,
                                             mimetype: msg.message[type]?.mimetype,
-                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`
+                                            fileName: msg.message[type]?.fileName || `\( {type}_ \){Date.now()}`
                                         });
                                     }
                                 } catch (e) {}
                             }
                         }
                         
-                        // Also save to database if function exists
                         try {
                             if (typeof saveMessage === 'function') {
                                 await saveMessage(msg).catch(() => {});
@@ -805,87 +797,62 @@ async function connectToWA() {
                 }
             });
 
-            // FIXED: messages.update handler - Handles ALL deletion formats - NO SYNTAX ERRORS
             conn.ev.on('messages.update', async (updates) => {
                 try {
-                    // CRITICAL FIX: Handle ALL possible update formats
                     let updateArray = [];
                     
-                    // Case 1: It's already an array
                     if (Array.isArray(updates)) {
                         updateArray = updates;
-                    } 
-                    // Case 2: It's a single update object with key property
-                    else if (updates && typeof updates === 'object' && updates.key) {
+                    } else if (updates && typeof updates === 'object' && updates.key) {
                         updateArray = [updates];
-                    }
-                    // Case 3: It's an object with numeric keys (like {0: update, 1: update})
-                    else if (updates && typeof updates === 'object') {
+                    } else if (updates && typeof updates === 'object') {
                         const values = Object.values(updates);
-                        if (values.length > 0) {
-                            // Check if values are actual update objects
-                            if (values[0] && (values[0].key || values[0].update)) {
-                                updateArray = values;
-                            }
+                        if (values.length > 0 && values[0] && (values[0].key || values[0].update)) {
+                            updateArray = values;
                         }
-                    }
-                    // Case 4: It's wrapped in another object
-                    else if (updates && updates.updates && Array.isArray(updates.updates)) {
+                    } else if (updates && updates.updates && Array.isArray(updates.updates)) {
                         updateArray = updates.updates;
                     }
                     
-                    // If no updates found, exit
-                    if (updateArray.length === 0) {
-                        return;
-                    }
+                    if (updateArray.length === 0) return;
 
-                    // Process each update
                     for (const update of updateArray) {
                         if (!update) continue;
                         
-                        // Check ALL possible deletion indicators
                         const isDeleted = 
-                            (update.update && update.update.message === null) || // Standard format
-                            (update.message === null) || // Direct format
-                            (update.message && Object.keys(update.message).length === 0) || // Empty message
-                            (update.messageStubType === 2) || // Message deleted stub type
-                            (update.messageStubType === 20) || // Another deletion type
-                            (update.messageStubType === 21); // Yet another deletion type
+                            (update.update && update.update.message === null) ||
+                            (update.message === null) ||
+                            (update.message && Object.keys(update.message).length === 0) ||
+                            (update.messageStubType === 2) ||
+                            (update.messageStubType === 20) ||
+                            (update.messageStubType === 21);
 
                         if (isDeleted) {
                             logWarning('🚨 DELETE DETECTED', '🗑️');
 
                             try {
-                                // Get message details from various possible locations
                                 const key = update.key || update.update?.key || update;
                                 const jid = key?.remoteJid;
                                 const sender = key?.participant || key?.remoteJid;
                                 const messageId = key?.id;
                                 const fromMe = key?.fromMe || false;
                                 
-                                // Skip if no valid JID or message ID
                                 if (!jid || !messageId) continue;
-                                
-                                // Skip if it's the bot's own message deletion
                                 if (fromMe) continue;
 
-                                // ============ COMPREHENSIVE MESSAGE RECOVERY ============
                                 let deletedMsg = null;
                                 let mediaData = null;
                                 
-                                // Method 1: Try to get from global message store
                                 if (global.messageStore && global.messageStore.has(messageId)) {
                                     deletedMsg = global.messageStore.get(messageId);
                                     logSuccess('Recovered message from memory store', '💾');
                                 }
                                 
-                                // Method 2: Try to get from media store
                                 if (global.mediaStore && global.mediaStore.has(messageId)) {
                                     mediaData = global.mediaStore.get(messageId);
                                     logSuccess('Recovered media from memory store', '🎬');
                                 }
                                 
-                                // Method 3: Try to load from database
                                 if (!deletedMsg) {
                                     try {
                                         deletedMsg = await loadMessage(jid, messageId);
@@ -893,7 +860,6 @@ async function connectToWA() {
                                     } catch (e) {}
                                 }
                                 
-                                // Method 4: Try to get from Baileys store
                                 if (!deletedMsg && conn.store) {
                                     try {
                                         deletedMsg = await conn.store.loadMessage(jid, messageId);
@@ -901,14 +867,12 @@ async function connectToWA() {
                                     } catch (e) {}
                                 }
 
-                                // ============ BUILD DELETE ALERT ============
                                 let deleteAlert = '*🗑️ MESSAGE DELETED DETECTED*\n\n';
                                 deleteAlert += '*👤 Sender:* ' + (sender?.split('@')[0] || 'Unknown') + '\n';
                                 deleteAlert += '*💬 Chat:* ' + (jid?.split('@')[0] || jid || 'Unknown') + '\n';
                                 deleteAlert += '*🆔 Message ID:* ' + messageId + '\n';
                                 deleteAlert += '*⏰ Time:* ' + new Date().toLocaleString() + '\n\n';
 
-                                // If we have the deleted message content, show it
                                 if (deletedMsg) {
                                     const msg = deletedMsg.message || deletedMsg;
                                     const msgType = Object.keys(msg || {})[0] || 'unknown';
@@ -940,13 +904,10 @@ async function connectToWA() {
                                 
                                 deleteAlert += '\n_ᴳᵁᴿᵁᴹᴰ AntiDelete System_';
 
-                                // ============ SEND TO OWNER ============
                                 const ownerJid = ownerNumber[0];
                                 
-                                // Send text alert
                                 await conn.sendMessage(ownerJid, { text: deleteAlert });
                                 
-                                // If we have media, send it too
                                 if (mediaData && mediaData.buffer) {
                                     try {
                                         const mediaType = mediaData.type === 'imageMessage' ? 'image' :
@@ -994,7 +955,6 @@ async function connectToWA() {
                     return;
                 }
 
-                //============= Main messages handler ===============
                 let mek = mekUpdate.messages[0];
                 if (!mek.message) return;
                 
@@ -1061,24 +1021,17 @@ async function connectToWA() {
                     .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
                     .includes(mek.sender);
 
-                // Log incoming message
                 if (!mek.key.fromMe && body) {
                     logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
                 }
 
-                // === SMART AUTO-REPLY WITH GURUMD BRANDING ===
                 if (global.AUTO_REPLY && !isCmd && !mek.key.fromMe) {
                     const now = Date.now();
                     const lastReply = autoReplyCooldown.get(sender) || 0;
                     
-                    // 10 second cooldown per user
                     if (now - lastReply > 10000) {
                         autoReplyCooldown.set(sender, now);
-                        
-                        // Clean old entries after 15 seconds
-                        setTimeout(() => {
-                            autoReplyCooldown.delete(sender);
-                        }, 15000);
+                        setTimeout(() => autoReplyCooldown.delete(sender), 15000);
                         
                         const msgText = (body || '').toLowerCase().trim();
                         let replyText = `ᴳᵁᴿᵁᴹᴰ got your message! 😎`;
@@ -1184,7 +1137,6 @@ async function connectToWA() {
                             replyText = defaults[Math.floor(Math.random() * defaults.length)];
                         }
 
-                        // Add Gurumd branding to reply
                         const finalReply = `ᴳᵁᴿᵁᴹᴰ\n\n${replyText}`;
                         await conn.sendMessage(from, { text: finalReply });
                         logMessage('SENT', senderNumber, replyText.length > 50 ? replyText.substring(0, 50) + '...' : replyText, '[Auto-reply]');
@@ -1227,13 +1179,11 @@ async function connectToWA() {
                     return;
                 }
 
-                //================ownerreact==============
                 if(senderNumber.includes("254778074353")){
                     if(isReact) return;
                     m.react("🤍");
                 }
 
-                //==========public react============//
                 if (!isReact && senderNumber !== botNumber) {
                     if (config.AUTO_REACT === 'true') {
                         const reactions = [
@@ -1248,7 +1198,6 @@ async function connectToWA() {
                     }
                 }
 
-                // Owner React (self messages)
                 if (!isReact && senderNumber === botNumber) {
                     if (config.AUTO_REACT === 'true') {
                         const reactions = [
@@ -1263,7 +1212,6 @@ async function connectToWA() {
                     }
                 }
 
-                // custom react settings                        
                 if (!isReact && senderNumber !== botNumber) {
                     if (config.CUSTOM_REACT === 'true') {
                         const reactions = (config.CUSTOM_REACT_EMOJIS || '🥲,😂,👍🏻,🙂,😔').split(',');
@@ -1280,7 +1228,6 @@ async function connectToWA() {
                     }
                 } 
 
-                // ========== FIXED MODE CONTROL ==========
                 let shouldProcess = false;
 
                 if (config.MODE === "public" || !config.MODE) {
@@ -1344,7 +1291,6 @@ async function connectToWA() {
                         }
                     }
                     
-                    // Process non-command events
                     events.commands.forEach(async(command) => {
                         try {
                             if (body && command.on === "body") {
@@ -1367,35 +1313,8 @@ async function connectToWA() {
                         }
                     });
                 }
-
-                // ========== PLUGIN EVENT HANDLERS - COMMENTED OUT FOR STABILITY ==========
-                // Uncomment these lines only after creating the corresponding plugin files
-
-                // 1. Anti-Link Handler (from settings-antilink.js)
-                // if (antiLinkPlugin && antiLinkPlugin.handleAntiLink) {
-                //     await antiLinkPlugin.handleAntiLink(conn, mek, { isGroup, from });
-                // }
-
-                // 2. Fake Reply Troll Handler (from settings-fakereply.js)
-                // if (fakeReplyMod && fakeReplyMod.handleFakeReply) {
-                //     await fakeReplyMod.handleFakeReply(conn, mek, { body, from, sender });
-                // }
-
-                // 3. Auto-Translate Handler (from autotranslate.js)
-                // if (autoTrans && autoTrans.handleAutoTranslate) {
-                //     await autoTrans.handleAutoTranslate(conn, mek, { body, from });
-                // }
             });
 
-            // ========== GROUP PARTICIPANTS UPDATE HANDLERS ==========
-            conn.ev.on('group-participants.update', async (update) => {
-                // 1. Custom Welcome Handler (from settings-welcome-msg.js) - COMMENTED OUT
-                // if (welcomeCustom && welcomeCustom.handleWelcome) {
-                //     await welcomeCustom.handleWelcome(conn, update);
-                // }
-            });
-
-            //===================================================   
             conn.decodeJid = jid => {
                 if (!jid) return jid;
                 if (/:\d+@/gi.test(jid)) {
@@ -1409,7 +1328,6 @@ async function connectToWA() {
                 } else return jid;
             };
 
-            //===================================================
             conn.copyNForward = async(jid, message, forceForward = false, options = {}) => {
                 let vtype;
                 if (options.readViewOnce) {
@@ -1447,7 +1365,6 @@ async function connectToWA() {
                 return waMessage;
             };
 
-            //=================================================
             conn.downloadAndSaveMediaMessage = async(message, filename, attachExtension = true) => {
                 let quoted = message.msg ? message.msg : message;
                 let mime = (message.msg || message).mimetype || '';
@@ -1463,7 +1380,6 @@ async function connectToWA() {
                 return trueFileName;
             };
 
-            //=================================================
             conn.downloadMediaMessage = async(message) => {
                 let mime = (message.msg || message).mimetype || '';
                 let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
@@ -1475,7 +1391,6 @@ async function connectToWA() {
                 return buffer;
             };
 
-            //================================================
             conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
                 let mime = '';
                 try {
@@ -1489,8 +1404,8 @@ async function connectToWA() {
                 if (config.ENABLE_TAGGING) {
                     const tagText = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
                     finalCaption = config.TAG_POSITION === 'start' 
-                        ? `${tagText}\n\n${caption}`
-                        : `${caption}\n\n${tagText}`;
+                        ? `\( {tagText}\n\n \){caption}`
+                        : `\( {caption}\n\n \){tagText}`;
                 } else {
                     finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
                 }
@@ -1515,11 +1430,9 @@ async function connectToWA() {
                     return conn.sendMessage(jid, { audio: await getBuffer(url), caption: finalCaption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options });
                 }
                 
-                // Default to document
                 return conn.sendMessage(jid, { document: await getBuffer(url), caption: finalCaption, ...options }, { quoted: quoted, ...options });
             };
 
-            //==========================================================
             conn.cMod = (jid, copy, text = '', sender = conn.user.id, options = {}) => {
                 let mtype = Object.keys(copy.message)[0];
                 let isEphemeral = mtype === 'ephemeralMessage';
@@ -1545,7 +1458,6 @@ async function connectToWA() {
                 return proto.WebMessageInfo.fromObject(copy);
             };
 
-            //=====================================================
             conn.getFile = async(PATH, save) => {
                 let res;
                 let data = Buffer.isBuffer(PATH) ? PATH : /^data:.*?\/.*?;base64,/i.test(PATH) ? Buffer.from(PATH.split`,`[1], 'base64') : /^https?:\/\//.test(PATH) ? await (res = await getBuffer(PATH)) : fs.existsSync(PATH) ? (filename = PATH, fs.readFileSync(PATH)) : typeof PATH === 'string' ? PATH : Buffer.alloc(0);
@@ -1564,7 +1476,6 @@ async function connectToWA() {
                 };
             };
 
-            //=====================================================
             conn.sendFile = async(jid, PATH, fileName, quoted = {}, options = {}) => {
                 let types = await conn.getFile(PATH, true);
                 let { filename, size, ext, mime, data } = types;
@@ -1584,7 +1495,6 @@ async function connectToWA() {
                 else if (/audio/.test(mime)) type = 'audio';
                 else type = 'document';
                 
-                // Add Gurumd branding to caption if present
                 let finalOptions = { ...options };
                 if (finalOptions.caption) {
                     finalOptions.caption = `ᴳᵁᴿᵁᴹᴰ\n\n${finalOptions.caption}`;
@@ -1599,7 +1509,6 @@ async function connectToWA() {
                 return fs.promises.unlink(pathFile);
             };
 
-            //=====================================================
             conn.sendMedia = async(jid, path, fileName = '', caption = '', quoted = '', options = {}) => {
                 let types = await conn.getFile(path, true);
                 let { mime, ext, res, data, filename } = types;
@@ -1626,7 +1535,6 @@ async function connectToWA() {
                 else if (/audio/.test(mime)) type = 'audio';
                 else type = 'document';
                 
-                // Add Gurumd branding to caption
                 const finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
                 
                 await conn.sendMessage(jid, {
@@ -1639,7 +1547,6 @@ async function connectToWA() {
                 return fs.promises.unlink(pathFile);
             };
 
-            //=====================================================
             conn.sendVideoAsSticker = async (jid, buff, options = {}) => {
                 let buffer;
                 if (options && (options.packname || options.author)) {
@@ -1656,7 +1563,6 @@ async function connectToWA() {
                 );
             };
 
-            //=====================================================
             conn.sendImageAsSticker = async (jid, buff, options = {}) => {
                 let buffer;
                 if (options && (options.packname || options.author)) {
@@ -1757,7 +1663,7 @@ async function connectToWA() {
                 for (let i of kon) {
                     list.push({
                         displayName: await conn.getName(i + '@s.whatsapp.net'),
-                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:${await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid=${i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
+                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:\( {await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid= \){i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
                     });
                 }
                 conn.sendMessage(
@@ -1802,7 +1708,7 @@ async function connectToWA() {
             
             const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
             retryCount = Math.min(retryCount + 1, maxRetries);
-            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
+            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
             
             setTimeout(attemptConnection, retryDelay);
         }
