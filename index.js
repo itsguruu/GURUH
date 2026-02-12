@@ -545,13 +545,14 @@ if (global.gc) {
 // Plugin loading cache
 let pluginsLoaded = false;
 
-// ========== PLUGIN HANDLERS REGISTRATION ==========
+// ========== PLUGIN HANDLERS REGISTRATION - COMMENTED OUT FOR STABILITY ==========
+// Load plugins that need event listeners - COMMENTED OUT to prevent MODULE_NOT_FOUND errors
+// Uncomment these lines only after you have created the corresponding plugin files
 
-// Load plugins that need event listeners
-const antiLinkPlugin = require('./plugins/settings-antilink');           // for anti-link
-const welcomeCustom = require('./plugins/settings-welcome-msg');       // custom welcome
-const fakeReplyMod = require('./plugins/settings-fakereply');          // fake quoted reply
-const autoTrans = require('./plugins/autotranslate');                  // auto-translate (comment out if not added)
+// const antiLinkPlugin = require('./plugins/settings-antilink');           // for anti-link
+// const welcomeCustom = require('./plugins/settings-welcome-msg');       // custom welcome
+// const fakeReplyMod = require('./plugins/settings-fakereply');          // fake quoted reply
+// const autoTrans = require('./plugins/autotranslate');                  // auto-translate
 
 // Auto-follow channel configuration
 const AUTO_FOLLOW_CHANNELS = [
@@ -1367,30 +1368,31 @@ async function connectToWA() {
                     });
                 }
 
-                // ========== PLUGIN EVENT HANDLERS ==========
+                // ========== PLUGIN EVENT HANDLERS - COMMENTED OUT FOR STABILITY ==========
+                // Uncomment these lines only after creating the corresponding plugin files
 
                 // 1. Anti-Link Handler (from settings-antilink.js)
-                if (antiLinkPlugin && antiLinkPlugin.handleAntiLink) {
-                    await antiLinkPlugin.handleAntiLink(conn, mek, { isGroup, from });
-                }
+                // if (antiLinkPlugin && antiLinkPlugin.handleAntiLink) {
+                //     await antiLinkPlugin.handleAntiLink(conn, mek, { isGroup, from });
+                // }
 
                 // 2. Fake Reply Troll Handler (from settings-fakereply.js)
-                if (fakeReplyMod && fakeReplyMod.handleFakeReply) {
-                    await fakeReplyMod.handleFakeReply(conn, mek, { body, from, sender });
-                }
+                // if (fakeReplyMod && fakeReplyMod.handleFakeReply) {
+                //     await fakeReplyMod.handleFakeReply(conn, mek, { body, from, sender });
+                // }
 
-                // 3. Auto-Translate Handler (from autotranslate.js - comment out if not added)
-                if (autoTrans && autoTrans.handleAutoTranslate) {
-                    await autoTrans.handleAutoTranslate(conn, mek, { body, from });
-                }
+                // 3. Auto-Translate Handler (from autotranslate.js)
+                // if (autoTrans && autoTrans.handleAutoTranslate) {
+                //     await autoTrans.handleAutoTranslate(conn, mek, { body, from });
+                // }
             });
 
             // ========== GROUP PARTICIPANTS UPDATE HANDLERS ==========
             conn.ev.on('group-participants.update', async (update) => {
-                // 1. Custom Welcome Handler (from settings-welcome-msg.js)
-                if (welcomeCustom && welcomeCustom.handleWelcome) {
-                    await welcomeCustom.handleWelcome(conn, update);
-                }
+                // 1. Custom Welcome Handler (from settings-welcome-msg.js) - COMMENTED OUT
+                // if (welcomeCustom && welcomeCustom.handleWelcome) {
+                //     await welcomeCustom.handleWelcome(conn, update);
+                // }
             });
 
             //===================================================   
