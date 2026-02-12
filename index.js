@@ -804,7 +804,7 @@ async function connectToWA() {
                 }
             });
 
-            // FIXED: messages.update handler - Handles ALL deletion formats
+            // FIXED: messages.update handler - Handles ALL deletion formats - NO SYNTAX ERRORS
             conn.ev.on('messages.update', async (updates) => {
                 try {
                     // CRITICAL FIX: Handle ALL possible update formats
@@ -901,11 +901,11 @@ async function connectToWA() {
                                 }
 
                                 // ============ BUILD DELETE ALERT ============
-                                let deleteAlert = `*🗑️ MESSAGE DELETED DETECTED*\n\n`;
-                                deleteAlert += `*👤 Sender:* ${sender?.split('@')[0] || 'Unknown'}\n`;
-                                deleteAlert += `*💬 Chat:* ${jid?.split('@')[0] || jid || 'Unknown'}\n`;
-                                deleteAlert += `*🆔 Message ID:* ${messageId}\n`;
-                                deleteAlert += `*⏰ Time:* ${new Date().toLocaleString()}\n\n`;
+                                let deleteAlert = '*🗑️ MESSAGE DELETED DETECTED*\n\n';
+                                deleteAlert += '*👤 Sender:* ' + (sender?.split('@')[0] || 'Unknown') + '\n';
+                                deleteAlert += '*💬 Chat:* ' + (jid?.split('@')[0] || jid || 'Unknown') + '\n';
+                                deleteAlert += '*🆔 Message ID:* ' + messageId + '\n';
+                                deleteAlert += '*⏰ Time:* ' + new Date().toLocaleString() + '\n\n';
 
                                 // If we have the deleted message content, show it
                                 if (deletedMsg) {
@@ -913,31 +913,31 @@ async function connectToWA() {
                                     const msgType = Object.keys(msg || {})[0] || 'unknown';
                                     const msgContent = msg?.[msgType];
                                     
-                                    deleteAlert += `*📄 Deleted Content:*\n`;
+                                    deleteAlert += '*📄 Deleted Content:*\n';
                                     
                                     if (msgType === 'conversation') {
-                                        deleteAlert += `💬 "${msgContent || 'No text'"}\n`;
+                                        deleteAlert += '💬 "' + (msgContent || 'No text') + '"\n';
                                     } else if (msgType === 'extendedTextMessage') {
-                                        deleteAlert += `💬 "${msgContent?.text || msgContent || 'No text'"}\n`;
+                                        deleteAlert += '💬 "' + (msgContent?.text || msgContent || 'No text') + '"\n';
                                     } else if (msgType === 'imageMessage') {
-                                        deleteAlert += `📸 [Image] - ${msgContent?.caption || 'No caption'}\n`;
+                                        deleteAlert += '📸 [Image] - ' + (msgContent?.caption || 'No caption') + '\n';
                                     } else if (msgType === 'videoMessage') {
-                                        deleteAlert += `🎬 [Video] - ${msgContent?.caption || 'No caption'}\n`;
+                                        deleteAlert += '🎬 [Video] - ' + (msgContent?.caption || 'No caption') + '\n';
                                     } else if (msgType === 'audioMessage') {
-                                        deleteAlert += `🎵 [Audio]\n`;
+                                        deleteAlert += '🎵 [Audio]\n';
                                     } else if (msgType === 'stickerMessage') {
-                                        deleteAlert += `🩹 [Sticker]\n`;
+                                        deleteAlert += '🩹 [Sticker]\n';
                                     } else if (msgType === 'documentMessage') {
-                                        deleteAlert += `📄 [Document] - ${msgContent?.fileName || 'Unknown'}\n`;
+                                        deleteAlert += '📄 [Document] - ' + (msgContent?.fileName || 'Unknown') + '\n';
                                     } else {
-                                        deleteAlert += `[${msgType}]\n`;
+                                        deleteAlert += '[' + msgType + ']\n';
                                     }
                                 } else {
-                                    deleteAlert += `*⚠️ Could not recover message content*\n`;
-                                    deleteAlert += `_The message was deleted before it could be saved._\n`;
+                                    deleteAlert += '*⚠️ Could not recover message content*\n';
+                                    deleteAlert += '_The message was deleted before it could be saved._\n';
                                 }
                                 
-                                deleteAlert += `\n_ᴳᵁᴿᵁᴹᴰ AntiDelete System_`;
+                                deleteAlert += '\n_ᴳᵁᴿᵁᴹᴰ AntiDelete System_';
 
                                 // ============ SEND TO OWNER ============
                                 const ownerJid = ownerNumber[0];
@@ -954,28 +954,28 @@ async function connectToWA() {
                                                         mediaData.type === 'stickerMessage' ? 'sticker' : 'document';
                                         
                                         const msgOptions = {
-                                            caption: `📎 *Recovered ${mediaType.toUpperCase()} from deleted message*\n👤 From: ${sender?.split('@')[0] || 'Unknown'}\n⏰ ${new Date().toLocaleString()}`,
+                                            caption: '📎 *Recovered ' + mediaType.toUpperCase() + ' from deleted message*\n👤 From: ' + (sender?.split('@')[0] || 'Unknown') + '\n⏰ ' + new Date().toLocaleString(),
                                             mimetype: mediaData.mimetype
                                         };
                                         
                                         msgOptions[mediaType] = mediaData.buffer;
                                         
                                         await conn.sendMessage(ownerJid, msgOptions);
-                                        logSuccess(`Recovered ${mediaType} media sent to owner`, '📎');
+                                        logSuccess('Recovered ' + mediaType + ' media sent to owner', '📎');
                                     } catch (mediaErr) {
-                                        logError(`Failed to send recovered media: ${mediaErr.message}`, '❌');
+                                        logError('Failed to send recovered media: ' + mediaErr.message, '❌');
                                     }
                                 }
                                 
                                 logSuccess('AntiDelete alert sent to owner', '✅');
                                 
                             } catch (err) {
-                                logError(`AntiDelete processing failed: ${err.message}`, '❌');
+                                logError('AntiDelete processing failed: ' + err.message, '❌');
                             }
                         }
                     }
                 } catch (error) {
-                    logError(`messages.update handler error: ${error.message}`, '❌');
+                    logError('messages.update handler error: ' + error.message, '❌');
                 }
             });
 
