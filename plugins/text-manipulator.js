@@ -1,141 +1,179 @@
+// plugins/text-manipulator.js
+// Self-registering advanced text tools — no index.js changes needed
+
 const axios = require('axios');
 const crypto = require('crypto');
 
-module.exports = {
-    name: "Text Manipulator",
-    alias: ["text", "style", "fancy", "reverse", "capitalize", "lowercase", "uppercase", "bold", "italic", "strike", "monospace", "hash", "base64", "translate", "count"],
-    desc: "Advanced text manipulation tools",
-    category: "Tools",
-    usage: ".text <style> <text>",
-    react: "✍️",
-    start: async (conn, m, { text, prefix, reply, args }) => {
-        if (!text) return reply(`❌ Please specify text style!\n\n*Styles:*\n▸ fancy / style - Fancy text\n▸ reverse - Reverse text\n▸ uppercase / caps\n▸ lowercase\n▸ capitalize\n▸ bold - Bold text\n▸ italic - Italic text\n▸ strike - Strikethrough\n▸ monospace\n▸ hash - Generate hash\n▸ base64 encode/decode\n▸ count - Count characters\n▸ translate - Translate text\n\nExample: ${prefix}text fancy Hello World`);
-
-        const subCmd = args[0]?.toLowerCase();
-        const inputText = args.slice(1).join(' ');
-        
-        if (!inputText && subCmd !== 'hash' && subCmd !== 'base64') {
-            return reply(`❌ Please provide text to manipulate!`);
+// Helper: Wait until global.conn is ready
+const waitForConn = (callback) => {
+    if (global.conn) return callback(global.conn);
+    const interval = setInterval(() => {
+        if (global.conn) {
+            clearInterval(interval);
+            callback(global.conn);
         }
-        
+    }, 1000); // Check every second
+};
+
+waitForConn((conn) => {
+    console.log('[TextManipulator] Activated — ready for fancy text, reverse, bold, hash, etc.');
+
+    conn.ev.on('messages.upsert', async ({ messages }) => {
+        const mek = messages[0];
+        if (!mek?.message) return;
+
+        const from = mek.key.remoteJid;
+        const body = (
+            mek.message.conversation ||
+            mek.message.extendedTextMessage?.text ||
+            ""
+        ).trim();
+
+        // Supported command prefixes
+        const prefixes = [
+            '.text', '.style', '.fancy', '.reverse', '.capitalize', '.lowercase', '.uppercase',
+            '.bold', '.italic', '.strike', '.monospace', '.hash', '.base64', '.translate', '.count'
+        ];
+        const usedPrefix = prefixes.find(p => body.toLowerCase().startsWith(p));
+        if (!usedPrefix) return;
+
+        const text = body.slice(usedPrefix.length).trim();
+        const cmd = usedPrefix.replace('.', '').toLowerCase();
+
+        // Quick reply helper
+        const reply = async (msg) => {
+            await conn.sendMessage(from, { text: msg }, { quoted: mek });
+        };
+
+        if (!text && !['hash', 'base64'].includes(cmd)) {
+            return reply(`❌ Please provide text to manipulate!\n\n*Available Styles:*\n` +
+                `▸ fancy / style\n▸ reverse\n▸ uppercase / caps\n▸ lowercase\n▸ capitalize\n` +
+                `▸ bold\n▸ italic\n▸ strike\n▸ monospace\n▸ hash\n▸ base64 [encode/decode]\n` +
+                `▸ count\n▸ translate\n\nExample: ${usedPrefix} Hello World`);
+        }
+
         try {
             let result = '';
             let type = '';
-            
-            switch(subCmd) {
+
+            switch (cmd) {
                 case 'fancy':
                 case 'style':
-                    result = fancyText(inputText);
+                    result = fancyText(text);
                     type = 'Fancy Text';
                     break;
-                    
+
                 case 'reverse':
-                    result = inputText.split('').reverse().join('');
+                    result = text.split('').reverse().join('');
                     type = 'Reversed Text';
                     break;
-                    
+
                 case 'uppercase':
                 case 'caps':
-                    result = inputText.toUpperCase();
+                    result = text.toUpperCase();
                     type = 'Uppercase';
                     break;
-                    
+
                 case 'lowercase':
-                    result = inputText.toLowerCase();
+                    result = text.toLowerCase();
                     type = 'Lowercase';
                     break;
-                    
+
                 case 'capitalize':
-                    result = inputText.split(' ').map(word => 
-                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                    ).join(' ');
+                    result = text.split(' ')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                        .join(' ');
                     type = 'Capitalized';
                     break;
-                    
+
                 case 'bold':
-                    result = convertToBold(inputText);
+                    result = convertToBold(text);
                     type = 'Bold Text';
                     break;
-                    
+
                 case 'italic':
-                    result = convertToItalic(inputText);
+                    result = convertToItalic(text);
                     type = 'Italic Text';
                     break;
-                    
+
                 case 'strike':
-                    result = inputText.split('').join('̶') + '̶';
+                    result = text.split('').join('̶') + '̶';
                     type = 'Strikethrough';
                     break;
-                    
+
                 case 'monospace':
-                    result = '```' + inputText + '```';
+                    result = '```' + text + '```';
                     type = 'Monospace';
                     break;
-                    
+
                 case 'hash':
-                    result = generateHash(inputText || crypto.randomBytes(16).toString('hex'));
-                    type = 'Hash (SHA256)';
+                    const hashInput = text || crypto.randomBytes(16).toString('hex');
+                    result = crypto.createHash('sha256').update(hashInput).digest('hex');
+                    type = 'SHA256 Hash';
                     break;
-                    
+
                 case 'base64':
-                    if (args[1] === 'encode') {
-                        result = Buffer.from(args.slice(2).join(' ')).toString('base64');
+                    const sub = text.split(' ')[0]?.toLowerCase();
+                    const content = text.split(' ').slice(1).join(' ');
+                    if (sub === 'encode' || !sub) {
+                        result = Buffer.from(content || text).toString('base64');
                         type = 'Base64 Encode';
-                    } else if (args[1] === 'decode') {
-                        result = Buffer.from(args.slice(2).join(' '), 'base64').toString('utf-8');
+                    } else if (sub === 'decode') {
+                        result = Buffer.from(content || text, 'base64').toString('utf-8');
                         type = 'Base64 Decode';
                     } else {
-                        result = Buffer.from(inputText).toString('base64');
+                        result = Buffer.from(text).toString('base64');
                         type = 'Base64 Encode';
                     }
                     break;
-                    
+
                 case 'count':
-                    const chars = inputText.length;
-                    const words = inputText.split(/\s+/).filter(w => w.length > 0).length;
-                    const lines = inputText.split('\n').length;
-                    const spaces = (inputText.match(/\s/g) || []).length;
-                    
+                    const chars = text.length;
+                    const words = text.split(/\s+/).filter(w => w.length > 0).length;
+                    const lines = text.split('\n').length;
+                    const spaces = (text.match(/\s/g) || []).length;
+
                     result = `Characters: ${chars}\nWords: ${words}\nLines: ${lines}\nSpaces: ${spaces}`;
                     type = 'Text Statistics';
                     break;
-                    
-                case 'translate':
-                    result = await translateText(inputText);
-                    type = 'Translation';
-                    break;
-                    
-                default:
-                    return reply('❌ Unknown text style!');
-            }
-            
-            const caption = `*✍️ ${type}*\n\n${result}\n\n_ᴳᵁᴿᵁᴹᴰ Text Tools_`;
-            
-            await conn.sendMessage(m.from, { text: caption }, { quoted: m });
-            
-        } catch (error) {
-            console.error('[Text Error]:', error);
-            reply(`❌ Text manipulation failed: ${error.message}`);
-        }
-    }
-};
 
-// Fancy text styles
+                case 'translate':
+                    result = await translateText(text);
+                    type = 'Translated Text (to English)';
+                    break;
+
+                default:
+                    return reply('❌ Unknown text command! Use `.text` to see all options.');
+            }
+
+            const caption = `*✍️ \( {type}*\n\n \){result}\n\n_ᴳᵁᴿᵁᴹᴰ Text Tools_`;
+
+            await conn.sendMessage(from, { text: caption }, { quoted: mek });
+
+        } catch (error) {
+            console.error('[TextManipulator Error]:', error);
+            await reply(`❌ Text manipulation failed: ${error.message || 'Unknown error'}`);
+        }
+    });
+});
+
+// ─────────────── Helper Functions ───────────────
+
+// Fancy/small caps text
 function fancyText(text) {
     const fancyMap = {
-        'a': 'ᴀ', 'b': 'ʙ', 'c': 'ᴄ', 'd': 'ᴅ', 'e': 'ᴇ', 'f': 'ғ', 'g': 'ɢ', 'h': 'ʜ', 
-        'i': 'ɪ', 'j': 'ᴊ', 'k': 'ᴋ', 'l': 'ʟ', 'm': 'ᴍ', 'n': 'ɴ', 'o': 'ᴏ', 'p': 'ᴘ', 
-        'q': 'ǫ', 'r': 'ʀ', 's': 's', 't': 'ᴛ', 'u': 'ᴜ', 'v': 'ᴠ', 'w': 'ᴡ', 'x': 'x', 
-        'y': 'ʏ', 'z': 'ᴢ', 'A': 'ᴀ', 'B': 'ʙ', 'C': 'ᴄ', 'D': 'ᴅ', 'E': 'ᴇ', 'F': 'ғ', 
-        'G': 'ɢ', 'H': 'ʜ', 'I': 'ɪ', 'J': 'ᴊ', 'K': 'ᴋ', 'L': 'ʟ', 'M': 'ᴍ', 'N': 'ɴ', 
-        'O': 'ᴏ', 'P': 'ᴘ', 'Q': 'ǫ', 'R': 'ʀ', 'S': 's', 'T': 'ᴛ', 'U': 'ᴜ', 'V': 'ᴠ', 
+        'a': 'ᴀ', 'b': 'ʙ', 'c': 'ᴄ', 'd': 'ᴅ', 'e': 'ᴇ', 'f': 'ғ', 'g': 'ɢ', 'h': 'ʜ',
+        'i': 'ɪ', 'j': 'ᴊ', 'k': 'ᴋ', 'l': 'ʟ', 'm': 'ᴍ', 'n': 'ɴ', 'o': 'ᴏ', 'p': 'ᴘ',
+        'q': 'ǫ', 'r': 'ʀ', 's': 's', 't': 'ᴛ', 'u': 'ᴜ', 'v': 'ᴠ', 'w': 'ᴡ', 'x': 'x',
+        'y': 'ʏ', 'z': 'ᴢ', 'A': 'ᴀ', 'B': 'ʙ', 'C': 'ᴄ', 'D': 'ᴅ', 'E': 'ᴇ', 'F': 'ғ',
+        'G': 'ɢ', 'H': 'ʜ', 'I': 'ɪ', 'J': 'ᴊ', 'K': 'ᴋ', 'L': 'ʟ', 'M': 'ᴍ', 'N': 'ɴ',
+        'O': 'ᴏ', 'P': 'ᴘ', 'Q': 'ǫ', 'R': 'ʀ', 'S': 's', 'T': 'ᴛ', 'U': 'ᴜ', 'V': 'ᴠ',
         'W': 'ᴡ', 'X': 'x', 'Y': 'ʏ', 'Z': 'ᴢ'
     };
-    
     return text.split('').map(char => fancyMap[char] || char).join('');
 }
 
-// Bold text (Unicode mathematical bold)
+// Bold (Unicode mathematical bold)
 function convertToBold(text) {
     const boldMap = {
         'a': '𝐚', 'b': '𝐛', 'c': '𝐜', 'd': '𝐝', 'e': '𝐞', 'f': '𝐟', 'g': '𝐠', 'h': '𝐡',
@@ -149,7 +187,7 @@ function convertToBold(text) {
     return text.split('').map(char => boldMap[char] || char).join('');
 }
 
-// Italic text (Unicode mathematical italic)
+// Italic (Unicode mathematical italic)
 function convertToItalic(text) {
     const italicMap = {
         'a': '𝑎', 'b': '𝑏', 'c': '𝑐', 'd': '𝑑', 'e': '𝑒', 'f': '𝑓', 'g': '𝑔', 'h': 'ℎ',
@@ -163,12 +201,7 @@ function convertToItalic(text) {
     return text.split('').map(char => italicMap[char] || char).join('');
 }
 
-// Generate hash
-function generateHash(text) {
-    return crypto.createHash('sha256').update(text).digest('hex');
-}
-
-// Translate text
+// Translate (using akuari API as in your original)
 async function translateText(text) {
     try {
         const res = await axios.get(`https://api.akuari.my.id/tools/translate?text=${encodeURIComponent(text)}&to=en`);
@@ -177,3 +210,5 @@ async function translateText(text) {
         return 'Translation service unavailable';
     }
 }
+
+module.exports = {};
