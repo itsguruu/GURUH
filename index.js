@@ -709,24 +709,7 @@ async function connectToWA() {
                     }, 5000);
 
                     if (!pluginsLoaded) {
-                        logDivider('PLUGIN LOADING');
-                        logSystem('Installing Plugins...', '🧬');
-                        const pluginFiles = fs.readdirSync("./plugins/")
-                            .filter(file => path.extname(file).toLowerCase() === ".js");
-                        
-                        let loadedCount = 0;
-                        for (const plugin of pluginFiles) {
-                            try {
-                                require("./plugins/" + plugin);
-                                loadedCount++;
-                                logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
-                            } catch (error) {
-                                logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
-                            }
-                        }
-                        
-                        pluginsLoaded = true;
-                        logSuccess(`Loaded \( {loadedCount}/ \){pluginFiles.length} plugins successfully`, '✅');
+                        await loadPlugins();
                     }
                     
                     logConnection('READY', 'Bot connected to WhatsApp');
