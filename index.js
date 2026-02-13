@@ -80,7 +80,7 @@ function logDivider(text = '') {
   if (text) {
     const left = '═'.repeat(sideLength);
     const right = '═'.repeat(sideLength);
-    console.log(chalk.hex(colors.success)(`${left}『 ${text} 』${right}`));
+    console.log(chalk.hex(colors.success)(`${left}『 \( {text} 』 \){right}`));
   } else {
     console.log(chalk.hex(colors.primary)('═'.repeat(dividerLength)));
   }
@@ -120,7 +120,7 @@ function logConnection(status, details = '') {
   console.log(`\n${statusInfo.icon} ${statusText} ${details}\n`);
 }
 
-// Memory Usage Log
+// Memory Usage Log - FIXED VERSION
 function logMemory() {
   const used = process.memoryUsage();
   const rss = Math.round(used.rss / 1024 / 1024);
@@ -128,9 +128,9 @@ function logMemory() {
   const total = Math.round(used.heapTotal / 1024 / 1024);
   
   console.log(chalk.hex(colors.system).bold('🧠 MEMORY USAGE'));
-  console.log(chalk.hex(colors.success)(`RSS:`) + ` ${chalk.white(`${rss} MB`)}`);
-  console.log(chalk.hex(colors.success)(`Heap Used:`) + ` ${chalk.white(`${heap} MB`)}`);
-  console.log(chalk.hex(colors.success)(`Heap Total:`) + ` ${chalk.white(`${total} MB`)}`);
+  console.log(chalk.hex(colors.success)('RSS:') + ` \( {chalk.white(` \){rss} MB`)}`);
+  console.log(chalk.hex(colors.success)('Heap Used:') + ` \( {chalk.white(` \){heap} MB`)}`);
+  console.log(chalk.hex(colors.success)('Heap Total:') + ` \( {chalk.white(` \){total} MB`)}`);
   console.log(chalk.gray(`${heap}MB / 512MB`));
 }
 
@@ -140,8 +140,7 @@ function logPlugin(name, version, status = 'LOADED') {
     'LOADED': { icon: '✅', color: colors.success },
     'FAILED': { icon: '❌', color: colors.error },
     'UPDATED': { icon: '🔄', color: colors.warning },
-    'UNLOADED': { icon: '🗑️', color: colors.info },
-    'SKIPPED': { icon: '⏭️', color: colors.warning }
+    'UNLOADED': { icon: '🗑️', color: colors.info }
   };
   
   const statusInfo = statusIcons[status] || { icon: '❓', color: colors.info };
@@ -223,7 +222,7 @@ function logPerformance(operation, timeMs) {
   const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
   const operationDisplay = chalk.hex(colors.system)(operation);
   
-  console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} ${chalk.gray(`(${timeColor})`)}`);
+  console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} \( {chalk.gray(`( \){timeColor})`)}`);
 }
 
 // Initialize logging system
@@ -331,6 +330,59 @@ if (!isHeroku) {
     });
 }
 
+// =================== DIRECT BASE64 SESSION ===================
+(async () => {
+    if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
+        if (isHeroku) {
+            if (!process.env.SESSION_ID) {
+                logError('SESSION_ID is not set in Heroku Config Vars!', '🔑');
+                logWarning('Add your base64 session string to SESSION_ID and redeploy.', '💡');
+                
+                fs.mkdirSync(__dirname + '/sessions', { recursive: true });
+                logInfo('Created empty session directory for pairing', '📁');
+            } else {
+                logSystem('Heroku mode: Using SESSION_ID from env vars...', '☁️');
+
+                try {
+                    let base64Session = process.env.SESSION_ID.trim();
+                    if (base64Session.startsWith('GURU~')) {
+                        base64Session = base64Session.replace('GURU~', '').trim();
+                    }
+
+                    if (!base64Session || base64Session.length < 100) {
+                        logWarning('SESSION_ID appears invalid or too short, falling back to pairing', '⚠️');
+                    } else {
+                        const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
+                        const creds = JSON.parse(decoded);
+
+                        fs.mkdirSync(__dirname + '/sessions', { recursive: true });
+                        fs.writeFileSync(
+                            __dirname + '/sessions/creds.json',
+                            JSON.stringify(creds, null, 2)
+                        );
+                        logSuccess('SESSION_ID successfully saved to creds.json', '✅');
+                    }
+                } catch (e) {
+                    logError(`Failed to process SESSION_ID: ${e.message}`, '❌');
+                }
+            }
+        } else {
+            logSystem('No session found. Starting pairing flow...', '🔗');
+
+            if (rl) {
+                rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), (phoneNumber) => {
+                    const trimmedNumber = phoneNumber.trim();
+                    if (!/^\d{10,14}$/.test(trimmedNumber)) {
+                        logError('Invalid number. Must be digits only with country code.', '❌');
+                        process.exit(1);
+                    }
+                    logSystem(`Generating pairing code for +${trimmedNumber}...`, '🔢');
+                });
+            }
+        }
+    }
+})();
+
 // Configuration validation
 function validateConfig() {
     const required = ['PREFIX'];
@@ -375,8 +427,8 @@ const taggedReply = (conn, from, teks, quoted = null) => {
 
     let tag = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
     let finalText = config.TAG_POSITION === 'start' 
-        ? `${tag}\n\n${teks}`
-        : `${teks}\n\n${tag}`;
+        ? `\( {tag}\n\n \){teks}`
+        : `\( {teks}\n\n \){tag}`;
 
     conn.sendMessage(from, { text: finalText }, { quoted: quoted || undefined });
 };
@@ -440,7 +492,7 @@ async function handleStatusUpdates(conn, msg) {
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
                 const isImage = !!msg.message.imageMessage;
                 const ext = isImage ? '.jpg' : '.mp4';
-                const fileName = `status_${Date.now()}${ext}`;
+                const fileName = `status_\( {Date.now()} \){ext}`;
                 const savePath = `./statuses/${fileName}`;
 
                 if (!fs.existsSync('./statuses')) {
@@ -488,12 +540,35 @@ if (global.gc) {
 // Plugin loading cache
 let pluginsLoaded = false;
 
+// ========== ROBUST PLUGIN LOADER ==========
+async function loadPlugins() {
+    logDivider('PLUGIN LOADING');
+    logSystem('Installing Plugins...', '🧬');
+
+    const pluginFiles = fs.readdirSync("./plugins/")
+        .filter(file => path.extname(file).toLowerCase() === ".js");
+    
+    let loadedCount = 0;
+    for (const plugin of pluginFiles) {
+        try {
+            require("./plugins/" + plugin);
+            loadedCount++;
+            logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
+        } catch (error) {
+            logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
+        }
+    }
+    
+    pluginsLoaded = true;
+    logSuccess(`Loaded \( {loadedCount}/ \){pluginFiles.length} plugins successfully`, '✅');
+}
+
 // Auto-follow channel configuration
 const AUTO_FOLLOW_CHANNELS = [
     '120363406466294627@newsletter', // GuruTech Channel
 ];
 
-// Track followed channels to avoid duplicate attempts
+// Track followed channels
 let followedChannels = new Set();
 
 // Function to auto-follow channels
@@ -515,7 +590,7 @@ async function autoFollowChannels(conn) {
                 const subs = await conn.newsletterSubscribers(channelJid).catch(() => null);
                 isFollowing = subs && subs.some(sub => sub.jid === conn.user.id);
             } catch (e) {}
-            
+
             if (isFollowing) {
                 logSuccess(`Already following channel: ${channelJid}`, '📢');
                 followedChannels.add(channelJid);
@@ -574,114 +649,9 @@ async function autoFollowChannels(conn) {
     logDivider();
 }
 
-async function initializeSession() {
-    if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
-        if (isHeroku) {
-            if (!process.env.SESSION_ID) {
-                logError('SESSION_ID is not set in Heroku Config Vars!', '🔑');
-                logWarning('Add your base64 session string to SESSION_ID and redeploy.', '💡');
-                
-                fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-                logInfo('Created empty session directory for pairing', '📁');
-                return false;
-            } else {
-                logSystem('Heroku mode: Using SESSION_ID from env vars...', '☁️');
-
-                try {
-                    let base64Session = process.env.SESSION_ID.trim();
-                    if (base64Session.startsWith('GURU~')) {
-                        base64Session = base64Session.replace('GURU~', '').trim();
-                    }
-
-                    if (!base64Session || base64Session.length < 100) {
-                        logWarning('SESSION_ID appears invalid or too short, falling back to pairing', '⚠️');
-                        return false;
-                    } else {
-                        const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
-                        const creds = JSON.parse(decoded);
-
-                        fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-                        fs.writeFileSync(
-                            __dirname + '/sessions/creds.json',
-                            JSON.stringify(creds, null, 2)
-                        );
-                        logSuccess('SESSION_ID successfully saved to creds.json', '✅');
-                        return true;
-                    }
-                } catch (e) {
-                    logError(`Failed to process SESSION_ID: ${e.message}`, '❌');
-                    return false;
-                }
-            }
-        } else {
-            return false;
-        }
-    }
-    return true;
-}
-
-// ========== FIXED PLUGIN LOADER - ASYNC WRAPPER FOR SELF-DOWNLOAD ==========
-async function loadPlugins(conn) {
-    const path = require('path');
-    let pluginFiles = [];
-    
-    try {
-        pluginFiles = fs.readdirSync("./plugins/")
-            .filter(file => path.extname(file).toLowerCase() === ".js");
-    } catch (e) {
-        logError('Could not read plugins directory', '❌');
-        return 0;
-    }
-    
-    let loadedCount = 0;
-    const skippedPlugins = [];
-    
-    for (const plugin of pluginFiles) {
-        try {
-            // Check if it's an ESM plugin (using import/export)
-            const isESM = plugin.includes('setauto') || 
-                         plugin.includes('setblock') || 
-                         plugin.includes('setinvisible') || 
-                         plugin.includes('setmimic') || 
-                         plugin.includes('setreaction') || 
-                         plugin.includes('settings-ghost') ||
-                         plugin.includes('setcommandalias') ||
-                         plugin.includes('setsilentcmd');
-            
-            if (isESM) {
-                // FIXED: Use dynamic import with try/catch - WORKS because we're in async function
-                try {
-                    await import("./plugins/" + plugin);
-                    loadedCount++;
-                    logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED (ESM)');
-                } catch (importErr) {
-                    logError(`ESM import failed for ${plugin}: ${importErr.message}`, '❌');
-                    skippedPlugins.push(plugin);
-                }
-            } else {
-                // CommonJS plugin - use require
-                require("./plugins/" + plugin);
-                loadedCount++;
-                logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
-            }
-        } catch (error) {
-            logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
-            skippedPlugins.push(plugin);
-        }
-    }
-    
-    if (skippedPlugins.length > 0) {
-        logWarning(`${skippedPlugins.length} plugins failed to load`, '⚠️');
-    }
-    
-    return loadedCount;
-}
-
 async function connectToWA() {
     logDivider('WHATSAPP CONNECTION');
     logConnection('CONNECTING', 'Initializing...');
-    
-    await initializeSession();
     
     let retryCount = 0;
     const maxRetries = 5;
@@ -691,42 +661,16 @@ async function connectToWA() {
             const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/sessions/');
             var { version } = await fetchLatestBaileysVersion();
 
-            const connOptions = {
+            const isHeroku = !!process.env.DYNO;
+
+            const conn = makeWASocket({
                 logger: P({ level: 'silent' }),
                 printQRInTerminal: !isHeroku,
                 browser: Browsers.macOS("Firefox"),
                 auth: state,
                 version,
-            };
-
-            // Only add pairing code if not in Heroku and no session
-            if (!isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json')) {
-                connOptions.pairingCode = true;
-            }
-
-            const conn = makeWASocket(connOptions);
-
-            // Handle pairing code with readline
-            if (!isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json') && rl) {
-                setTimeout(async () => {
-                    if (!conn.user) {
-                        rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), async (phoneNumber) => {
-                            const trimmedNumber = phoneNumber.trim();
-                            if (!/^\d{10,14}$/.test(trimmedNumber)) {
-                                logError('Invalid number. Must be digits only with country code.', '❌');
-                                process.exit(1);
-                            }
-                            logSystem(`Generating pairing code for +${trimmedNumber}...`, '🔢');
-                            try {
-                                const code = await conn.requestPairingCode(trimmedNumber);
-                                logSuccess(`Pairing Code: ${code.match(/.{1,4}/g).join('-')}`, '🔑');
-                            } catch (err) {
-                                logError(`Failed to generate pairing code: ${err.message}`, '❌');
-                            }
-                        });
-                    }
-                }, 3000);
-            }
+                pairingCode: !isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json')
+            });
 
             conn.ev.on('connection.update', (update) => {
                 const { connection, lastDisconnect, qr } = update;
@@ -738,7 +682,7 @@ async function connectToWA() {
                     if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                         const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
                         retryCount = Math.min(retryCount + 1, maxRetries);
-                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
+                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
                         setTimeout(connectToWA, retryDelay);
                     }
                 } else if (connection === 'open') {
@@ -752,7 +696,7 @@ async function connectToWA() {
                     logInfo(`Baileys Version: ${version.join('.')}`, '⚙️');
                     logInfo(`Prefix: ${prefix}`, '🔤');
                     logInfo(`Owner: ${ownerNumber[0]}`, '👑');
-                    logMemoryUsage();
+                    logMemory();
 
                     if (config.GROUP_INVITE_CODE) {
                         conn.groupAcceptInvite(config.GROUP_INVITE_CODE)
@@ -764,15 +708,25 @@ async function connectToWA() {
                         await autoFollowChannels(conn);
                     }, 5000);
 
-                    // ========== FIXED PLUGIN LOADING - WORKS WITH SELF-DOWNLOAD ==========
                     if (!pluginsLoaded) {
                         logDivider('PLUGIN LOADING');
                         logSystem('Installing Plugins...', '🧬');
+                        const pluginFiles = fs.readdirSync("./plugins/")
+                            .filter(file => path.extname(file).toLowerCase() === ".js");
                         
-                        const loadedCount = await loadPlugins(conn);
+                        let loadedCount = 0;
+                        for (const plugin of pluginFiles) {
+                            try {
+                                require("./plugins/" + plugin);
+                                loadedCount++;
+                                logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
+                            } catch (error) {
+                                logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
+                            }
+                        }
                         
                         pluginsLoaded = true;
-                        logSuccess(`Loaded ${loadedCount} plugins successfully`, '✅');
+                        logSuccess(`Loaded \( {loadedCount}/ \){pluginFiles.length} plugins successfully`, '✅');
                     }
                     
                     logConnection('READY', 'Bot connected to WhatsApp');
@@ -798,7 +752,7 @@ async function connectToWA() {
 
             conn.ev.on('creds.update', saveCreds);
 
-            // ==================== ANTIDELETE HANDLER ====================
+            // ==================== 100% FIXED ANTIDELETE ====================
             if (!global.messageStore) global.messageStore = new Map();
             if (!global.mediaStore) global.mediaStore = new Map();
 
@@ -825,7 +779,7 @@ async function connectToWA() {
                                             buffer,
                                             type,
                                             mimetype: msg.message[type]?.mimetype,
-                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`
+                                            fileName: msg.message[type]?.fileName || `\( {type}_ \){Date.now()}`
                                         });
                                     }
                                 } catch (e) {}
@@ -851,10 +805,8 @@ async function connectToWA() {
                         updateArray = [updates];
                     } else if (updates && typeof updates === 'object') {
                         const values = Object.values(updates);
-                        if (values.length > 0) {
-                            if (values[0] && (values[0].key || values[0].update)) {
-                                updateArray = values;
-                            }
+                        if (values.length > 0 && values[0] && (values[0].key || values[0].update)) {
+                            updateArray = values;
                         }
                     } else if (updates && updates.updates && Array.isArray(updates.updates)) {
                         updateArray = updates.updates;
@@ -1064,7 +1016,7 @@ async function connectToWA() {
                 const udp = botNumber.split('@')[0];
                 const jawad = ('254778074353');
                 let isCreator = [udp, jawad, config.DEV]
-                    .map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net')
+                    .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
                     .includes(mek.sender);
 
                 if (!mek.key.fromMe && body) {
@@ -1077,10 +1029,7 @@ async function connectToWA() {
                     
                     if (now - lastReply > 10000) {
                         autoReplyCooldown.set(sender, now);
-                        
-                        setTimeout(() => {
-                            autoReplyCooldown.delete(sender);
-                        }, 15000);
+                        setTimeout(() => autoReplyCooldown.delete(sender), 15000);
                         
                         const msgText = (body || '').toLowerCase().trim();
                         let replyText = `ᴳᵁᴿᵁᴹᴰ got your message! 😎`;
@@ -1275,7 +1224,7 @@ async function connectToWA() {
                         const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
                         m.react(randomReaction);
                     }
-                }
+                } 
 
                 let shouldProcess = false;
 
@@ -1362,14 +1311,6 @@ async function connectToWA() {
                         }
                     });
                 }
-            });
-
-            conn.ev.on('group-participants.update', async (update) => {
-                try {
-                    if (welcomeCustom && welcomeCustom.handleWelcome) {
-                        await welcomeCustom.handleWelcome(conn, update);
-                    }
-                } catch (e) {}
             });
 
             conn.decodeJid = jid => {
@@ -1461,8 +1402,8 @@ async function connectToWA() {
                 if (config.ENABLE_TAGGING) {
                     const tagText = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
                     finalCaption = config.TAG_POSITION === 'start' 
-                        ? `${tagText}\n\n${caption}`
-                        : `${caption}\n\n${tagText}`;
+                        ? `\( {tagText}\n\n \){caption}`
+                        : `\( {caption}\n\n \){tagText}`;
                 } else {
                     finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
                 }
@@ -1713,7 +1654,7 @@ async function connectToWA() {
                 for (let i of kon) {
                     list.push({
                         displayName: await conn.getName(i + '@s.whatsapp.net'),
-                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:${await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid=${i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
+                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:\( {await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid= \){i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
                     });
                 }
                 conn.sendMessage(
@@ -1757,7 +1698,7 @@ async function connectToWA() {
             
             const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
             retryCount = Math.min(retryCount + 1, maxRetries);
-            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
+            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
             
             setTimeout(attemptConnection, retryDelay);
         }
@@ -1770,10 +1711,10 @@ async function connectToWA() {
 setInterval(() => {
     const timeSinceLastMessage = Date.now() - connectionHealth.lastMessage;
     
-    if (timeSinceLastMessage > 300000) {
+    if (timeSinceLastMessage > 300000) { // 5 minutes
         logWarning('No messages received for 5+ minutes, connection may be stale', '⚠️');
     }
-}, 60000);
+}, 60000); // Check every minute
 
 // Periodic auto-follow check (every hour)
 setInterval(async () => {
@@ -1785,8 +1726,9 @@ setInterval(async () => {
     } catch (error) {
         logError(`Scheduled auto-follow error: ${error.message}`, '❌');
     }
-}, 60 * 60 * 1000);
+}, 60 * 60 * 1000); // Every hour
 
+// Helper function for media size
 async function getSizeMedia(buffer) {
     return {
         size: buffer.length
@@ -1805,12 +1747,13 @@ app.listen(port, () => {
 
 setTimeout(() => {
   connectToWA().then(conn => {
-      global.conn = conn;
+      global.conn = conn; // Store connection globally for scheduled tasks
   }).catch(err => {
       logError(`Failed to connect: ${err.message}`, '❌');
   });
 }, 4000);
 
+// Anti-crash handler
 process.on("uncaughtException", (err) => {
   logError(`UNCAUGHT EXCEPTION: ${err.stack || err.message || err}`, '💥');
 });
