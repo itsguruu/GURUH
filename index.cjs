@@ -222,6 +222,7 @@ function logPerformance(operation, timeMs) {
   const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
   const operationDisplay = chalk.hex(colors.system)(operation);
   
+  // Fixed: simple concatenation, no nested broken templates
   console.log(`⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} \( {chalk.gray(`( \){timeColor})`)}`);
 }
 
