@@ -1,4 +1,4 @@
-// plugins/mimic.js
+// plugins/setmimic.js
 const { cmd } = require('../command');
 
 global.MIMIC_TARGET = null; // jid to mimic
@@ -30,8 +30,16 @@ cmd({
 });
 
 // In messages.upsert → when target sends message
-if (global.MIMIC_TARGET && mek.key.participant === global.MIMIC_TARGET) {
-    const states = ['composing', 'recording', 'paused'];
-    const random = states[Math.floor(Math.random() * states.length)];
-    await conn.sendPresenceUpdate(random, from);
-}
+(async () => {
+    conn.ev.on('messages.upsert', async ({ messages }) => {
+        const mek = messages[0];
+        if (!mek.key.fromMe && global.MIMIC_TARGET && mek.key.participant === global.MIMIC_TARGET) {
+            const from = mek.key.remoteJid;
+            if (!from) return; // safety check
+
+            const states = ['composing', 'recording', 'paused'];
+            const random = states[Math.floor(Math.random() * states.length)];
+            await conn.sendPresenceUpdate(random, from);
+        }
+    });
+})();
