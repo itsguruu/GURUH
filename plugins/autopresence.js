@@ -1,4 +1,3 @@
-// plugins/autopresence.js
 const { cmd } = require('../command');
 
 cmd({
