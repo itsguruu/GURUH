@@ -1,4 +1,4 @@
-// plugins/commandalias.js
+// plugins/setcommandalias.js
 const { cmd } = require('../command');
 
 global.COMMAND_ALIASES = new Map(); // alias → real command
@@ -13,7 +13,10 @@ cmd({
 
     const parts = args.join(' ').trim().split(/\s+/);
     if (parts.length < 2) {
-        return reply(`Current aliases:\n\( {[...global.COMMAND_ALIASES.entries()].map(([a, c]) => ` \){a} → ${c}`).join('\n') || 'None'}\n\nExample: .alias dl tiktokdl`);
+        const aliasesList = [...global.COMMAND_ALIASES.entries()]
+            .map(([a, c]) => `${a} → ${c}`)
+            .join('\n') || 'None';
+        return reply(`Current aliases:\n${aliasesList}\n\nExample: .alias dl tiktokdl`);
     }
 
     const alias = parts[0].toLowerCase();
