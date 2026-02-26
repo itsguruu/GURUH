@@ -676,7 +676,7 @@ async function connectToWA() {
                 pairingCode: !isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json')
             });
 
-            conn.ev.on('connection.update', (update) => {
+  conn.ev.on('connection.update', (update) => {
                 const { connection, lastDisconnect, qr } = update;
                 if (qr && !isHeroku) {
                     logSystem('Scan this QR to link:', '🔗');
@@ -708,12 +708,16 @@ async function connectToWA() {
                             .catch(e => logWarning(`Group join failed: ${e.message}`, '⚠️'));
                     }
 
-                    setTimeout(async () => {
-                        await autoFollowChannels(conn);
+                    setTimeout(() => {
+                        autoFollowChannels(conn).catch(e => {
+                            logWarning(`Auto follow channels failed: ${e.message}`, '⚠️');
+                        });
                     }, 5000);
 
                     if (!pluginsLoaded) {
-                        await loadPlugins();
+                        loadPlugins().catch(e => {
+                            logError(`Plugin loading failed: ${e.message}`, '❌');
+                        });
                     }
                     
                     logConnection('READY', 'Bot connected to WhatsApp');
@@ -738,7 +742,7 @@ async function connectToWA() {
             });
 
             conn.ev.on('creds.update', saveCreds);
-
+          
             // ==================== 100% FIXED ANTIDELETE ====================
             if (!global.messageStore) global.messageStore = new Map();
             if (!global.mediaStore) global.mediaStore = new Map();
