@@ -120,7 +120,7 @@ function logConnection(status, details = '') {
   console.log(`\n${statusInfo.icon} ${statusText} ${details}\n`);
 }
 
-// Memory Usage Log - FIXED VERSION
+// Memory Usage Log - FIXED VERSION (no broken strings, no invalid escapes)
 function logMemory() {
   const used = process.memoryUsage();
   const rss = Math.round(used.rss / 1024 / 1024);
@@ -128,10 +128,10 @@ function logMemory() {
   const total = Math.round(used.heapTotal / 1024 / 1024);
   
   console.log(chalk.hex(colors.system).bold('🧠 MEMORY USAGE'));
-  console.log(chalk.hex(colors.success)('RSS:') + ` \( {chalk.white(` \){rss} MB`)}`);
-  console.log(chalk.hex(colors.success)('Heap Used:') + ` \( {chalk.white(` \){heap} MB`)}`);
-  console.log(chalk.hex(colors.success)('Heap Total:') + ` \( {chalk.white(` \){total} MB`)}`);
-  console.log(chalk.gray(`${heap}MB / 512MB`));
+  console.log(chalk.hex(colors.success)('RSS:') + ' ' + chalk.white(rss + ' MB'));
+  console.log(chalk.hex(colors.success)('Heap Used:') + ' ' + chalk.white(heap + ' MB'));
+  console.log(chalk.hex(colors.success)('Heap Total:') + ' ' + chalk.white(total + ' MB'));
+  console.log(chalk.gray(heap + 'MB / 512MB'));
 }
 
 // Plugin Loader Log
