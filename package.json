@@ -2,7 +2,7 @@
   "name": "GURU_MD",
   "version": "4.5.0",
   "description": "A WhatsApp Bot Created by GuruTech",
-  "main": "index.js",
+  "main": "index.cjs",
   "type": "commonjs",
   "scripts": {
     "start": "node index.cjs",
