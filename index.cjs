@@ -80,7 +80,7 @@ function logDivider(text = '') {
   if (text) {
     const left = '═'.repeat(sideLength);
     const right = '═'.repeat(sideLength);
-    console.log(chalk.hex(colors.success)(`${left}『 \( {text} 』 \){right}`));
+    console.log(chalk.hex(colors.success)(`${left}『 ${text} 』${right}`));
   } else {
     console.log(chalk.hex(colors.primary)('═'.repeat(dividerLength)));
   }
@@ -431,8 +431,8 @@ const taggedReply = (conn, from, teks, quoted = null) => {
 
     let tag = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
     let finalText = config.TAG_POSITION === 'start' 
-        ? `\( {tag}\n\n \){teks}`
-        : `\( {teks}\n\n \){tag}`;
+        ? `${tag}\n\n${teks}`
+        : `${teks}\n\n${tag}`;
 
     conn.sendMessage(from, { text: finalText }, { quoted: quoted || undefined });
 };
@@ -496,7 +496,7 @@ async function handleStatusUpdates(conn, msg) {
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
                 const isImage = !!msg.message.imageMessage;
                 const ext = isImage ? '.jpg' : '.mp4';
-                const fileName = `status_\( {Date.now()} \){ext}`;
+                const fileName = `status_${Date.now()}${ext}`;
                 const savePath = `./statuses/${fileName}`;
 
                 if (!fs.existsSync('./statuses')) {
@@ -564,7 +564,7 @@ async function loadPlugins() {
     }
     
     pluginsLoaded = true;
-    logSuccess(`Loaded \( {loadedCount}/ \){pluginFiles.length} plugins successfully`, '✅');
+    logSuccess(`Loaded ${loadedCount}/${pluginFiles.length} plugins successfully`, '✅');
 }
 
 // Auto-follow channel configuration
@@ -676,7 +676,7 @@ async function connectToWA() {
                 pairingCode: !isHeroku && !fs.existsSync(__dirname + '/sessions/creds.json')
             });
 
-  conn.ev.on('connection.update', (update) => {
+            conn.ev.on('connection.update', (update) => {
                 const { connection, lastDisconnect, qr } = update;
                 if (qr && !isHeroku) {
                     logSystem('Scan this QR to link:', '🔗');
@@ -686,7 +686,7 @@ async function connectToWA() {
                     if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                         const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
                         retryCount = Math.min(retryCount + 1, maxRetries);
-                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
+                        logWarning(`Connection closed. Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
                         setTimeout(connectToWA, retryDelay);
                     }
                 } else if (connection === 'open') {
@@ -744,17 +744,21 @@ async function connectToWA() {
             conn.ev.on('creds.update', saveCreds);
           
             // ==================== 100% FIXED ANTIDELETE ====================
+            // Ensure global stores exist
             if (!global.messageStore) global.messageStore = new Map();
             if (!global.mediaStore) global.mediaStore = new Map();
 
+            // Store messages when received - PRESERVES ALL MESSAGE DATA
             conn.ev.on('messages.upsert', async ({ messages }) => {
                 for (const msg of messages) {
                     if (msg.key && msg.key.id) {
+                        // Store the full message in memory
                         global.messageStore.set(msg.key.id, {
                             ...msg,
                             timestamp: Date.now()
                         });
                         
+                        // If it's media, download and store it
                         if (msg.message) {
                             const type = getContentType(msg.message);
                             if (type === 'imageMessage' || type === 'videoMessage' || 
@@ -770,13 +774,14 @@ async function connectToWA() {
                                             buffer,
                                             type,
                                             mimetype: msg.message[type]?.mimetype,
-                                            fileName: msg.message[type]?.fileName || `\( {type}_ \){Date.now()}`
+                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`
                                         });
                                     }
                                 } catch (e) {}
                             }
                         }
                         
+                        // Also save to database using the existing function - PRESERVES DATABASE TABLE
                         try {
                             if (typeof saveMessage === 'function') {
                                 await saveMessage(msg).catch(() => {});
@@ -786,8 +791,10 @@ async function connectToWA() {
                 }
             });
 
+            // Detect and handle deleted messages - FIXED VERSION
             conn.ev.on('messages.update', async (updates) => {
                 try {
+                    // Handle both array and single update
                     let updateArray = [];
                     
                     if (Array.isArray(updates)) {
@@ -808,6 +815,7 @@ async function connectToWA() {
                     for (const update of updateArray) {
                         if (!update) continue;
                         
+                        // Check if message was deleted
                         const isDeleted = 
                             (update.update && update.update.message === null) ||
                             (update.message === null) ||
@@ -820,6 +828,7 @@ async function connectToWA() {
                             logWarning('🚨 DELETE DETECTED', '🗑️');
 
                             try {
+                                // Get message key info
                                 const key = update.key || update.update?.key || update;
                                 const jid = key?.remoteJid;
                                 const sender = key?.participant || key?.remoteJid;
@@ -827,21 +836,25 @@ async function connectToWA() {
                                 const fromMe = key?.fromMe || false;
                                 
                                 if (!jid || !messageId) continue;
-                                if (fromMe) continue;
+                                if (fromMe) continue; // Don't track own deletions
 
+                                // Try to recover deleted message from various sources
                                 let deletedMsg = null;
                                 let mediaData = null;
                                 
+                                // Check memory store first
                                 if (global.messageStore && global.messageStore.has(messageId)) {
                                     deletedMsg = global.messageStore.get(messageId);
                                     logSuccess('Recovered message from memory store', '💾');
                                 }
                                 
+                                // Check media store
                                 if (global.mediaStore && global.mediaStore.has(messageId)) {
                                     mediaData = global.mediaStore.get(messageId);
                                     logSuccess('Recovered media from memory store', '🎬');
                                 }
                                 
+                                // Check database - PRESERVES DATABASE TABLE USAGE
                                 if (!deletedMsg) {
                                     try {
                                         deletedMsg = await loadMessage(jid, messageId);
@@ -849,6 +862,7 @@ async function connectToWA() {
                                     } catch (e) {}
                                 }
                                 
+                                // Check Baileys store if available
                                 if (!deletedMsg && conn.store) {
                                     try {
                                         deletedMsg = await conn.store.loadMessage(jid, messageId);
@@ -856,6 +870,7 @@ async function connectToWA() {
                                     } catch (e) {}
                                 }
 
+                                // Build delete alert message
                                 let deleteAlert = '*🗑️ MESSAGE DELETED DETECTED*\n\n';
                                 deleteAlert += '*👤 Sender:* ' + (sender?.split('@')[0] || 'Unknown') + '\n';
                                 deleteAlert += '*💬 Chat:* ' + (jid?.split('@')[0] || jid || 'Unknown') + '\n';
@@ -893,10 +908,13 @@ async function connectToWA() {
                                 
                                 deleteAlert += '\n_ᴳᵁᴿᵁᴹᴰ AntiDelete System_';
 
+                                // Send to owner (person who linked the bot)
                                 const ownerJid = ownerNumber[0];
                                 
+                                // Send text alert
                                 await conn.sendMessage(ownerJid, { text: deleteAlert });
                                 
+                                // Send recovered media if available
                                 if (mediaData && mediaData.buffer) {
                                     try {
                                         const mediaType = mediaData.type === 'imageMessage' ? 'image' :
@@ -961,6 +979,7 @@ async function connectToWA() {
                     await conn.readMessages([mek.key]);
                 }
 
+                // PRESERVES saveMessage function call - maintains database table
                 await Promise.all([
                     saveMessage(mek),
                 ]);
@@ -1393,8 +1412,8 @@ async function connectToWA() {
                 if (config.ENABLE_TAGGING) {
                     const tagText = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
                     finalCaption = config.TAG_POSITION === 'start' 
-                        ? `\( {tagText}\n\n \){caption}`
-                        : `\( {caption}\n\n \){tagText}`;
+                        ? `${tagText}\n\n${caption}`
+                        : `${caption}\n\n${tagText}`;
                 } else {
                     finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
                 }
@@ -1645,7 +1664,7 @@ async function connectToWA() {
                 for (let i of kon) {
                     list.push({
                         displayName: await conn.getName(i + '@s.whatsapp.net'),
-                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:\( {await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid= \){i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
+                        vcard: `BEGIN:VCARD\nVERSION:3.0\nN:${await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid=${i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
                     });
                 }
                 conn.sendMessage(
@@ -1689,7 +1708,7 @@ async function connectToWA() {
             
             const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
             retryCount = Math.min(retryCount + 1, maxRetries);
-            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt \( {retryCount}/ \){maxRetries})`, '🔄');
+            logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
             
             setTimeout(attemptConnection, retryDelay);
         }
