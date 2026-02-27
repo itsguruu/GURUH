@@ -1,8 +1,11 @@
+/* Note: GURU MD - FULL MENU (VERTICAL STEEL STYLE)
+   Status: 100% Vertical Commands | Horizontal Banner Enabled | Steel Style Sync
+*/
+
 const config = require('../config');
 const { cmd, commands } = require('../command');
 const os = require("os");
 const { runtime } = require('../lib/functions');
-const axios = require('axios');
 
 cmd({
     pattern: "menu3",
@@ -13,327 +16,309 @@ cmd({
     react: "📜",
     filename: __filename
 }, 
-async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+async (conn, mek, m, { from, reply }) => {
     try {
         const userTag = `@${m.sender.split('@')[0]}`;
+        const logoUrl = "https://files.catbox.moe/66h86e.jpg"; 
 
-        let dec = `╔═══════════════╗
-║  ✦ GURU MD ✦  ║
-╚═══════════════╝
+        let dec = `
+█║▌│█│║▌║││█║▌║▌║
+   *𝔾𝕌ℝ𝕌 𝕄𝔻 𝔸𝕃𝕃 𝕄𝔼ℕ𝕌*
+█║▌│█│║▌║││█║▌║▌║
 
-✦ User   ❯ ${userTag}
-✦ Prefix ❯ ${config.PREFIX}
-✦ Uptime ❯ ${runtime(process.uptime())}
-✦ Mode   ❯ ${config.MODE}
+🛰️ *𝐒𝐘𝐒𝐓𝐄𝐌 𝐃𝐀𝐒𝐇𝐁𝐎𝐀𝐑𝐃*
+▮ ▰ 👤 *𝐔𝐬𝐞𝐫:* ${userTag}
+▮ ▰ ⚡ *𝐏𝐫𝐞𝐟𝐢𝐱:* ${config.PREFIX}
+▮ ▰ ⏳ *𝐔𝐩𝐭𝐢𝐦𝐞:* ${runtime(process.uptime())}
+▮ ▰ ⚙️ *𝐌𝐨𝐝𝐞:* ${config.MODE}
 
-═════════════════
+╭━━〔 📥 *𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃* 〕━━┈⊷
+┃◈ facebook
+┃◈ mediafire
+┃◈ tiktok
+┃◈ twitter
+┃◈ insta
+┃◈ apk
+┃◈ img
+┃◈ tt2
+┃◈ pins
+┃◈ apk2
+┃◈ fb2
+┃◈ pinterest
+┃◈ spotify
+┃◈ play
+┃◈ play2
+┃◈ audio
+┃◈ video
+┃◈ video2
+┃◈ ytmp3
+┃◈ ytmp4
+┃◈ song
+┃◈ darama
+┃◈ gdrive
+┃◈ ssweb
+┃◈ tiks
+╰──────────────┈⊷
 
-📥 DOWNLOAD
-═════════════════
-• facebook
-• mediafire
-• tiktok
-• twitter
-• insta
-• apk
-• img
-• tt2
-• pins
-• apk2
-• fb2
-• pinterest
-• spotify
-• play
-• play2
-• audio
-• video
-• video2
-• ytmp3
-• ytmp4
-• song
-• darama
-• gdrive
-• ssweb
-• tiks
+╭━━〔 👥 *𝐆𝐑𝐎𝐔𝐏* 〕━━┈⊷
+┃◈ grouplink
+┃◈ kickall
+┃◈ kickall2
+┃◈ kickall3
+┃◈ add
+┃◈ remove
+┃◈ kick
+┃◈ promote
+┃◈ demote
+┃◈ dismiss
+┃◈ revoke
+┃◈ setgoodbye
+┃◈ setwelcome
+┃◈ delete
+┃◈ getpic
+┃◈ ginfo
+┃◈ disappear on/off
+┃◈ disappear 7D,24H
+┃◈ allreq
+┃◈ updategname
+┃◈ updategdesc
+┃◈ joinrequests
+┃◈ senddm
+┃◈ nikal
+┃◈ mute
+┃◈ unmute
+┃◈ lockgc
+┃◈ unlockgc
+┃◈ invite
+┃◈ tag
+┃◈ hidetag
+┃◈ tagall
+┃◈ tagadmins
+╰──────────────┈⊷
 
-═════════════════
+╭━━〔 🎭 *𝐑𝐄𝐀𝐂𝐓𝐈𝐎𝐍𝐒* 〕━━┈⊷
+┃◈ bully
+┃◈ cuddle
+┃◈ cry
+┃◈ hug
+┃◈ awoo
+┃◈ kiss
+┃◈ lick
+┃◈ pat
+┃◈ smug
+┃◈ bonk
+┃◈ yeet
+┃◈ blush
+┃◈ smile
+┃◈ wave
+┃◈ highfive
+┃◈ handhold
+┃◈ nom
+┃◈ bite
+┃◈ glomp
+┃◈ slap
+┃◈ kill
+┃◈ happy
+┃◈ wink
+┃◈ poke
+┃◈ dance
+┃◈ cringe
+╰──────────────┈⊷
 
-👥 GROUP
-═════════════════
-• grouplink
-• kickall
-• kickall2
-• kickall3
-• add
-• remove
-• kick
-• promote
-• demote
-• dismiss
-• revoke
-• setgoodbye
-• setwelcome
-• delete
-• getpic
-• ginfo
-• disappear on/off
-• disappear 7D,24H
-• allreq
-• updategname
-• updategdesc
-• joinrequests
-• senddm
-• nikal
-• mute
-• unmute
-• lockgc
-• unlockgc
-• invite
-• tag
-• hidetag
-• tagall
-• tagadmins
+╭━━〔 🎨 *𝐋𝐎𝐆𝐎 𝐌𝐀𝐊𝐄𝐑* 〕━━┈⊷
+┃◈ neonlight
+┃◈ blackpink
+┃◈ dragonball
+┃◈ 3dcomic
+┃◈ america
+┃◈ naruto
+┃◈ sadgirl
+┃◈ clouds
+┃◈ futuristic
+┃◈ 3dpaper
+┃◈ eraser
+┃◈ sunset
+┃◈ leaf
+┃◈ galaxy
+┃◈ sans
+┃◈ boom
+┃◈ hacker
+┃◈ devilwings
+┃◈ nigeria
+┃◈ bulb
+┃◈ angelwings
+┃◈ zodiac
+┃◈ luxury
+┃◈ paint
+┃◈ frozen
+┃◈ castle
+┃◈ tatoo
+┃◈ valorant
+┃◈ bear
+┃◈ typography
+┃◈ birthday
+╰──────────────┈⊷
 
-═════════════════
+╭━━〔 👑 *𝐎𝐖𝐍𝐄𝐑* 〕━━┈⊷
+┃◈ owner
+┃◈ menu
+┃◈ menu2
+┃◈ vv
+┃◈ listcmd
+┃◈ allmenu
+┃◈ repo
+┃◈ block
+┃◈ unblock
+┃◈ fullpp
+┃◈ setpp
+┃◈ restart
+┃◈ shutdown
+┃◈ updatecmd
+┃◈ alive
+┃◈ ping
+┃◈ gjid
+┃◈ jid
+╰──────────────┈⊷
 
-🎭 REACTIONS
-═════════════════
-• bully @tag
-• cuddle @tag
-• cry @tag
-• hug @tag
-• awoo @tag
-• kiss @tag
-• lick @tag
-• pat @tag
-• smug @tag
-• bonk @tag
-• yeet @tag
-• blush @tag
-• smile @tag
-• wave @tag
-• highfive @tag
-• handhold @tag
-• nom @tag
-• bite @tag
-• glomp @tag
-• slap @tag
-• kill @tag
-• happy @tag
-• wink @tag
-• poke @tag
-• dance @tag
-• cringe @tag
+╭━━〔 🎉 *𝐅𝐔𝐍* 〕━━┈⊷
+┃◈ shapar
+┃◈ rate
+┃◈ insult
+┃◈ hack
+┃◈ ship
+┃◈ character
+┃◈ pickup
+┃◈ joke
+┃◈ hrt
+┃◈ hpy
+┃◈ syd
+┃◈ anger
+┃◈ shy
+┃◈ kiss
+┃◈ mon
+┃◈ cunfuzed
+┃◈ hand
+┃◈ nikal
+┃◈ hold
+┃◈ hug
+┃◈ hifi
+┃◈ poke
+╰──────────────┈⊷
 
-═════════════════
+╭━━〔 🔄 *𝐂𝐎𝐍𝐕𝐄𝐑𝐓* 〕━━┈⊷
+┃◈ sticker
+┃◈ sticker2
+┃◈ emojimix
+┃◈ fancy
+┃◈ take
+┃◈ tomp3
+┃◈ tts
+┃◈ trt
+┃◈ base64
+┃◈ unbase64
+┃◈ binary
+┃◈ dbinary
+┃◈ tinyurl
+┃◈ urldecode
+┃◈ urlencode
+┃◈ url
+┃◈ repeat
+┃◈ ask
+┃◈ readmore
+╰──────────────┈⊷
 
-🎨 LOGO MAKER
-═════════════════
-• neonlight
-• blackpink
-• dragonball
-• 3dcomic
-• america
-• naruto
-• sadgirl
-• clouds
-• futuristic
-• 3dpaper
-• eraser
-• sunset
-• leaf
-• galaxy
-• sans
-• boom
-• hacker
-• devilwings
-• nigeria
-• bulb
-• angelwings
-• zodiac
-• luxury
-• paint
-• frozen
-• castle
-• tatoo
-• valorant
-• bear
-• typography
-• birthday
+╭━━〔 🤖 *𝐀𝐈* 〕━━┈⊷
+┃◈ ai
+┃◈ gpt3
+┃◈ gpt2
+┃◈ gptmini
+┃◈ gpt
+┃◈ meta
+┃◈ blackbox
+┃◈ luma
+┃◈ dj
+┃◈ obed
+┃◈ hunter
+┃◈ gpt4
+┃◈ bing
+┃◈ imagine
+┃◈ imagine2
+┃◈ copilot
+╰──────────────┈⊷
 
-═════════════════
+╭━━〔 🎎 *𝐀𝐍𝐈𝐌𝐄* 〕━━┈⊷
+┃◈ fack
+┃◈ truth
+┃◈ dare
+┃◈ dog
+┃◈ awoo
+┃◈ garl
+┃◈ waifu
+┃◈ neko
+┃◈ megnumin
+┃◈ maid
+┃◈ loli
+┃◈ animegirl
+┃◈ animenews
+┃◈ foxgirl
+┃◈ naruto
+╰──────────────┈⊷
 
-👑 OWNER
-═════════════════
-• owner
-• menu
-• menu2
-• vv
-• listcmd
-• allmenu
-• repo
-• block
-• unblock
-• fullpp
-• setpp
-• restart
-• shutdown
-• updatecmd
-• alive
-• ping
-• gjid
-• jid
+╭━━〔 ℹ️ *𝐎𝐓𝐇𝐄𝐑* 〕━━┈⊷
+┃◈ timenow
+┃◈ date
+┃◈ count
+┃◈ calculate
+┃◈ flip
+┃◈ coinflip
+┃◈ rcolor
+┃◈ roll
+┃◈ fact
+┃◈ cpp
+┃◈ rw
+┃◈ pair
+┃◈ pair2
+┃◈ pair3
+┃◈ fancy
+┃◈ logo
+┃◈ define
+┃◈ news
+┃◈ movie
+┃◈ weather
+┃◈ srepo
+┃◈ save
+┃◈ wikipedia
+┃◈ gpass
+┃◈ githubstalk
+┃◈ yts
+┃◈ ytv
+╰──────────────┈⊷
 
-═════════════════
+> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
 
-🎉 FUN
-═════════════════
-• shapar
-• rate
-• insult
-• hack
-• ship
-• character
-• pickup
-• joke
-• hrt
-• hpy
-• syd
-• anger
-• shy
-• kiss
-• mon
-• cunfuzed
-• hand
-• nikal
-• hold
-• hug
-• hifi
-• poke
-
-═════════════════
-
-🔄 CONVERT
-═════════════════
-• sticker
-• sticker2
-• emojimix
-• fancy
-• take
-• tomp3
-• tts
-• trt
-• base64
-• unbase64
-• binary
-• dbinary
-• tinyurl
-• urldecode
-• urlencode
-• url
-• repeat
-• ask
-• readmore
-
-═════════════════
-
-🤖 AI
-═════════════════
-• ai
-• gpt3
-• gpt2
-• gptmini
-• gpt
-• meta
-• blackbox
-• luma
-• dj
-• obed
-• hunter
-• gpt4
-• bing
-• imagine
-• imagine2
-• copilot
-
-═════════════════
-
-🎎 ANIME
-═════════════════
-• fack
-• truth
-• dare
-• dog
-• awoo
-• garl
-• waifu
-• neko
-• megnumin
-• maid
-• loli
-• animegirl
-• animegirl1-5
-• anime1-5
-• animenews
-• foxgirl
-• naruto
-
-═════════════════
-
-ℹ️ OTHER
-═════════════════
-• timenow
-• date
-• count
-• calculate
-• countx
-• flip
-• coinflip
-• rcolor
-• roll
-• fact
-• cpp
-• rw
-• pair
-• pair2
-• pair3
-• fancy
-• logo <text>
-• define
-• news
-• movie
-• weather
-• srepo
-• insult
-• save
-• wikipedia
-• gpass
-• githubstalk
-• yts
-• ytv
-
-> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech | https://github.com/itsguruu/GURU`;
-
-        await conn.sendMessage(
-            from,
-            {
-                image: { url: config.MENU_IMAGE_URL || 'https://files.catbox.moe/ntfw9h.jpg' },
-                caption: dec,
-                contextInfo: {
-                    mentionedJid: [m.sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363421164015033@newsletter',
-                        newsletterName: 'GURU MD',
-                        serverMessageId: 143
-                    }
+        await conn.sendMessage(from, {
+            image: { url: logoUrl },
+            caption: dec,
+            contextInfo: {
+                mentionedJid: [m.sender],
+                forwardingScore: 999,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363421164015033@newsletter',
+                    newsletterName: '𝐆𝐔𝐑𝐔 𝐌𝐃: 𝐀𝐋𝐋 𝐌𝐄𝐍𝐔',
+                    serverMessageId: 143
+                },
+                externalAdReply: {
+                    title: "𝔾𝕌ℝ𝕌 𝕄𝔻 - 𝔽𝕌𝕃𝕃 𝔼𝔻𝕀𝕋𝕀𝕆ℕ",
+                    body: "⚡ ᴛʜᴇ ꜰᴜᴛᴜʀᴇ ᴏꜰ ʙᴏᴛꜱ",
+                    mediaType: 1,
+                    sourceUrl: 'https://github.com/itsguruu/GURU',
+                    thumbnailUrl: logoUrl,
+                    renderLargerThumbnail: true 
                 }
-            },
-            { quoted: mek }
-        );
+            }
+        }, { quoted: mek });
 
-        // Send audio
         await conn.sendMessage(from, {
             audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
             mimetype: 'audio/mp4',
@@ -341,7 +326,6 @@ async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sen
         }, { quoted: mek });
         
     } catch (e) {
-        console.log(e);
-        reply(`❌ Error: ${e}`);
+        console.error(e);
     }
 });
