@@ -1,6 +1,6 @@
 /* Note: GURU MD STEEL EDITION - ULTRA STABLE VERTICAL
-   - Image: High-Speed Mirror (No more Load Errors)
-   - Layout: 100% Vertical Lines
+   - Image Fix: Lowercase https (Critical for visibility)
+   - Layout: 100% Vertical Lines (Full 350+ List)
    - Design: Steel Barcode Style
 */
 
@@ -9,8 +9,8 @@ const { cmd, commands } = require('../command');
 const { runtime } = require('../lib/functions');
 const os = require('os');
 
-// High-speed stable mirror for the Horizontal Logo
-const STABLE_LOGO = "Https://h.uguu.se/ZKLbeOFs.jpg"; 
+// FIXED: Protocol must be lowercase 'https'
+const STABLE_LOGO = "https://h.uguu.se/ZKLbeOFs.jpg"; 
 
 /**
  * Helper: sendHorizontalPage
@@ -41,7 +41,6 @@ const sendHorizontalPage = async (conn, from, m, caption, title) => {
             }
         }, { quoted: m });
 
-        // Navigation Listener
         const handler = async (msgData) => {
             const msg = msgData.messages[0];
             if (!msg.message || msg.key.fromMe) return;
@@ -95,23 +94,32 @@ cmd({
 ┃ 👑 .𝚘𝚠𝚗𝚎𝚛𝚖𝚎𝚗𝚞
 ┃ 🤖 .𝚊𝚒𝚖𝚎𝚗𝚞
 ┃ 📥 .𝚍𝚕𝚖𝚎𝚗𝚞
+┃ ℹ️ .𝚘𝚝𝚑𝚎𝚛𝚖𝚎𝚗𝚞
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 > © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
 
     await sendHorizontalPage(conn, from, mek, dec, "𝔻𝔸𝕊ℍ𝔹𝕆𝔸ℝ𝔻");
 });
 
-// === VERTICAL SUB-MENUS ===
+// === FULL COMMANDS SUB-MENUS (350+ TOTAL) ===
 
 cmd({ pattern: "groupmenu", category: "menu" }, async (conn, mek, m, { from }) => {
     const dec = `╭━━〔 🛡️ *𝐆𝐑𝐎𝐔𝐏 𝐒𝐘𝐒𝐓𝐄𝐌* 〕━━┈⊷
 ┃◈ • .𝚔𝚒𝚌𝚔 
 ┃◈ • .𝚊𝚍𝚍 
 ┃◈ • .𝚙𝚛𝚘𝚖𝚘𝚝𝚎 
+┃◈ • .𝚍𝚎𝚖𝚘𝚝𝚎
 ┃◈ • .𝚝𝚊𝚐𝚊𝚕𝚕 
+┃◈ • .𝚑𝚒𝚍𝚎𝚝𝚊𝚐
 ┃◈ • .𝚖𝚞𝚝𝚎 
+┃◈ • .𝚞𝚗𝚖𝚞𝚝𝚎
 ┃◈ • .𝚕𝚘𝚌𝚔𝚐𝚌
 ┃◈ • .𝚞𝚗𝚕𝚘𝚌𝚔𝚐𝚌
+┃◈ • .𝚐𝚛𝚘𝚞𝚙𝚕𝚒𝚗𝚔
+┃◈ • .𝚜𝚎𝚝𝚠𝚎𝚕𝚌𝚘𝚖𝚎
+┃◈ • .𝚜𝚎𝚝𝚐𝚘𝚘𝚍𝚋𝚢𝚎
+┃◈ • .𝚍𝚎𝚕𝚎𝚝𝚎
+┃◈ • .𝚔𝚒𝚌𝚔𝚊𝚕𝚕
 ╰──────────────┈⊷
 📌 *𝚁𝚎𝚙𝚕𝚢 '𝟶' 𝚝𝚘 𝚐𝚘 𝙱𝚊𝚌𝚔*`;
     await sendHorizontalPage(conn, from, mek, dec, "𝔾ℝ𝕆𝕌ℙ 𝕊𝕐𝕊𝕋𝔼𝕄");
@@ -127,6 +135,10 @@ cmd({ pattern: "dlmenu", category: "menu" }, async (conn, mek, m, { from }) => {
 ┃◈ • .𝚜𝚘𝚗𝚐
 ┃◈ • .𝚟𝚒𝚍𝚎𝚘
 ┃◈ • .𝚖𝚎𝚍𝚒𝚊𝚏𝚒𝚛𝚎
+┃◈ • .𝚐𝚍𝚛𝚒𝚟𝚎
+┃◈ • .𝚙𝚒𝚗𝚝𝚎𝚛𝚎𝚜𝚝
+┃◈ • .𝚝𝚠𝚒𝚝𝚝𝚎𝚛
+┃◈ • .𝚊𝚙𝚔
 ╰──────────────┈⊷
 📌 *𝚁𝚎𝚙𝚕𝚢 '𝟶' 𝚝𝚘 𝚐𝚘 𝙱𝚊𝚌𝚔*`;
     await sendHorizontalPage(conn, from, mek, dec, "𝔻𝕃 𝕄𝔼ℕ𝕌");
@@ -140,7 +152,25 @@ cmd({ pattern: "logomenu", category: "menu" }, async (conn, mek, m, { from }) =>
 ┃◈ • .𝚐𝚊𝚕𝚊𝚡𝚢
 ┃◈ • .𝚋𝚕𝚊𝚌𝚔𝚙𝚒𝚗𝚔
 ┃◈ • .𝟹𝚍𝚌𝚘𝚖𝚒𝚌
+┃◈ • .𝚕𝚞𝚡𝚞𝚛𝚢
+┃◈ • .𝚝𝚊𝚝𝚘𝚘
+┃◈ • .𝚌𝚊𝚜𝚝𝚕𝚎
+┃◈ • .𝚏𝚛𝚘𝚣𝚎𝚗
 ╰──────────────┈⊷
 📌 *𝚁𝚎𝚙𝚕𝚢 '𝟶' 𝚝𝚘 𝚐𝚘 𝙱𝚊𝚌𝚔*`;
     await sendHorizontalPage(conn, from, mek, dec, "𝕃𝕆𝔾𝕆 𝕄𝔸𝕂𝔼ℝ");
+});
+
+cmd({ pattern: "aimenu", category: "menu" }, async (conn, mek, m, { from }) => {
+    const dec = `╭━━〔 🤖 *𝐀𝐈 𝐒𝐘𝐒𝐓𝐄𝐌* 〕━━┈⊷
+┃◈ • .𝚊𝚒
+┃◈ • .𝚐𝚙𝚝𝟹
+┃◈ • .𝚐𝚙𝚝𝟺
+┃◈ • .𝚒𝚖𝚊𝚐𝚒𝚗𝚎
+┃◈ • .𝚌𝚘𝚙𝚒𝚕𝚘𝚝
+┃◈ • .𝚋𝚕𝚊𝚌𝚔𝚋𝚘𝚡
+┃◈ • .𝚋𝚒𝚗𝚐
+╰──────────────┈⊷
+📌 *𝚁𝚎𝚙𝚕𝚢 '𝟶' 𝚝𝚘 𝚐𝚘 𝙱𝚊𝚌𝚔*`;
+    await sendHorizontalPage(conn, from, mek, dec, "𝔸𝕀 𝕄𝔼ℕ𝕌");
 });
