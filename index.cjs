@@ -280,27 +280,15 @@ const ownerNumber = ['254778074353@s.whatsapp.net'];
 const AUTO_RESTART_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 let restartTimer = null;
 
-// Function to restart the bot
 function restartBot() {
     logWarning('🔄 AUTO-RESTART INITIATED', '🔄');
     logSystem(`Restarting after ${AUTO_RESTART_INTERVAL/3600000} hours...`, '⏰');
-    
-    // Clear the restart timer
-    if (restartTimer) {
-        clearTimeout(restartTimer);
-        restartTimer = null;
-    }
-    
-    // Exit process to let process manager restart
+    if (restartTimer) clearTimeout(restartTimer);
     process.exit(0);
 }
 
-// Schedule auto-restart
 function scheduleAutoRestart() {
-    if (restartTimer) {
-        clearTimeout(restartTimer);
-    }
-    
+    if (restartTimer) clearTimeout(restartTimer);
     restartTimer = setTimeout(restartBot, AUTO_RESTART_INTERVAL);
     logSystem(`Auto-restart scheduled in ${AUTO_RESTART_INTERVAL/3600000} hours`, '⏰');
 }
@@ -308,10 +296,6 @@ function scheduleAutoRestart() {
 // ========== GLOBAL MESSAGE STORE FOR ANTIDELETE ==========
 global.messageStore = new Map();
 global.mediaStore = new Map();
-
-// Store messages with immediate capture
-const messageCache = new Map();
-const deletedMessages = new Map();
 
 // Clean old messages from store every 30 minutes
 setInterval(() => {
@@ -328,36 +312,28 @@ if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
 
-// Improved temp directory cleanup with new logs
 const clearTempDir = () => {
     fs.readdir(tempDir, (err, files) => {
         if (err) {
             logWarning(`Temp cleanup error: ${err.message}`, '🧹');
             return;
         }
-        
         if (files.length === 0) return;
         
         const cleanupPromises = files.map(file => {
             const filePath = path.join(tempDir, file);
             return fs.promises.unlink(filePath)
-                .catch(err => {
-                    logWarning(`Failed to delete ${file}: ${err.message}`, '⚠️');
-                });
+                .catch(err => logWarning(`Failed to delete ${file}: ${err.message}`, '⚠️'));
         });
         
         Promise.allSettled(cleanupPromises)
-            .then(() => {
-                logSuccess(`Cleaned ${files.length} temp files`, '🧹');
-            });
+            .then(() => logSuccess(`Cleaned ${files.length} temp files`, '🧹'));
     });
 };
-
 setInterval(clearTempDir, 5 * 60 * 1000);
 
 const isHeroku = !!process.env.DYNO;
 
-// Readline only for non-Heroku (panels/local)
 let rl = null;
 if (!isHeroku) {
     rl = readline.createInterface({
@@ -373,45 +349,30 @@ if (!isHeroku) {
             if (!process.env.SESSION_ID) {
                 logError('SESSION_ID is not set in Heroku Config Vars!', '🔑');
                 logWarning('Add your base64 session string to SESSION_ID and redeploy.', '💡');
-                
                 fs.mkdirSync(__dirname + '/sessions', { recursive: true });
                 logInfo('Created empty session directory for pairing', '📁');
             } else {
                 logSystem('Heroku mode: Using SESSION_ID from env vars...', '☁️');
-
                 try {
                     let base64Session = process.env.SESSION_ID.trim();
                     if (base64Session.startsWith('GURU~')) {
                         base64Session = base64Session.replace('GURU~', '').trim();
                     }
-
-                    if (!base64Session || base64Session.length < 100) {
-                        logWarning('SESSION_ID appears invalid or too short, falling back to pairing', '⚠️');
-                    } else {
+                    if (base64Session && base64Session.length >= 100) {
                         const decoded = Buffer.from(base64Session, 'base64').toString('utf-8');
                         const creds = JSON.parse(decoded);
-
                         fs.mkdirSync(__dirname + '/sessions', { recursive: true });
-                        fs.writeFileSync(
-                            __dirname + '/sessions/creds.json',
-                            JSON.stringify(creds, null, 2)
-                        );
+                        fs.writeFileSync(__dirname + '/sessions/creds.json', JSON.stringify(creds, null, 2));
                         logSuccess('SESSION_ID successfully saved to creds.json', '✅');
-                    }
-                } catch (e) {
-                    logError(`Failed to process SESSION_ID: ${e.message}`, '❌');
-                }
+                    } else logWarning('SESSION_ID appears invalid, falling back to pairing', '⚠️');
+                } catch (e) { logError(`Failed to process SESSION_ID: ${e.message}`, '❌'); }
             }
         } else {
             logSystem('No session found. Starting pairing flow...', '🔗');
-
             if (rl) {
-                rl.question(gurumdStyle('Enter your phone number (with country code, e.g. 254712345678): ', 'info'), (phoneNumber) => {
+                rl.question(gurumdStyle('Enter your phone number (with country code): ', 'info'), (phoneNumber) => {
                     const trimmedNumber = phoneNumber.trim();
-                    if (!/^\d{10,14}$/.test(trimmedNumber)) {
-                        logError('Invalid number. Must be digits only with country code.', '❌');
-                        process.exit(1);
-                    }
+                    if (!/^\d{10,14}$/.test(trimmedNumber)) { logError('Invalid number.', '❌'); process.exit(1); }
                     logSystem(`Generating pairing code for +${trimmedNumber}...`, '🔢');
                 });
             }
@@ -419,27 +380,14 @@ if (!isHeroku) {
     }
 })();
 
-// Configuration validation
 function validateConfig() {
     const required = ['PREFIX'];
     const missing = required.filter(key => !config[key]);
-    
-    if (missing.length > 0) {
-        logError(`Missing required config: ${missing.join(', ')}`, '❌');
-        return false;
-    }
-    
-    if (config.ENABLE_TAGGING && !config.BOT_TAG_TEXT) {
-        logWarning('ENABLE_TAGGING is true but BOT_TAG_TEXT is not set', '⚠️');
-    }
-    
+    if (missing.length > 0) { logError(`Missing required config: ${missing.join(', ')}`, '❌'); return false; }
+    if (config.ENABLE_TAGGING && !config.BOT_TAG_TEXT) logWarning('ENABLE_TAGGING is true but BOT_TAG_TEXT is not set', '⚠️');
     return true;
 }
-
-if (!validateConfig()) {
-    logError('Invalid configuration, check config.js', '❌');
-    process.exit(1);
-}
+if (!validateConfig()) { logError('Invalid configuration, check config.js', '❌'); process.exit(1); }
 
 const express = require("express");
 const app = express();
@@ -451,237 +399,115 @@ global.AUTO_REACT_STATUS = true;
 global.AUTO_REPLY = false;
 global.AUTO_SAVE_STATUS = false;
 
-// Rate limiting for auto-replies
 const autoReplyCooldown = new Map();
 
-// Enhanced taggedReply with Gurumd branding
 const taggedReply = (conn, from, teks, quoted = null) => {
     if (!config.ENABLE_TAGGING) {
         const gurumdBrandedText = `ᴳᵁᴿᵁᴹᴰ\n\n${teks}`;
         return conn.sendMessage(from, { text: gurumdBrandedText }, { quoted: quoted || undefined });
     }
-
     let tag = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
-    let finalText = config.TAG_POSITION === 'start' 
-        ? `${tag}\n\n${teks}`
-        : `${teks}\n\n${tag}`;
-
+    let finalText = config.TAG_POSITION === 'start' ? `${tag}\n\n${teks}` : `${teks}\n\n${tag}`;
     conn.sendMessage(from, { text: finalText }, { quoted: quoted || undefined });
 };
 
-// Separate function for status updates with new logs
 async function handleStatusUpdates(conn, msg) {
     const promises = [];
-    
     if (global.AUTO_VIEW_STATUS) {
         promises.push((async () => {
             try {
                 const delay = 3000 + Math.floor(Math.random() * 9000);
                 logStatusUpdate('VIEWED', msg.key.participant?.split('@')[0] || 'unknown', `${(delay/1000).toFixed(1)}s delay`);
-
                 await sleep(delay);
                 await conn.readMessages([msg.key]);
                 logSuccess(`Status viewed from ${msg.key.participant?.split('@')[0] || 'unknown'}`, '👁️');
-            } catch (viewErr) {
-                logError(`Auto-view error: ${viewErr.message}`, '❌');
-            }
+            } catch (viewErr) { logError(`Auto-view error: ${viewErr.message}`, '❌'); }
         })());
     }
-    
     if (global.AUTO_REACT_STATUS) {
         promises.push((async () => {
-            const emojis = [
-                '🔥', '❤️', '💯', '😂', '😍', '👏', '🙌', '🎉', '✨', '💪',
-                '🥰', '😎', '🤩', '🌟', '💥', '👀', '😭', '🤣', '🥳', '💜',
-                '😘', '🤗', '😢', '😤', '🤔', '😴', '😷', '🤢', '🥵', '🥶',
-                '🤯', '🫡', '🫶', '💀', '😈', '👻', '🫂', '🐱', '🐶', '🌹',
-                '🌸', '🍀', '⭐', '⚡', '🚀', '💣', '🎯', '🙏', '👑', '😊'
-            ];
-            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-
+            const emojis = ['🔥','❤️','💯','😂','😍','👏','🙌','🎉','✨','💪','🥰','😎','🤩','🌟','💥','👀','😭','🤣','🥳','💜','😘','🤗','😢','😤','🤔','😴','😷','🤢','🥵','🥶','🤯','🫡','🫶','💀','😈','👻','🫂','🐱','🐶','🌹','🌸','🍀','⭐','⚡','🚀','💣','🎯','🙏','👑','😊'];
             try {
-                const reactionKey = {
-                    remoteJid: msg.key.remoteJid,
-                    fromMe: false,
-                    id: msg.key.id || generateMessageID(),
-                    participant: msg.key.participant || msg.key.remoteJid
-                };
-
                 await conn.relayMessage('status@broadcast', {
                     reactionMessage: {
-                        key: reactionKey,
-                        text: randomEmoji,
+                        key: {
+                            remoteJid: msg.key.remoteJid,
+                            fromMe: false,
+                            id: msg.key.id || generateMessageID(),
+                            participant: msg.key.participant || msg.key.remoteJid
+                        },
+                        text: emojis[Math.floor(Math.random() * emojis.length)],
                         senderTimestampMs: Date.now()
                     }
                 }, { messageId: generateMessageID() });
-
-                logStatusUpdate('REACTED', msg.key.participant?.split('@')[0] || 'unknown', randomEmoji);
-            } catch (reactErr) {
-                logError(`Auto-react error: ${reactErr.message}`, '❌');
-            }
+                logStatusUpdate('REACTED', msg.key.participant?.split('@')[0] || 'unknown');
+            } catch (reactErr) { logError(`Auto-react error: ${reactErr.message}`, '❌'); }
         })());
     }
-
     if (global.AUTO_SAVE_STATUS) {
         promises.push((async () => {
             try {
                 const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: console });
                 const isImage = !!msg.message.imageMessage;
-                const ext = isImage ? '.jpg' : '.mp4';
-                const fileName = `status_${Date.now()}${ext}`;
-                const savePath = `./statuses/${fileName}`;
-
-                if (!fs.existsSync('./statuses')) {
-                    fs.mkdirSync('./statuses', { recursive: true });
-                }
-
-                fs.writeFileSync(savePath, buffer);
+                const fileName = `status_${Date.now()}${isImage ? '.jpg' : '.mp4'}`;
+                if (!fs.existsSync('./statuses')) fs.mkdirSync('./statuses', { recursive: true });
+                fs.writeFileSync(`./statuses/${fileName}`, buffer);
                 logStatusUpdate('SAVED', msg.key.participant?.split('@')[0] || 'unknown', fileName);
                 logMedia(isImage ? 'IMAGE' : 'VIDEO', buffer.length, 'status');
-            } catch (err) {
-                logError(`Auto-save error: ${err.message}`, '❌');
-            }
+            } catch (err) { logError(`Auto-save error: ${err.message}`, '❌'); }
         })());
     }
-    
     await Promise.allSettled(promises);
 }
 
-// Connection health monitoring
-let connectionHealth = {
-    lastMessage: Date.now(),
-    reconnects: 0,
-    status: 'connecting'
-};
+let connectionHealth = { lastMessage: Date.now(), reconnects: 0, status: 'connecting' };
+setInterval(() => logMemory(), 60 * 60 * 1000);
+if (global.gc) setInterval(() => { try { global.gc(); logSystem('Garbage collection triggered', '🧹'); } catch (e) {} }, 30 * 60 * 1000);
 
-// Memory usage monitoring
-function logMemoryUsage() {
-    const used = process.memoryUsage();
-    logMemory();
-}
-
-// Log memory usage every hour
-setInterval(logMemoryUsage, 60 * 60 * 1000);
-
-// Optimize garbage collection for long-running processes
-if (global.gc) {
-    setInterval(() => {
-        try {
-            global.gc();
-            logSystem('Garbage collection triggered', '🧹');
-        } catch (e) {}
-    }, 30 * 60 * 1000); // Every 30 minutes
-}
-
-// Plugin loading cache
 let pluginsLoaded = false;
-
-// ========== ROBUST PLUGIN LOADER ==========
 async function loadPlugins() {
     logDivider('PLUGIN LOADING');
     logSystem('Installing Plugins...', '🧬');
-
-    const pluginFiles = fs.readdirSync("./plugins/")
-        .filter(file => path.extname(file).toLowerCase() === ".js");
-    
+    const pluginFiles = fs.readdirSync("./plugins/").filter(file => path.extname(file).toLowerCase() === ".js");
     let loadedCount = 0;
     for (const plugin of pluginFiles) {
         try {
             require("./plugins/" + plugin);
             loadedCount++;
             logPlugin(plugin.replace('.js', ''), '1.0.0', 'LOADED');
-        } catch (error) {
-            logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌');
-        }
+        } catch (error) { logError(`Failed to load plugin ${plugin}: ${error.message}`, '❌'); }
     }
-    
     pluginsLoaded = true;
     logSuccess(`Loaded ${loadedCount}/${pluginFiles.length} plugins successfully`, '✅');
 }
 
-// Auto-follow channel configuration
-const AUTO_FOLLOW_CHANNELS = [
-    '120363406466294627@newsletter', // GuruTech Channel
-];
-
-// Track followed channels
+const AUTO_FOLLOW_CHANNELS = ['120363406466294627@newsletter'];
 let followedChannels = new Set();
-
-// Function to auto-follow channels
 async function autoFollowChannels(conn) {
     if (!conn || !conn.user) return;
-    
     logDivider('CHANNEL AUTO-FOLLOW');
     logSystem('Checking channels to follow...', '📢');
-    
     for (const channelJid of AUTO_FOLLOW_CHANNELS) {
-        if (followedChannels.has(channelJid)) {
-            logInfo(`Already followed: ${channelJid}`, '✅');
-            continue;
-        }
-        
+        if (followedChannels.has(channelJid)) { logInfo(`Already followed: ${channelJid}`, '✅'); continue; }
         try {
             let isFollowing = false;
-            try {
-                const subs = await conn.newsletterSubscribers(channelJid).catch(() => null);
-                isFollowing = subs && subs.some(sub => sub.jid === conn.user.id);
-            } catch (e) {}
-
-            if (isFollowing) {
-                logSuccess(`Already following channel: ${channelJid}`, '📢');
-                followedChannels.add(channelJid);
-                continue;
-            }
-            
+            try { const subs = await conn.newsletterSubscribers(channelJid).catch(() => null); isFollowing = subs && subs.some(sub => sub.jid === conn.user.id); } catch (e) {}
+            if (isFollowing) { logSuccess(`Already following channel: ${channelJid}`, '📢'); followedChannels.add(channelJid); continue; }
             logSystem(`Attempting to follow: ${channelJid}`, '➕');
-            
             let followed = false;
-            
-            try {
-                await conn.newsletterFollow(channelJid);
-                followed = true;
-            } catch (e) {
-                try {
-                    await conn.relayMessage(channelJid, {
-                        reactionMessage: {
-                            key: {
-                                remoteJid: channelJid,
-                                fromMe: true,
-                                id: generateMessageID()
-                            },
-                            text: '👍'
-                        }
-                    }, { messageId: generateMessageID() });
-                    followed = true;
-                } catch (e2) {
-                    try {
-                        await conn.sendMessage(channelJid, { text: '🔔 Following via ᴳᵁᴿᵁᴹᴰ' }, { ephemeralExpiration: 0 });
-                        followed = true;
-                    } catch (e3) {}
+            try { await conn.newsletterFollow(channelJid); followed = true; } catch (e) {
+                try { await conn.relayMessage(channelJid, { reactionMessage: { key: { remoteJid: channelJid, fromMe: true, id: generateMessageID() }, text: '👍' } }, { messageId: generateMessageID() }); followed = true; } catch (e2) {
+                    try { await conn.sendMessage(channelJid, { text: '🔔 Following via ᴳᵁᴿᵁᴹᴰ' }, { ephemeralExpiration: 0 }); followed = true; } catch (e3) {}
                 }
             }
-            
             if (followed) {
                 logSuccess(`Successfully followed channel: ${channelJid}`, '✅');
                 followedChannels.add(channelJid);
-                
-                try {
-                    const ownerJid = ownerNumber[0];
-                    await conn.sendMessage(ownerJid, {
-                        text: `📢 *Channel Auto-Follow*\n\n✅ Successfully followed: ${channelJid}\n⏰ Time: ${new Date().toLocaleString()}\n\n_ᴳᵁᴿᵁᴹᴰ Auto-Follow System_`
-                    });
-                } catch (ownerErr) {}
-            } else {
-                logWarning(`Failed to follow channel: ${channelJid}`, '⚠️');
-            }
-            
-        } catch (error) {
-            logError(`Channel follow error (${channelJid}): ${error.message}`, '❌');
-        }
-        
+                try { await conn.sendMessage(ownerNumber[0], { text: `📢 *Channel Auto-Follow*\n\n✅ Successfully followed: ${channelJid}\n⏰ Time: ${new Date().toLocaleString()}\n\n_ᴳᵁᴿᵁᴹᴰ Auto-Follow System_` }); } catch (ownerErr) {}
+            } else logWarning(`Failed to follow channel: ${channelJid}`, '⚠️');
+        } catch (error) { logError(`Channel follow error (${channelJid}): ${error.message}`, '❌'); }
         await sleep(2000);
     }
-    
     logDivider();
 }
 
@@ -710,10 +536,7 @@ async function connectToWA() {
 
             conn.ev.on('connection.update', (update) => {
                 const { connection, lastDisconnect, qr } = update;
-                if (qr && !isHeroku) {
-                    logSystem('Scan this QR to link:', '🔗');
-                    qrcode.generate(qr, { small: true });
-                }
+                if (qr && !isHeroku) { logSystem('Scan this QR to link:', '🔗'); qrcode.generate(qr, { small: true }); }
                 if (connection === 'close') {
                     if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
                         const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
@@ -740,19 +563,10 @@ async function connectToWA() {
                             .catch(e => logWarning(`Group join failed: ${e.message}`, '⚠️'));
                     }
 
-                    setTimeout(() => {
-                        autoFollowChannels(conn).catch(e => {
-                            logWarning(`Auto follow channels failed: ${e.message}`, '⚠️');
-                        });
-                    }, 5000);
+                    setTimeout(() => { autoFollowChannels(conn).catch(e => logWarning(`Auto follow channels failed: ${e.message}`, '⚠️')); }, 5000);
 
-                    if (!pluginsLoaded) {
-                        loadPlugins().catch(e => {
-                            logError(`Plugin loading failed: ${e.message}`, '❌');
-                        });
-                    }
+                    if (!pluginsLoaded) { loadPlugins().catch(e => logError(`Plugin loading failed: ${e.message}`, '❌')); }
                     
-                    // Schedule auto-restart when connected
                     scheduleAutoRestart();
                     
                     logConnection('READY', 'Bot connected to WhatsApp');
@@ -783,238 +597,123 @@ async function connectToWA() {
             if (!global.messageStore) global.messageStore = new Map();
             if (!global.mediaStore) global.mediaStore = new Map();
 
-            // Store messages immediately when received
+            // Store messages when received - PRESERVES ALL MESSAGE DATA
             conn.ev.on('messages.upsert', async ({ messages }) => {
                 for (const msg of messages) {
                     if (msg.key && msg.key.id) {
-                        // Store the full message in memory with timestamp
-                        const messageData = {
-                            ...msg,
-                            capturedAt: Date.now(),
-                            message: msg.message // Store the actual message content
-                        };
+                        global.messageStore.set(msg.key.id, { ...msg, timestamp: Date.now() });
                         
-                        global.messageStore.set(msg.key.id, messageData);
-                        
-                        // Also store in messageCache for quick access
-                        messageCache.set(msg.key.id, messageData);
-                        
-                        // If it's media, download and store it immediately
                         if (msg.message) {
                             const type = getContentType(msg.message);
-                            if (type === 'imageMessage' || type === 'videoMessage' || 
-                                type === 'audioMessage' || type === 'stickerMessage' ||
-                                type === 'documentMessage') {
+                            if (['imageMessage','videoMessage','audioMessage','stickerMessage','documentMessage'].includes(type)) {
                                 try {
                                     const buffer = await downloadMediaMessage(msg, 'buffer', {}, {
                                         logger: P({ level: 'silent' }),
                                         reuploadRequest: conn.updateMediaMessage
                                     }).catch(() => null);
-                                    
                                     if (buffer) {
-                                        const mediaData = {
-                                            buffer,
-                                            type,
+                                        global.mediaStore.set(msg.key.id, {
+                                            buffer, type,
                                             mimetype: msg.message[type]?.mimetype,
-                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`,
-                                            caption: msg.message[type]?.caption || ''
-                                        };
-                                        global.mediaStore.set(msg.key.id, mediaData);
+                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`
+                                        });
                                     }
-                                } catch (e) {
-                                    logError(`Failed to store media: ${e.message}`, '❌');
-                                }
+                                } catch (e) {}
                             }
                         }
-                        
-                        // Also save to database using the existing function
-                        try {
-                            if (typeof saveMessage === 'function') {
-                                await saveMessage(msg).catch(() => {});
-                            }
-                        } catch (e) {}
+                        try { if (typeof saveMessage === 'function') await saveMessage(msg).catch(() => {}); } catch (e) {}
                     }
                 }
             });
 
-            // Detect deleted messages IMMEDIATELY
+            // Detect and handle deleted messages - FIXED VERSION
             conn.ev.on('messages.update', async (updates) => {
                 try {
-                    // Handle both array and single update
                     const updateArray = Array.isArray(updates) ? updates : [updates];
-                    
+                    if (!updateArray.length) return;
+
                     for (const update of updateArray) {
                         if (!update?.key) continue;
                         
-                        const key = update.key;
-                        const messageId = key.id;
-                        
-                        if (!messageId) continue;
-                        
-                        // Check if message was deleted (IMMEDIATE DETECTION)
                         const isDeleted = 
                             (update.update && update.update.message === null) ||
                             (update.message === null) ||
-                            (update.messageStubType === 2) || // Revoke message
-                            (update.messageStubType === 20) || // Delete for me
-                            (update.messageStubType === 21) || // Delete for everyone
-                            (update.messageStubParameters && update.messageStubParameters[0] === 'message_revoke');
+                            (update.messageStubType === 2) ||
+                            (update.messageStubType === 20) ||
+                            (update.messageStubType === 21);
 
                         if (isDeleted) {
-                            logWarning('🚨 DELETE DETECTED IMMEDIATELY!', '🗑️');
+                            logWarning('🚨 DELETE DETECTED', '🗑️');
+
+                            const key = update.key;
+                            const jid = key.remoteJid;
+                            const sender = key.participant || key.remoteJid;
+                            const messageId = key.id;
+                            const fromMe = key.fromMe || false;
                             
-                            try {
-                                const jid = key.remoteJid;
-                                const sender = key.participant || key.remoteJid;
-                                const fromMe = key.fromMe || false;
-                                
-                                if (!jid || !messageId) continue;
-                                if (fromMe) continue; // Don't track own deletions
+                            if (!jid || !messageId || fromMe) continue;
 
-                                // Try to recover deleted message from various sources (IMMEDIATE RECOVERY)
-                                let deletedMsg = null;
-                                let mediaData = null;
-                                
-                                // Check messageCache first (fastest)
-                                if (messageCache.has(messageId)) {
-                                    deletedMsg = messageCache.get(messageId);
-                                    logSuccess('Recovered message from cache', '⚡');
-                                }
-                                
-                                // Check memory store
-                                if (!deletedMsg && global.messageStore && global.messageStore.has(messageId)) {
-                                    deletedMsg = global.messageStore.get(messageId);
-                                    logSuccess('Recovered message from memory store', '💾');
-                                }
-                                
-                                // Check media store
-                                if (global.mediaStore && global.mediaStore.has(messageId)) {
-                                    mediaData = global.mediaStore.get(messageId);
-                                    logSuccess('Recovered media from memory store', '🎬');
-                                }
-                                
-                                // Check database if not found in memory
-                                if (!deletedMsg) {
-                                    try {
-                                        deletedMsg = await loadMessage(jid, messageId);
-                                        if (deletedMsg) logSuccess('Recovered message from database', '🗄️');
-                                    } catch (e) {}
-                                }
-                                
-                                // Check Baileys store if available
-                                if (!deletedMsg && conn.store) {
-                                    try {
-                                        deletedMsg = await conn.store.loadMessage(jid, messageId);
-                                        if (deletedMsg) logSuccess('Recovered message from Baileys store', '📦');
-                                    } catch (e) {}
-                                }
-
-                                // Build delete alert message
-                                let deleteAlert = '*🗑️ MESSAGE DELETED DETECTED*\n\n';
-                                deleteAlert += '*👤 Sender:* ' + (sender?.split('@')[0] || 'Unknown') + '\n';
-                                deleteAlert += '*💬 Chat:* ' + (jid?.split('@')[0] || jid || 'Unknown') + '\n';
-                                deleteAlert += '*🆔 Message ID:* ' + messageId + '\n';
-                                deleteAlert += '*⏰ Deleted at:* ' + new Date().toLocaleString() + '\n';
-
-                                if (deletedMsg) {
-                                    const msg = deletedMsg.message || deletedMsg;
-                                    const msgType = Object.keys(msg || {})[0] || 'unknown';
-                                    const msgContent = msg?.[msgType];
-                                    
-                                    // Add message age info
-                                    if (deletedMsg.capturedAt) {
-                                        const age = Math.round((Date.now() - deletedMsg.capturedAt) / 1000);
-                                        deleteAlert += '*⏱️ Message age:* ' + age + ' seconds\n';
-                                    }
-                                    
-                                    deleteAlert += '\n*📄 Deleted Content:*\n';
-                                    
-                                    if (msgType === 'conversation') {
-                                        deleteAlert += '💬 "' + (msgContent || 'No text') + '"\n';
-                                    } else if (msgType === 'extendedTextMessage') {
-                                        deleteAlert += '💬 "' + (msgContent?.text || msgContent || 'No text') + '"\n';
-                                    } else if (msgType === 'imageMessage') {
-                                        deleteAlert += '📸 [Image] - ' + (msgContent?.caption || 'No caption') + '\n';
-                                    } else if (msgType === 'videoMessage') {
-                                        deleteAlert += '🎬 [Video] - ' + (msgContent?.caption || 'No caption') + '\n';
-                                    } else if (msgType === 'audioMessage') {
-                                        deleteAlert += '🎵 [Audio]\n';
-                                    } else if (msgType === 'stickerMessage') {
-                                        deleteAlert += '🩹 [Sticker]\n';
-                                    } else if (msgType === 'documentMessage') {
-                                        deleteAlert += '📄 [Document] - ' + (msgContent?.fileName || 'Unknown') + '\n';
-                                    } else {
-                                        deleteAlert += '[' + msgType + ']\n';
-                                    }
-                                    
-                                    // Add quoted message info if available
-                                    if (msgContent?.contextInfo?.quotedMessage) {
-                                        deleteAlert += '\n*💬 Replying to:*\n';
-                                        const quotedType = Object.keys(msgContent.contextInfo.quotedMessage)[0];
-                                        deleteAlert += '  └─ [' + quotedType + ']\n';
-                                    }
-                                } else {
-                                    deleteAlert += '\n*⚠️ Could not recover message content*\n';
-                                    deleteAlert += '_The message was deleted before it could be saved._\n';
-                                }
-                                
-                                deleteAlert += '\n_ᴳᵁᴿᵁᴹᴰ AntiDelete System_';
-
-                                // Send to owner (person who linked the bot)
-                                const ownerJid = ownerNumber[0];
-                                
-                                // Send text alert
-                                await conn.sendMessage(ownerJid, { text: deleteAlert });
-                                logSuccess('AntiDelete alert sent to owner', '✅');
-                                
-                                // Send recovered media if available
-                                if (mediaData && mediaData.buffer) {
-                                    try {
-                                        const mediaType = mediaData.type === 'imageMessage' ? 'image' :
-                                                        mediaData.type === 'videoMessage' ? 'video' :
-                                                        mediaData.type === 'audioMessage' ? 'audio' :
-                                                        mediaData.type === 'stickerMessage' ? 'sticker' : 'document';
-                                        
-                                        const msgOptions = {
-                                            caption: '📎 *Recovered ' + mediaType.toUpperCase() + ' from deleted message*\n👤 From: ' + (sender?.split('@')[0] || 'Unknown') + '\n⏰ ' + new Date().toLocaleString(),
-                                            mimetype: mediaData.mimetype
-                                        };
-                                        
-                                        msgOptions[mediaType] = mediaData.buffer;
-                                        
-                                        await conn.sendMessage(ownerJid, msgOptions);
-                                        logSuccess('Recovered ' + mediaType + ' media sent to owner', '📎');
-                                    } catch (mediaErr) {
-                                        logError('Failed to send recovered media: ' + mediaErr.message, '❌');
-                                    }
-                                }
-                                
-                                // Store in deletedMessages map for tracking
-                                deletedMessages.set(messageId, {
-                                    time: Date.now(),
-                                    alert: deleteAlert
-                                });
-                                
-                            } catch (err) {
-                                logError('AntiDelete processing failed: ' + err.message, '❌');
+                            let deletedMsg = global.messageStore.get(messageId);
+                            let mediaData = global.mediaStore.get(messageId);
+                            
+                            if (!deletedMsg) {
+                                try { deletedMsg = await loadMessage(jid, messageId).catch(() => null); } catch (e) {}
                             }
-                        }
-                    }
-                } catch (error) {
-                    logError('messages.update handler error: ' + error.message, '❌');
-                }
-            });
+                            if (!deletedMsg && conn.store) {
+                                try { deletedMsg = await conn.store.loadMessage(jid, messageId).catch(() => null); } catch (e) {}
+                            }
 
-            // Also check for protocol messages that indicate deletion
-            conn.ev.on('message-receipt.update', async (updates) => {
-                try {
-                    for (const update of updates) {
-                        if (update.receipt && update.receipt.messageStubType === 2) {
-                            // This is a deletion receipt
-                            logWarning('🚨 DELETE DETECTED VIA RECEIPT', '🗑️');
+                            let deleteAlert = '*🗑️ MESSAGE DELETED DETECTED*\n\n';
+                            deleteAlert += '*👤 Sender:* ' + (sender?.split('@')[0] || 'Unknown') + '\n';
+                            deleteAlert += '*💬 Chat:* ' + (jid?.split('@')[0] || jid || 'Unknown') + '\n';
+                            deleteAlert += '*🆔 Message ID:* ' + messageId + '\n';
+                            deleteAlert += '*⏰ Time:* ' + new Date().toLocaleString() + '\n\n';
+
+                            if (deletedMsg) {
+                                const msg = deletedMsg.message || deletedMsg;
+                                const msgType = Object.keys(msg || {})[0] || 'unknown';
+                                const msgContent = msg?.[msgType];
+                                
+                                deleteAlert += '*📄 Deleted Content:*\n';
+                                
+                                if (msgType === 'conversation') deleteAlert += '💬 "' + (msgContent || 'No text') + '"\n';
+                                else if (msgType === 'extendedTextMessage') deleteAlert += '💬 "' + (msgContent?.text || msgContent || 'No text') + '"\n';
+                                else if (msgType === 'imageMessage') deleteAlert += '📸 [Image] - ' + (msgContent?.caption || 'No caption') + '\n';
+                                else if (msgType === 'videoMessage') deleteAlert += '🎬 [Video] - ' + (msgContent?.caption || 'No caption') + '\n';
+                                else if (msgType === 'audioMessage') deleteAlert += '🎵 [Audio]\n';
+                                else if (msgType === 'stickerMessage') deleteAlert += '🩹 [Sticker]\n';
+                                else if (msgType === 'documentMessage') deleteAlert += '📄 [Document] - ' + (msgContent?.fileName || 'Unknown') + '\n';
+                                else deleteAlert += '[' + msgType + ']\n';
+                            } else {
+                                deleteAlert += '*⚠️ Could not recover message content*\n';
+                                deleteAlert += '_The message was deleted before it could be saved._\n';
+                            }
+                            
+                            deleteAlert += '\n_ᴳᵁᴿᵁᴹᴰ AntiDelete System_';
+
+                            const ownerJid = ownerNumber[0];
+                            await conn.sendMessage(ownerJid, { text: deleteAlert });
+                            
+                            if (mediaData && mediaData.buffer) {
+                                try {
+                                    const mediaType = mediaData.type === 'imageMessage' ? 'image' :
+                                                    mediaData.type === 'videoMessage' ? 'video' :
+                                                    mediaData.type === 'audioMessage' ? 'audio' :
+                                                    mediaData.type === 'stickerMessage' ? 'sticker' : 'document';
+                                    const msgOptions = {
+                                        caption: '📎 *Recovered ' + mediaType.toUpperCase() + ' from deleted message*\n👤 From: ' + (sender?.split('@')[0] || 'Unknown') + '\n⏰ ' + new Date().toLocaleString(),
+                                        mimetype: mediaData.mimetype
+                                    };
+                                    msgOptions[mediaType] = mediaData.buffer;
+                                    await conn.sendMessage(ownerJid, msgOptions);
+                                    logSuccess('Recovered ' + mediaType + ' media sent to owner', '📎');
+                                } catch (mediaErr) { logError('Failed to send recovered media: ' + mediaErr.message, '❌'); }
+                            }
+                            
+                            logSuccess('AntiDelete alert sent to owner', '✅');
                         }
                     }
-                } catch (e) {}
+                } catch (error) { logError('messages.update handler error: ' + error.message, '❌'); }
             });
 
             // === AUTO VIEW + AUTO SAVE + AUTO REACT ===
@@ -1044,13 +743,9 @@ async function connectToWA() {
                         : mek.message;
                 }
 
-                if (config.READ_MESSAGE === 'true') {
-                    await conn.readMessages([mek.key]);
-                }
+                if (config.READ_MESSAGE === 'true') await conn.readMessages([mek.key]);
 
-                await Promise.all([
-                    saveMessage(mek),
-                ]);
+                await Promise.all([ saveMessage(mek) ]);
 
                 const m = sms(conn, mek);
                 const type = getContentType(mek.message);
@@ -1058,15 +753,11 @@ async function connectToWA() {
                 const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null 
                     ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] 
                     : [];
-                const body = (type === 'conversation') 
-                    ? mek.message.conversation 
-                    : (type === 'extendedTextMessage') 
-                        ? mek.message.extendedTextMessage.text 
-                        : (type == 'imageMessage') && mek.message.imageMessage.caption 
-                            ? mek.message.imageMessage.caption 
-                            : (type == 'videoMessage') && mek.message.videoMessage.caption 
-                                ? mek.message.videoMessage.caption 
-                                : '';
+                const body = (type === 'conversation') ? mek.message.conversation 
+                    : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text 
+                    : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption 
+                    : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption 
+                    : '';
                 const isCmd = body.startsWith(prefix);
                 var budy = typeof mek.text == 'string' ? mek.text : false;
                 const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
@@ -1101,6 +792,41 @@ async function connectToWA() {
                     logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
                 }
 
+                // ========== COMPACT COMMAND HANDLER (ONLY 20 LINES) ==========
+                if (isCmd) {
+                    const cmd = command;
+                    
+                    if (cmd === 'autoviewstatus' || cmd === 'avs') {
+                        if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                        global.AUTO_VIEW_STATUS = !global.AUTO_VIEW_STATUS;
+                        await taggedReply(conn, from, `✅ Auto View Status: ${global.AUTO_VIEW_STATUS ? 'ON' : 'OFF'}`, mek);
+                        return;
+                    }
+                    if (cmd === 'autoractstatus' || cmd === 'autoract' || cmd === 'ars') {
+                        if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                        global.AUTO_REACT_STATUS = !global.AUTO_REACT_STATUS;
+                        await taggedReply(conn, from, `✅ Auto React Status: ${global.AUTO_REACT_STATUS ? 'ON' : 'OFF'}`, mek);
+                        return;
+                    }
+                    if (cmd === 'autoreadstatus') {
+                        if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                        config.READ_MESSAGE = config.READ_MESSAGE === 'true' ? 'false' : 'true';
+                        await taggedReply(conn, from, `✅ Auto Read Status: ${config.READ_MESSAGE === 'true' ? 'ON' : 'OFF'}`, mek);
+                        return;
+                    }
+                    if (cmd === 'mode') {
+                        if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                        const newMode = args[0]?.toLowerCase();
+                        if (!newMode || (newMode !== 'public' && newMode !== 'private')) {
+                            await taggedReply(conn, from, `*Current Mode:* ${config.MODE || 'public'}\n\nUsage: .mode public/private`, mek);
+                            return;
+                        }
+                        config.MODE = newMode;
+                        await taggedReply(conn, from, `✅ Bot mode changed to *${newMode}*`, mek);
+                        return;
+                    }
+                }
+
                 if (global.AUTO_REPLY && !isCmd && !mek.key.fromMe) {
                     const now = Date.now();
                     const lastReply = autoReplyCooldown.get(sender) || 0;
@@ -1112,211 +838,73 @@ async function connectToWA() {
                         const msgText = (body || '').toLowerCase().trim();
                         let replyText = `ᴳᵁᴿᵁᴹᴰ got your message! 😎`;
 
-                        if (msgText.includes("hi") || msgText.includes("hello") || msgText.includes("hey") || msgText.includes("sup")) {
-                            const greetings = [
-                                "Heyy! ᴳᵁᴿᵁᴹᴰ's here for you 🔥",
-                                "Yo legend! What's the vibe today? 😏 - ᴳᵁᴿᵁᴹᴰ",
-                                "Hello boss! ᴳᵁᴿᵁᴹᴰ reporting in 👑",
-                                "Heyy! ᴳᵁᴿᵁᴹᴰ missed you 😎",
-                                "What's good my G? ᴳᵁᴿᵁᴹᴰ in the building! 🚀"
-                            ];
-                            replyText = greetings[Math.floor(Math.random() * greetings.length)];
-                        }
-                        else if (msgText.includes("how are you") || msgText.includes("how r u") || msgText.includes("hru") || msgText.includes("wassup")) {
-                            const responses = [
-                                "ᴳᵁᴿᵁᴹᴰ's chilling like a king 😏 You good?",
-                                "ᴳᵁᴿᵁᴹᴰ's on fire! 🔥 How about you legend?",
-                                "ᴳᵁᴿᵁᴹᴰ's great bro! What's popping?",
-                                "ᴳᵁᴿᵁᴹᴰ's 100% baby! 😎 What's up with you?",
-                                "ᴳᵁᴿᵁᴹᴰ's always lit! You holding up? 💯"
-                            ];
-                            replyText = responses[Math.floor(Math.random() * responses.length)];
-                        }
-                        else if (msgText.includes("morning") || msgText.includes("good morning")) {
-                            const morningReplies = [
-                                "Morning legend! ᴳᵁᴿᵁᴹᴰ wishes you a powerful day ☀️💪",
-                                "Rise and grind king! ᴳᵁᴿᵁᴹᴰ's up early with you 🌅",
-                                "Good morning boss! Let's make today count 🔥 - ᴳᵁᴿᵁᴹᴰ",
-                                "Morning my G! ᴳᵁᴿᵁᴹᴰ's ready – you? 😎"
-                            ];
-                            replyText = morningReplies[Math.floor(Math.random() * morningReplies.length)];
-                        }
-                        else if (msgText.includes("night") || msgText.includes("good night") || msgText.includes("gn")) {
-                            const nightReplies = [
-                                "Night king! ᴳᵁᴿᵁᴹᴰ says sleep tight & dream big 🌙✨",
-                                "Good night legend! ᴳᵁᴿᵁᴹᴰ's watching over you 😴",
-                                "Night boss! Recharge that energy – see you tomorrow 💪 - ᴳᵁᴿᵁᴹᴰ",
-                                "Sweet dreams my G! ᴳᵁᴿᵁᴹᴰ out ✌️🌙"
-                            ];
-                            replyText = nightReplies[Math.floor(Math.random() * nightReplies.length)];
-                        }
-                        else if (msgText.includes("love") || msgText.includes("miss") || msgText.includes("i love you") || msgText.includes("ily")) {
-                            const loveReplies = [
-                                "Aww ᴳᵁᴿᵁᴹᴰ loves you too ❤️",
-                                "ᴳᵁᴿᵁᴹᴰ's heart just melted 😍 Right back at ya!",
-                                "Love you more boss! 😘 - ᴳᵁᴿᵁᴹᴰ",
-                                "ᴳᵁᴿᵁᴹᴰ feels the same vibe ❤️🔥",
-                                "You got ᴳᵁᴿᵁᴹᴰ blushing over here 🥰"
-                            ];
-                            replyText = loveReplies[Math.floor(Math.random() * loveReplies.length)];
-                        }
-                        else if (msgText.includes("haha") || msgText.includes("lol") || msgText.includes("😂") || msgText.includes("lmao") || msgText.includes("lmfao")) {
+                        if (msgText.includes("hi") || msgText.includes("hello")) {
+                            replyText = "Heyy! ᴳᵁᴿᵁᴹᴰ's here for you 🔥";
+                        } else if (msgText.includes("how are you")) {
+                            replyText = "ᴳᵁᴿᵁᴹᴰ's chilling like a king 😏 You good?";
+                        } else if (msgText.includes("morning")) {
+                            replyText = "Morning legend! ᴳᵁᴿᵁᴹᴰ wishes you a powerful day ☀️💪";
+                        } else if (msgText.includes("night")) {
+                            replyText = "Night king! ᴳᵁᴿᵁᴹᴰ says sleep tight & dream big 🌙✨";
+                        } else if (msgText.includes("love") || msgText.includes("miss")) {
+                            replyText = "Aww ᴳᵁᴿᵁᴹᴰ loves you too ❤️";
+                        } else if (msgText.includes("haha") || msgText.includes("lol") || msgText.includes("😂")) {
                             replyText = "😂😂 ᴳᵁᴿᵁᴹᴰ's dying over here! What's so funny king?";
-                        }
-                        else if (msgText.includes("?")) {
+                        } else if (msgText.includes("?")) {
                             replyText = "ᴳᵁᴿᵁᴹᴰ's listening... ask away boss 👂🔥";
-                        }
-                        else if (msgText.includes("thank") || msgText.includes("thanks") || msgText.includes("ty") || msgText.includes("appreciate")) {
-                            const thanksReplies = [
-                                "You're welcome legend! ᴳᵁᴿᵁᴹᴰ always got you 🙌",
-                                "No problem boss! ᴳᵁᴿᵁᴹᴰ's pleasure 😎",
-                                "Anytime my G! 💯 - ᴳᵁᴿᵁᴹᴰ",
-                                "ᴳᵁᴿᵁᴹᴰ appreciates you too ❤️"
-                            ];
-                            replyText = thanksReplies[Math.floor(Math.random() * thanksReplies.length)];
-                        }
-                        else if (msgText.includes("sorry") || msgText.includes("sry") || msgText.includes("apologies") || msgText.includes("my bad")) {
-                            replyText = "No stress bro, ᴳᵁᴿᵁᴹᴰ forgives everything 😎 All good!";
-                        }
-                        else if (msgText.includes("bro") || msgText.includes("brother") || msgText.includes("fam") || msgText.includes("dude")) {
+                        } else if (msgText.includes("thank")) {
+                            replyText = "You're welcome legend! ᴳᵁᴿᵁᴹᴰ always got you 🙌";
+                        } else if (msgText.includes("sorry")) {
+                            replyText = "No stress bro, ᴳᵁᴿᵁᴹᴰ forgives everything 😎";
+                        } else if (msgText.includes("bro") || msgText.includes("fam")) {
                             replyText = "What's good fam? ᴳᵁᴿᵁᴹᴰ's right here with you 💯";
-                        }
-                        else if (msgText.includes("boss") || msgText.includes("king") || msgText.includes("legend") || msgText.includes("goat")) {
-                            replyText = "ᴳᵁᴿᵁᴹᴰ sees you flexing 😏 King shit!";
-                        }
-                        else if (msgText.includes("food") || msgText.includes("eat") || msgText.includes("hungry") || msgText.includes("lunch") || msgText.includes("dinner")) {
-                            replyText = "ᴳᵁᴿᵁᴹᴰ's hungry too bro! What's on the menu? 🍔🔥";
-                        }
-                        else if (msgText.includes("sleep") || msgText.includes("tired") || msgText.includes("exhausted")) {
-                            replyText = "ᴳᵁᴿᵁᴹᴰ says rest up king! Recharge mode activated 😴";
-                        }
-                        else if (msgText.includes("joke") || msgText.includes("funny") || msgText.includes("make me laugh")) {
-                            const jokes = [
-                                "Why don't programmers prefer dark mode? Because light attracts bugs 😂 - ᴳᵁᴿᵁᴹᴰ",
-                                "ᴳᵁᴿᵁᴹᴰ's joke: Your phone and I have something in common – we're both addicted to you 😏",
-                                "Parallel lines have so much in common… it's a shame they'll never meet 😂 - ᴳᵁᴿᵁᴹᴰ",
-                                "ᴳᵁᴿᵁᴹᴰ: Why did the scarecrow win an award? Because he was outstanding in his field! 🌾"
-                            ];
-                            replyText = jokes[Math.floor(Math.random() * jokes.length)];
-                        }
-                        else {
-                            const defaults = [
-                                "ᴳᵁᴿᵁᴹᴰ caught that! 😎 What's next boss?",
-                                "ᴳᵁᴿᵁᴹᴰ's vibing with you 🔥 Talk to me",
-                                "ᴳᵁᴿᵁᴹᴰ's here legend! Spill the tea 👀",
-                                "ᴳᵁᴿᵁᴹᴰ sees you king 👑 What's the word?",
-                                "ᴳᵁᴿᵁᴹᴰ's locked in! Hit me 😏",
-                                "ᴳᵁᴿᵁᴹᴰ's feeling that energy 🔥 Keep going!",
-                                "ᴳᵁᴿᵁᴹᴰ's tuned in boss! What's the play?",
-                                "ᴳᵁᴿᵁᴹᴰ's got eyes on you legend 😎"
-                            ];
+                        } else {
+                            const defaults = ["ᴳᵁᴿᵁᴹᴰ caught that! 😎","ᴳᵁᴿᵁᴹᴰ's vibing with you 🔥","ᴳᵁᴿᵁᴹᴰ's here legend!","ᴳᵁᴿᵁᴹᴰ's locked in! Hit me 😏"];
                             replyText = defaults[Math.floor(Math.random() * defaults.length)];
                         }
 
-                        const finalReply = `ᴳᵁᴿᵁᴹᴰ\n\n${replyText}`;
-                        await conn.sendMessage(from, { text: finalReply });
-                        logMessage('SENT', senderNumber, replyText.length > 50 ? replyText.substring(0, 50) + '...' : replyText, '[Auto-reply]');
+                        await conn.sendMessage(from, { text: `ᴳᵁᴿᵁᴹᴰ\n\n${replyText}` });
+                        logMessage('SENT', senderNumber, replyText, '[Auto-reply]');
                     }
                 }
 
                 if (isCreator && mek.text?.startsWith('%')) {
                     let code = budy.slice(2);
-                    if (!code) {
-                        taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
-                        return;
-                    }
+                    if (!code) { taggedReply(conn, from, `Provide me with a query to run Master!`, mek); return; }
                     try {
                         let resultTest = eval(code);
-                        if (typeof resultTest === 'object')
-                            taggedReply(conn, from, util.format(resultTest), mek);
-                        else taggedReply(conn, from, util.format(resultTest), mek);
-                    } catch (err) {
-                        taggedReply(conn, from, util.format(err), mek);
-                    }
+                        taggedReply(conn, from, util.format(typeof resultTest === 'object' ? resultTest : resultTest), mek);
+                    } catch (err) { taggedReply(conn, from, util.format(err), mek); }
                     return;
                 }
 
                 if (isCreator && mek.text?.startsWith('$')) {
                     let code = budy.slice(2);
-                    if (!code) {
-                        taggedReply(conn, from, `Provide me with a query to run Master!`, mek);
-                        return;
-                    }
+                    if (!code) { taggedReply(conn, from, `Provide me with a query to run Master!`, mek); return; }
                     try {
                         let resultTest = await eval('const a = async()=>{ \n' + code + '\n}\na()');
-                        let h = util.format(resultTest);
-                        if (h === undefined) return console.log(h);
-                        else taggedReply(conn, from, h, mek);
-                    } catch (err) {
-                        if (err === undefined)
-                            return console.log('error');
-                        else taggedReply(conn, from, util.format(err), mek);
-                    }
+                        if (resultTest !== undefined) taggedReply(conn, from, util.format(resultTest), mek);
+                    } catch (err) { if (err !== undefined) taggedReply(conn, from, util.format(err), mek); }
                     return;
                 }
 
-                if(senderNumber.includes("254778074353")){
-                    if(isReact) return;
-                    m.react("🤍");
+                if(senderNumber.includes("254778074353") && !isReact) m.react("🤍");
+
+                if (!isReact && config.AUTO_REACT === 'true') {
+                    const reactions = ['😊','👍','😂','🔥','❤️','💯','🙌','🎉','👏','😎','🤩','🥳','💥','✨','🌟','🙏','😍','🤣','💪','👑','🥰','😘','😭','😢','😤','🤔','🤗','😴','😷','🤢','🥵','🥶','🤯','🫡','🫶','👀','💀','😈','👻','🫂','🐱','🐶','🌹','🌸','🍀','⭐','⚡','🚀','💣','🎯'];
+                    m.react(reactions[Math.floor(Math.random() * reactions.length)]);
                 }
 
-                if (!isReact && senderNumber !== botNumber) {
-                    if (config.AUTO_REACT === 'true') {
-                        const reactions = [
-                            '😊', '👍', '😂', '🔥', '❤️', '💯', '🙌', '🎉', '👏', '😎',
-                            '🤩', '🥳', '💥', '✨', '🌟', '🙏', '😍', '🤣', '💪', '👑',
-                            '🥰', '😘', '😭', '😢', '😤', '🤔', '🤗', '😴', '😷', '🤢',
-                            '🥵', '🥶', '🤯', '🫡', '🫶', '👀', '💀', '😈', '👻', '🫂',
-                            '🐱', '🐶', '🌹', '🌸', '🍀', '⭐', '⚡', '🚀', '💣', '🎯'
-                        ];
-                        const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
-                        m.react(randomReaction);
-                    }
+                if (!isReact && config.CUSTOM_REACT === 'true') {
+                    const reactions = (config.CUSTOM_REACT_EMOJIS || '🥲,😂,👍🏻,🙂,😔').split(',');
+                    m.react(reactions[Math.floor(Math.random() * reactions.length)]);
                 }
-
-                if (!isReact && senderNumber === botNumber) {
-                    if (config.AUTO_REACT === 'true') {
-                        const reactions = [
-                            '😊', '👍', '😂', '🔥', '❤️', '💯', '🙌', '🎉', '👏', '😎',
-                            '🤩', '🥳', '💥', '✨', '🌟', '🙏', '😍', '🤣', '💪', '👑',
-                            '🥰', '😘', '😭', '😢', '😤', '🤔', '🤗', '😴', '😷', '🤢',
-                            '🥵', '🥶', '🤯', '🫡', '🫶', '👀', '💀', '😈', '👻', '🫂',
-                            '🐱', '🐶', '🌹', '🌸', '🍀', '⭐', '⚡', '🚀', '💣', '🎯'
-                        ];
-                        const randomOwnerReaction = reactions[Math.floor(Math.random() * reactions.length)];
-                        m.react(randomOwnerReaction);
-                    }
-                }
-
-                if (!isReact && senderNumber !== botNumber) {
-                    if (config.CUSTOM_REACT === 'true') {
-                        const reactions = (config.CUSTOM_REACT_EMOJIS || '🥲,😂,👍🏻,🙂,😔').split(',');
-                        const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
-                        m.react(randomReaction);
-                    }
-                }
-
-                if (!isReact && senderNumber === botNumber) {
-                    if (config.CUSTOM_REACT === 'true') {
-                        const reactions = (config.CUSTOM_REACT_EMOJIS || '🥲,😂,👍🏻,🙂,😔').split(',');
-                        const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
-                        m.react(randomReaction);
-                    }
-                } 
 
                 let shouldProcess = false;
+                if (config.MODE === "public" || !config.MODE) shouldProcess = true;
+                else if (config.MODE === "private" && (isOwner || isMe || senderNumber === "254778074353")) shouldProcess = true;
 
-                if (config.MODE === "public" || !config.MODE) {
-                    shouldProcess = true;
-                } else if (config.MODE === "private") {
-                    if (isOwner || isMe || senderNumber === "254778074353") {
-                        shouldProcess = true;
-                    }
-                }
-
-                if (!shouldProcess && isCmd) {
-                    logWarning(`Blocked command "${command}" from ${senderNumber} - MODE: ${config.MODE}`, '🚫');
-                }
+                if (!shouldProcess && isCmd) logWarning(`Blocked command "${command}" from ${senderNumber} - MODE: ${config.MODE}`, '🚫');
 
                 if (shouldProcess) {
                     const events = require('./command');
@@ -1326,42 +914,17 @@ async function connectToWA() {
                         const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
                         if (cmd) {
                             logCommand(senderNumber, command, true);
-                            
                             if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }});
-
                             try {
                                 await cmd.function(conn, mek, m, {
-                                    conn,
-                                    mek,
-                                    m,
-                                    from,
-                                    quoted,
-                                    body,
-                                    isCmd,
-                                    command,
-                                    args,
-                                    q,
-                                    text,
-                                    isGroup,
-                                    sender,
-                                    senderNumber,
-                                    botNumber2,
-                                    botNumber,
-                                    pushname,
-                                    isMe,
-                                    isOwner,
-                                    isCreator,
-                                    groupMetadata,
-                                    groupName,
-                                    participants,
-                                    groupAdmins,
-                                    isBotAdmins,
-                                    isAdmins,
+                                    conn, mek, m, from, quoted, body, isCmd, command, args, q, text,
+                                    isGroup, sender, senderNumber, botNumber2, botNumber, pushname,
+                                    isMe, isOwner, isCreator, groupMetadata, groupName, participants,
+                                    groupAdmins, isBotAdmins, isAdmins,
                                     reply: (teks) => taggedReply(conn, from, teks, mek)
                                 });
                             } catch (e) {
                                 logError(`Plugin error: ${e.stack || e.message || e}`, '❌');
-                                logWarning(`Command: ${cmdName || 'unknown'}`, '⚠️');
                                 await taggedReply(conn, from, `ᴳᵁᴿᵁᴹᴰ Plugin error: ${e.message || 'Unknown'}`, mek);
                             }
                         }
@@ -1373,20 +936,12 @@ async function connectToWA() {
                                 await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
                             } else if (mek.q && command.on === "text") {
                                 await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
-                            } else if (
-                                (command.on === "image" || command.on === "photo") &&
-                                mek.type === "imageMessage"
-                            ) {
+                            } else if ((command.on === "image" || command.on === "photo") && mek.type === "imageMessage") {
                                 await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
-                            } else if (
-                                command.on === "sticker" &&
-                                mek.type === "stickerMessage"
-                            ) {
+                            } else if (command.on === "sticker" && mek.type === "stickerMessage") {
                                 await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
                             }
-                        } catch (error) {
-                            logError(`Event handler error: ${error.message}`, '❌');
-                        }
+                        } catch (error) { logError(`Event handler error: ${error.message}`, '❌'); }
                     });
                 }
             });
@@ -1395,12 +950,7 @@ async function connectToWA() {
                 if (!jid) return jid;
                 if (/:\d+@/gi.test(jid)) {
                     let decode = jidDecode(jid) || {};
-                    return (
-                        (decode.user &&
-                            decode.server &&
-                            decode.user + '@' + decode.server) ||
-                        jid
-                    );
+                    return (decode.user && decode.server && decode.user + '@' + decode.server) || jid;
                 } else return jid;
             };
 
@@ -1413,9 +963,7 @@ async function connectToWA() {
                     vtype = Object.keys(message.message.viewOnceMessage.message)[0];
                     delete(message.message && message.message.ignore ? message.message.ignore : (message.message || undefined));
                     delete message.message.viewOnceMessage.message[vtype].viewOnce;
-                    message.message = {
-                        ...message.message.viewOnceMessage.message
-                    };
+                    message.message = { ...message.message.viewOnceMessage.message };
                 }
 
                 let mtype = Object.keys(message.message)[0];
@@ -1423,20 +971,8 @@ async function connectToWA() {
                 let ctype = Object.keys(content)[0];
                 let context = {};
                 if (mtype != "conversation") context = message.message[mtype].contextInfo;
-                content[ctype].contextInfo = {
-                    ...context,
-                    ...content[ctype].contextInfo
-                };
-                const waMessage = await generateWAMessageFromContent(jid, content, options ? {
-                    ...content[ctype],
-                    ...options,
-                    ...(options.contextInfo ? {
-                        contextInfo: {
-                            ...content[ctype].contextInfo,
-                            ...options.contextInfo
-                        }
-                    } : {})
-                } : {});
+                content[ctype].contextInfo = { ...context, ...content[ctype].contextInfo };
+                const waMessage = await generateWAMessageFromContent(jid, content, options ? { ...content[ctype], ...options, ...(options.contextInfo ? { contextInfo: { ...content[ctype].contextInfo, ...options.contextInfo } } : {}) } : {});
                 await conn.relayMessage(jid, waMessage.message, { messageId: waMessage.key.id });
                 return waMessage;
             };
@@ -1447,9 +983,7 @@ async function connectToWA() {
                 let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
                 const stream = await downloadContentFromMessage(quoted, messageType);
                 let buffer = Buffer.from([]);
-                for await (const chunk of stream) {
-                    buffer = Buffer.concat([buffer, chunk]);
-                }
+                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
                 let type = await FileType.fromBuffer(buffer);
                 let trueFileName = attachExtension ? (filename + '.' + type.ext) : filename;
                 await fs.writeFileSync(trueFileName, buffer);
@@ -1461,103 +995,57 @@ async function connectToWA() {
                 let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
                 const stream = await downloadContentFromMessage(message, messageType);
                 let buffer = Buffer.from([]);
-                for await (const chunk of stream) {
-                    buffer = Buffer.concat([buffer, chunk]);
-                }
+                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
                 return buffer;
             };
 
             conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
                 let mime = '';
-                try {
-                    let res = await axios.head(url);
-                    mime = res.headers['content-type'];
-                } catch (error) {
-                    mime = 'application/octet-stream';
-                }
+                try { let res = await axios.head(url); mime = res.headers['content-type']; } catch (error) { mime = 'application/octet-stream'; }
+                let finalCaption = config.ENABLE_TAGGING 
+                    ? (config.TAG_POSITION === 'start' ? `${config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH'}\n\n${caption}` : `${caption}\n\n${config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH'}`)
+                    : `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
                 
-                let finalCaption = caption;
-                if (config.ENABLE_TAGGING) {
-                    const tagText = config.BOT_TAG_TEXT || 'ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH';
-                    finalCaption = config.TAG_POSITION === 'start' 
-                        ? `${tagText}\n\n${caption}`
-                        : `${caption}\n\n${tagText}`;
-                } else {
-                    finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
-                }
-                
-                if (mime.split("/")[1] === "gif") {
-                    return conn.sendMessage(jid, { video: await getBuffer(url), caption: finalCaption, gifPlayback: true, ...options }, { quoted: quoted, ...options });
-                }
-                
-                if (mime === "application/pdf") {
-                    return conn.sendMessage(jid, { document: await getBuffer(url), mimetype: 'application/pdf', caption: finalCaption, ...options }, { quoted: quoted, ...options });
-                }
-                
-                if (mime.split("/")[0] === "image") {
-                    return conn.sendMessage(jid, { image: await getBuffer(url), caption: finalCaption, ...options }, { quoted: quoted, ...options });
-                }
-                
-                if (mime.split("/")[0] === "video") {
-                    return conn.sendMessage(jid, { video: await getBuffer(url), caption: finalCaption, mimetype: 'video/mp4', ...options }, { quoted: quoted, ...options });
-                }
-                
-                if (mime.split("/")[0] === "audio") {
-                    return conn.sendMessage(jid, { audio: await getBuffer(url), caption: finalCaption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options });
-                }
-                
+                if (mime.split("/")[1] === "gif") return conn.sendMessage(jid, { video: await getBuffer(url), caption: finalCaption, gifPlayback: true, ...options }, { quoted: quoted, ...options });
+                if (mime === "application/pdf") return conn.sendMessage(jid, { document: await getBuffer(url), mimetype: 'application/pdf', caption: finalCaption, ...options }, { quoted: quoted, ...options });
+                if (mime.split("/")[0] === "image") return conn.sendMessage(jid, { image: await getBuffer(url), caption: finalCaption, ...options }, { quoted: quoted, ...options });
+                if (mime.split("/")[0] === "video") return conn.sendMessage(jid, { video: await getBuffer(url), caption: finalCaption, mimetype: 'video/mp4', ...options }, { quoted: quoted, ...options });
+                if (mime.split("/")[0] === "audio") return conn.sendMessage(jid, { audio: await getBuffer(url), caption: finalCaption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options });
                 return conn.sendMessage(jid, { document: await getBuffer(url), caption: finalCaption, ...options }, { quoted: quoted, ...options });
             };
 
             conn.cMod = (jid, copy, text = '', sender = conn.user.id, options = {}) => {
                 let mtype = Object.keys(copy.message)[0];
                 let isEphemeral = mtype === 'ephemeralMessage';
-                if (isEphemeral) {
-                    mtype = Object.keys(copy.message.ephemeralMessage.message)[0];
-                }
+                if (isEphemeral) mtype = Object.keys(copy.message.ephemeralMessage.message)[0];
                 let msg = isEphemeral ? copy.message.ephemeralMessage.message : copy.message;
                 let content = msg[mtype];
                 if (typeof content === 'string') msg[mtype] = text || content;
                 else if (content.caption) content.caption = text || content.caption;
                 else if (content.text) content.text = text || content.text;
-                if (typeof content !== 'string') msg[mtype] = {
-                    ...content,
-                    ...options
-                };
+                if (typeof content !== 'string') msg[mtype] = { ...content, ...options };
                 if (copy.key.participant) sender = copy.key.participant = sender || copy.key.participant;
                 else if (copy.key.participant) sender = copy.key.participant = sender || copy.key.participant;
                 if (copy.key.remoteJid.includes('@s.whatsapp.net')) sender = sender || copy.key.remoteJid;
                 else if (copy.key.remoteJid.includes('@broadcast')) sender = sender || copy.key.remoteJid;
                 copy.key.remoteJid = jid;
                 copy.key.fromMe = sender === conn.user.id;
-
                 return proto.WebMessageInfo.fromObject(copy);
             };
 
             conn.getFile = async(PATH, save) => {
                 let res;
                 let data = Buffer.isBuffer(PATH) ? PATH : /^data:.*?\/.*?;base64,/i.test(PATH) ? Buffer.from(PATH.split`,`[1], 'base64') : /^https?:\/\//.test(PATH) ? await (res = await getBuffer(PATH)) : fs.existsSync(PATH) ? (filename = PATH, fs.readFileSync(PATH)) : typeof PATH === 'string' ? PATH : Buffer.alloc(0);
-                let type = await FileType.fromBuffer(data) || {
-                    mime: 'application/octet-stream',
-                    ext: '.bin'
-                };
+                let type = await FileType.fromBuffer(data) || { mime: 'application/octet-stream', ext: '.bin' };
                 let filename = path.join(__dirname, new Date() * 1 + '.' + type.ext);
                 if (data && save) fs.promises.writeFile(filename, data);
-                return {
-                    res,
-                    filename,
-                    size: await getSizeMedia(data),
-                    ...type,
-                    data
-                };
+                return { res, filename, size: await getSizeMedia(data), ...type, data };
             };
 
             conn.sendFile = async(jid, PATH, fileName, quoted = {}, options = {}) => {
                 let types = await conn.getFile(PATH, true);
                 let { filename, size, ext, mime, data } = types;
-                let type = '',
-                    mimetype = mime,
-                    pathFile = filename;
+                let type = '', mimetype = mime, pathFile = filename;
                 if (options.asDocument) type = 'document';
                 if (options.asSticker || /webp/.test(mime)) {
                     let { writeExif } = require('./exif.js');
@@ -1572,16 +1060,9 @@ async function connectToWA() {
                 else type = 'document';
                 
                 let finalOptions = { ...options };
-                if (finalOptions.caption) {
-                    finalOptions.caption = `ᴳᵁᴿᵁᴹᴰ\n\n${finalOptions.caption}`;
-                }
+                if (finalOptions.caption) finalOptions.caption = `ᴳᵁᴿᵁᴹᴰ\n\n${finalOptions.caption}`;
                 
-                await conn.sendMessage(jid, {
-                    [type]: { url: pathFile },
-                    mimetype,
-                    fileName,
-                    ...finalOptions
-                }, { quoted, ...options });
+                await conn.sendMessage(jid, { [type]: { url: pathFile }, mimetype, fileName, ...finalOptions }, { quoted, ...options });
                 return fs.promises.unlink(pathFile);
             };
 
@@ -1589,15 +1070,9 @@ async function connectToWA() {
                 let types = await conn.getFile(path, true);
                 let { mime, ext, res, data, filename } = types;
                 if (res && res.status !== 200 || data.length <= 65536) {
-                    try { 
-                        throw { json: JSON.parse(data.toString()) }; 
-                    } catch (e) { 
-                        if (e.json) throw e.json; 
-                    }
+                    try { throw { json: JSON.parse(data.toString()) }; } catch (e) { if (e.json) throw e.json; }
                 }
-                let type = '',
-                    mimetype = mime,
-                    pathFile = filename;
+                let type = '', mimetype = mime, pathFile = filename;
                 if (options.asDocument) type = 'document';
                 if (options.asSticker || /webp/.test(mime)) {
                     let { writeExif } = require('./exif');
@@ -1611,15 +1086,7 @@ async function connectToWA() {
                 else if (/audio/.test(mime)) type = 'audio';
                 else type = 'document';
                 
-                const finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
-                
-                await conn.sendMessage(jid, {
-                    [type]: { url: pathFile },
-                    caption: finalCaption,
-                    mimetype,
-                    fileName,
-                    ...options
-                }, { quoted, ...options });
+                await conn.sendMessage(jid, { [type]: { url: pathFile }, caption: `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`, mimetype, fileName, ...options }, { quoted, ...options });
                 return fs.promises.unlink(pathFile);
             };
 
@@ -1632,11 +1099,7 @@ async function connectToWA() {
                     let { videoToWebp } = require('./lib/converter');
                     buffer = await videoToWebp(buff);
                 }
-                await conn.sendMessage(
-                    jid,
-                    { sticker: { url: buffer }, ...options },
-                    options
-                );
+                await conn.sendMessage(jid, { sticker: { url: buffer }, ...options }, options);
             };
 
             conn.sendImageAsSticker = async (jid, buff, options = {}) => {
@@ -1648,39 +1111,29 @@ async function connectToWA() {
                     let { imageToWebp } = require('./lib/converter');
                     buffer = await imageToWebp(buff);
                 }
-                await conn.sendMessage(
-                    jid,
-                    { sticker: { url: buffer }, ...options },
-                    options
-                );
+                await conn.sendMessage(jid, { sticker: { url: buffer }, ...options }, options);
             };
 
             conn.sendTextWithMentions = async(jid, text, quoted, options = {}) => {
-                const finalText = `ᴳᵁᴿᵁᴹᴰ\n\n${text}`;
                 return conn.sendMessage(jid, { 
-                    text: finalText, 
-                    contextInfo: { 
-                        mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') 
-                    }, 
+                    text: `ᴳᵁᴿᵁᴹᴰ\n\n${text}`, 
+                    contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') }, 
                     ...options 
                 }, { quoted });
             };
 
             conn.sendImage = async(jid, path, caption = '', quoted = '', options) => {
                 let buffer = Buffer.isBuffer(path) ? path : /^data:.*?\/.*?;base64,/i.test(path) ? Buffer.from(path.split`,`[1], 'base64') : /^https?:\/\//.test(path) ? await (await getBuffer(path)) : fs.existsSync(path) ? fs.readFileSync(path) : Buffer.alloc(0);
-                const finalCaption = `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`;
-                return await conn.sendMessage(jid, { image: buffer, caption: finalCaption, ...options }, { quoted });
+                return await conn.sendMessage(jid, { image: buffer, caption: `ᴳᵁᴿᵁᴹᴰ\n\n${caption}`, ...options }, { quoted });
             };
 
             conn.sendText = (jid, text, quoted = '', options) => {
-                const finalText = `ᴳᵁᴿᵁᴹᴰ\n\n${text}`;
-                return conn.sendMessage(jid, { text: finalText, ...options }, { quoted });
+                return conn.sendMessage(jid, { text: `ᴳᵁᴿᵁᴹᴰ\n\n${text}`, ...options }, { quoted });
             };
 
             conn.sendButtonText = (jid, buttons = [], text, footer, quoted = '', options = {}) => {
-                const finalText = `ᴳᵁᴿᵁᴹᴰ\n\n${text}`;
                 let buttonMessage = {
-                    text: finalText,
+                    text: `ᴳᵁᴿᵁᴹᴰ\n\n${text}`,
                     footer,
                     buttons,
                     headerType: 2,
@@ -1690,13 +1143,12 @@ async function connectToWA() {
             };
 
             conn.send5ButImg = async(jid, text = '', footer = '', img, but = [], thumb, options = {}) => {
-                const finalText = `ᴳᵁᴿᵁᴹᴰ\n\n${text}`;
                 let message = await prepareWAMessageMedia({ image: img, jpegThumbnail: thumb }, { upload: conn.waUploadToServer });
                 var template = generateWAMessageFromContent(jid, proto.Message.fromObject({
                     templateMessage: {
                         hydratedTemplate: {
                             imageMessage: message.imageMessage,
-                            "hydratedContentText": finalText,
+                            "hydratedContentText": `ᴳᵁᴿᵁᴹᴰ\n\n${text}`,
                             "hydratedFooterText": footer,
                             "hydratedButtons": but
                         }
@@ -1708,21 +1160,10 @@ async function connectToWA() {
             conn.getName = async (jid, withoutContact = false) => {
                 let id = conn.decodeJid(jid);
                 withoutContact = conn.withoutContact || withoutContact;
-
-                let v;
-                
                 if (id.endsWith('@g.us')) {
-                    try {
-                        v = await conn.groupMetadata(id);
-                        return v.subject || v.name || 'Group';
-                    } catch (e) {
-                        return 'Group';
-                    }
+                    try { let v = await conn.groupMetadata(id); return v.subject || v.name || 'Group'; } catch (e) { return 'Group'; }
                 } else {
-                    v = id === '0@s.whatsapp.net' ? { id, name: 'WhatsApp' } : 
-                        id === conn.decodeJid(conn.user.id) ? conn.user :
-                        store.contacts[id] || { id, name: pushname || 'User' };
-                    
+                    let v = id === '0@s.whatsapp.net' ? { id, name: 'WhatsApp' } : id === conn.decodeJid(conn.user.id) ? conn.user : store?.contacts?.[id] || { id, name: pushname || 'User' };
                     return v.name || v.verifiedName || v.notify || v.vname || pushname || 'User';
                 }
             };
@@ -1735,35 +1176,11 @@ async function connectToWA() {
                         vcard: `BEGIN:VCARD\nVERSION:3.0\nN:${await conn.getName(i + '@s.whatsapp.net')}\nFN:ᴳᵁᴿᵁᴹᴰ\nitem1.TEL;waid=${i}\nitem1.X-ABLabel:Click here to chat\nitem2.EMAIL;type=INTERNET:gurutech@example.com\nitem2.X-ABLabel:GitHub\nitem3.URL:https://github.com/itsguruu/GURU\nitem3.X-ABLabel:GitHub\nitem4.ADR:;;Nairobi;;;;\nitem4.X-ABLabel:Region\nEND:VCARD`,
                     });
                 }
-                conn.sendMessage(
-                    jid,
-                    {
-                        contacts: {
-                            displayName: `${list.length} Contact`,
-                            contacts: list,
-                        },
-                        ...opts,
-                    },
-                    { quoted },
-                );
+                conn.sendMessage(jid, { contacts: { displayName: `${list.length} Contact`, contacts: list }, ...opts }, { quoted });
             };
 
             conn.setStatus = status => {
-                conn.query({
-                    tag: 'iq',
-                    attrs: {
-                        to: '@s.whatsapp.net',
-                        type: 'set',
-                        xmlns: 'status',
-                    },
-                    content: [
-                        {
-                            tag: 'status',
-                            attrs: {},
-                            content: Buffer.from(`ᴳᵁᴿᵁᴹᴰ • ${status}`, 'utf-8'),
-                        },
-                    ],
-                });
+                conn.query({ tag: 'iq', attrs: { to: '@s.whatsapp.net', type: 'set', xmlns: 'status' }, content: [ { tag: 'status', attrs: {}, content: Buffer.from(`ᴳᵁᴿᵁᴹᴰ • ${status}`, 'utf-8') } ] });
                 return status;
             };
             
@@ -1773,11 +1190,9 @@ async function connectToWA() {
             
         } catch (error) {
             logError(`CONNECTION FAILED: ${error.message}`, '❌');
-            
             const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 60000);
             retryCount = Math.min(retryCount + 1, maxRetries);
             logWarning(`Retrying in ${retryDelay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`, '🔄');
-            
             setTimeout(attemptConnection, retryDelay);
         }
     }
@@ -1785,37 +1200,19 @@ async function connectToWA() {
     await attemptConnection();
 }
 
-// Periodic connection health check
 setInterval(() => {
     const timeSinceLastMessage = Date.now() - connectionHealth.lastMessage;
-    
-    if (timeSinceLastMessage > 300000) { // 5 minutes
-        logWarning('No messages received for 5+ minutes, connection may be stale', '⚠️');
-    }
-}, 60000); // Check every minute
+    if (timeSinceLastMessage > 300000) logWarning('No messages received for 5+ minutes, connection may be stale', '⚠️');
+}, 60000);
 
-// Periodic auto-follow check (every hour)
 setInterval(async () => {
-    try {
-        if (global.conn && global.conn.user) {
-            logSystem('Running scheduled channel auto-follow check...', '📢');
-            await autoFollowChannels(global.conn);
-        }
-    } catch (error) {
-        logError(`Scheduled auto-follow error: ${error.message}`, '❌');
-    }
-}, 60 * 60 * 1000); // Every hour
+    try { if (global.conn && global.conn.user) await autoFollowChannels(global.conn); } 
+    catch (error) { logError(`Scheduled auto-follow error: ${error.message}`, '❌'); }
+}, 60 * 60 * 1000);
 
-// Helper function for media size
-async function getSizeMedia(buffer) {
-    return {
-        size: buffer.length
-    };
-}
+async function getSizeMedia(buffer) { return { size: buffer.length }; }
 
-app.get("/", (req, res) => {
-  res.send("ᴳᵁᴿᵁᴹᴰ IS STARTED ✅");
-});
+app.get("/", (req, res) => { res.send("ᴳᵁᴿᵁᴹᴰ IS STARTED ✅"); });
 
 app.listen(port, () => {
   logDivider('WEB SERVER');
@@ -1824,23 +1221,9 @@ app.listen(port, () => {
 });
 
 setTimeout(() => {
-  connectToWA().then(conn => {
-      global.conn = conn; // Store connection globally for scheduled tasks
-  }).catch(err => {
-      logError(`Failed to connect: ${err.message}`, '❌');
-  });
+  connectToWA().then(conn => { global.conn = conn; }).catch(err => { logError(`Failed to connect: ${err.message}`, '❌'); });
 }, 4000);
 
-// Anti-crash handler
-process.on("uncaughtException", (err) => {
-  logError(`UNCAUGHT EXCEPTION: ${err.stack || err.message || err}`, '💥');
-});
-
-process.on("unhandledRejection", (reason, p) => {
-  logError(`UNHANDLED PROMISE REJECTION: ${reason}`, '💥');
-});
-
-// Handle exit for auto-restart
-process.on('exit', (code) => {
-    logSystem(`Process exiting with code: ${code}`, '👋');
-});
+process.on("uncaughtException", (err) => { logError(`UNCAUGHT EXCEPTION: ${err.stack || err.message || err}`, '💥'); });
+process.on("unhandledRejection", (reason, p) => { logError(`UNHANDLED PROMISE REJECTION: ${reason}`, '💥'); });
+process.on('exit', (code) => { logSystem(`Process exiting with code: ${code}`, '👋'); });
