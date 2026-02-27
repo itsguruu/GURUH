@@ -10,7 +10,7 @@ const { runtime } = require('../lib/functions');
 const os = require('os');
 
 // High-speed stable mirror for the Horizontal Logo
-const STABLE_LOGO = "https://i.imgur.com/qL3lOat.jpeg"; 
+const STABLE_LOGO = "Https://h.uguu.se/ZKLbeOFs.jpg"; 
 
 /**
  * Helper: sendHorizontalPage
