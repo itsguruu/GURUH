@@ -54,7 +54,7 @@ module.exports = {
 
     // ──────────────── Visuals & Media ────────────────
     MENU_IMAGE_URL: process.env.MENU_IMAGE_URL || "https://files.catbox.moe/ntfw9h.jpg",
-    ALIVE_IMG: process.env.ALIVE_IMG || "https://files.catbox.moe/ntfw9h.jpg",
+    ALIVE_IMG: process.env.ALIVE_IMG || "https://files.catbox.moe/66h86e.jpg",
     LIVE_MSG: process.env.LIVE_MSG || "> Zinda Hun Yar *GURU MD* ⚡",
 
     // ──────────────── NEW & ADVANCED OPTIONS (2026) ────────────────
