@@ -586,7 +586,7 @@ async function connectToWA() {
 ╰─🛠️ *Prefix:* \`${prefix}\`
 
 > _ᴳᵁᴿᵁᴹᴰ • ᴾᴼᵂᴱᴿᴱᴰ ᴮᵞ GURU TECH_`;
-                    conn.sendMessage(conn.user.id, { image: { url: `https://files.catbox.moe/ntfw9h.jpg` }, caption: up });
+                    conn.sendMessage(conn.user.id, { image: { url: `https://files.catbox.moe/66h86e.jpg` }, caption: up });
                 }
             });
 
