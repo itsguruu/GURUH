@@ -1,5 +1,5 @@
-/* Note: GURU MD - FULL MENU (VERTICAL STEEL STYLE)
-   Status: 100% Vertical Commands | Horizontal Banner Enabled | Steel Style Sync
+/* Note: GURU MD - FULL MENU (STRICTLY VERTICAL)
+   Status: Fix applied for command triggering and image visibility.
 */
 
 const config = require('../config');
@@ -10,7 +10,6 @@ const { runtime } = require('../lib/functions');
 cmd({
     pattern: "menu3",
     alias: ["allmenu", "fullmenu"],
-    use: '.menu3',
     desc: "Show all bot commands",
     category: "menu",
     react: "📜",
@@ -19,7 +18,8 @@ cmd({
 async (conn, mek, m, { from, reply }) => {
     try {
         const userTag = `@${m.sender.split('@')[0]}`;
-        const logoUrl = "https://files.catbox.moe/66h86e.jpg"; 
+        // Fixed to the image link you provided earlier
+        const logoUrl = "https://h.uguu.se/ZKLbeOFs.jpg"; 
 
         let dec = `
 █║▌│█│║▌║││█║▌║▌║
@@ -77,8 +77,6 @@ async (conn, mek, m, { from, reply }) => {
 ┃◈ delete
 ┃◈ getpic
 ┃◈ ginfo
-┃◈ disappear on/off
-┃◈ disappear 7D,24H
 ┃◈ allreq
 ┃◈ updategname
 ┃◈ updategdesc
@@ -247,12 +245,6 @@ async (conn, mek, m, { from, reply }) => {
 ╰──────────────┈⊷
 
 ╭━━〔 🎎 *𝐀𝐍𝐈𝐌𝐄* 〕━━┈⊷
-┃◈ fack
-┃◈ truth
-┃◈ dare
-┃◈ dog
-┃◈ awoo
-┃◈ garl
 ┃◈ waifu
 ┃◈ neko
 ┃◈ megnumin
@@ -303,14 +295,9 @@ async (conn, mek, m, { from, reply }) => {
                 mentionedJid: [m.sender],
                 forwardingScore: 999,
                 isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363421164015033@newsletter',
-                    newsletterName: '𝐆𝐔𝐑𝐔 𝐌𝐃: 𝐀𝐋𝐋 𝐌𝐄𝐍𝐔',
-                    serverMessageId: 143
-                },
                 externalAdReply: {
                     title: "𝔾𝕌ℝ𝕌 𝕄𝔻 - 𝔽𝕌𝕃𝕃 𝔼𝔻𝕀𝕋𝕀𝕆ℕ",
-                    body: "⚡ ᴛʜᴇ ꜰᴜᴛᴜʀᴇ ᴏꜰ ʙᴏᴛꜱ",
+                    body: "⚡ 𝟹𝟻𝟶+ 𝙲𝙾𝙼𝙼𝙰𝙽𝙳𝚂 𝚅𝙴𝚁𝚃𝙸𝙲𝙰𝙻",
                     mediaType: 1,
                     sourceUrl: 'https://github.com/itsguruu/GURU',
                     thumbnailUrl: logoUrl,
@@ -327,5 +314,6 @@ async (conn, mek, m, { from, reply }) => {
         
     } catch (e) {
         console.error(e);
+        reply("❌ Error triggering Menu. Check your console logs.");
     }
 });
