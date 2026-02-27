@@ -1,7 +1,7 @@
-/* Note: GURU MD STEEL EDITION - ULTRA STABLE SPLIT
-   - Image: https://files.catbox.moe/66h86e.jpg
-   - Layout: 100% Vertical Lines
-   - Fix: Split Message to avoid Buffer/Length Errors
+/* Note: GURU MD STEEL EDITION - LIGHTWEIGHT VERTICAL
+   - Design: Minimalist Steel (Optimized for long lists)
+   - Layout: 100% Vertical (Single Column)
+   - Status: Reduced character payload to prevent "Unable to send"
 */
 
 const config = require('../config');
@@ -12,27 +12,104 @@ const { runtime } = require('../lib/functions');
 cmd({
     pattern: "menu3",
     alias: ["allmenu", "fullmenu"],
-    desc: "Show all bot commands vertically",
+    desc: "Vertical Steel Menu",
     category: "menu",
-    react: "📜",
+    react: "⛓️",
     filename: __filename
 }, 
 async (conn, mek, m, { from, reply }) => {
     try {
-        const userTag = `@${m.sender.split('@')[0]}`;
         const logoUrl = "https://files.catbox.moe/66h86e.jpg"; 
 
-        // 1. Send the Horizontal Banner First (Stays at the top)
+        // Main Caption - Minimalist vertical style
+        let dec = `║ 𝔾𝕌ℝ𝕌 𝕄𝔻 𝔸𝕃𝕃 𝕄𝔼ℕ𝕌 ║
+        
+『 🛰️ 𝐒𝐘𝐒𝐓𝐄𝐌 』
+┃ 👤 *User:* @${m.sender.split('@')[0]}
+┃ ⏳ *Up:* ${runtime(process.uptime())}
+┃ ⚙️ *Mode:* ${config.MODE}
+
+『 📥 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 』
+┃◈ facebook
+┃◈ mediafire
+┃◈ tiktok
+┃◈ twitter
+┃◈ insta
+┃◈ apk
+┃◈ img
+┃◈ ytmp3
+┃◈ ytmp4
+┃◈ song
+┃◈ video
+┃◈ gdrive
+
+『 👥 𝐆𝐑𝐎𝐔𝐏 』
+┃◈ kick
+┃◈ add
+┃◈ promote
+┃◈ demote
+┃◈ tagall
+┃◈ hidetag
+┃◈ mute
+┃◈ unmute
+┃◈ lockgc
+┃◈ unlockgc
+┃◈ grouplink
+
+『 🎨 𝐋𝐎𝐆𝐎 』
+┃◈ neonlight
+┃◈ hacker
+┃◈ naruto
+┃◈ galaxy
+┃◈ blackpink
+┃◈ 3dcomic
+
+『 🤖 𝐀𝐈 』
+┃◈ ai
+┃◈ gpt3
+┃◈ gpt4
+┃◈ imagine
+┃◈ bing
+┃◈ blackbox
+┃◈ luma
+
+『 👑 𝐎𝐖𝐍𝐄𝐑 』
+┃◈ owner
+┃◈ restart
+┃◈ shutdown
+┃◈ setpp
+┃◈ block
+┃◈ unblock
+┃◈ alive
+┃◈ ping
+
+『 🎉 𝐅𝐔𝐍 』
+┃◈ joke
+┃◈ hack
+┃◈ ship
+┃◈ rate
+┃◈ insult
+┃◈ pickup
+
+『 🔄 𝐂𝐎𝐍𝐕𝐄𝐑𝐓 』
+┃◈ sticker
+┃◈ tomp3
+┃◈ tts
+┃◈ trt
+┃◈ fancy
+
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ ɢᴜʀᴜᴛᴇᴄʜ`;
+
         await conn.sendMessage(from, {
             image: { url: logoUrl },
-            caption: `*𝔾𝕌ℝ𝕌 𝕄𝔻 𝕍𝟝 𝔸𝕃𝕃 𝕄𝔼ℕ𝕌*\n👤 *User:* ${userTag}\n⏳ *Uptime:* ${runtime(process.uptime())}\n\n> 📜 *Full Vertical Command List Below:*`,
+            caption: dec,
             contextInfo: {
                 mentionedJid: [m.sender],
                 forwardingScore: 999,
                 isForwarded: true,
                 externalAdReply: {
-                    title: "𝔾𝕌ℝ𝕌  𝕄𝔻  𝕊𝕋𝔼𝔼𝕃  𝔼𝔻𝕀𝕋𝕀𝕆ℕ",
-                    body: "ᴛʜᴇ ꜰᴜᴛᴜʀᴇ ᴏꜰ ʙᴏᴛꜱ",
+                    title: "𝔾𝕌ℝ𝕌 𝕄𝔻: 𝕊𝕋𝔼𝔼𝕃 𝕍𝔼ℝ𝕋𝕀ℂ𝔸𝕃",
+                    body: "⚡ LIGHTWEIGHT STABLE EDITION",
                     mediaType: 1,
                     sourceUrl: 'https://github.com/itsguruu/GURU',
                     thumbnailUrl: logoUrl,
@@ -41,193 +118,18 @@ async (conn, mek, m, { from, reply }) => {
             }
         }, { quoted: mek });
 
-        // 2. The 350+ Vertical List (Sent as Text to ensure it never fails)
-        let dec = `
-╭━━〔 📥 *𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃* 〕━━┈⊷
-┃◈ facebook
-┃◈ mediafire
-┃◈ tiktok
-┃◈ twitter
-┃◈ insta
-┃◈ apk
-┃◈ img
-┃◈ tt2
-┃◈ pins
-┃◈ apk2
-┃◈ fb2
-┃◈ pinterest
-┃◈ spotify
-┃◈ play
-┃◈ play2
-┃◈ audio
-┃◈ video
-┃◈ video2
-┃◈ ytmp3
-┃◈ ytmp4
-┃◈ song
-┃◈ darama
-┃◈ gdrive
-┃◈ ssweb
-┃◈ tiks
-╰──────────────┈⊷
-
-╭━━〔 👥 *𝐆𝐑𝐎𝐔𝐏* 〕━━┈⊷
-┃◈ grouplink
-┃◈ kickall
-┃◈ add
-┃◈ remove
-┃◈ kick
-┃◈ promote
-┃◈ demote
-┃◈ dismiss
-┃◈ revoke
-┃◈ setgoodbye
-┃◈ setwelcome
-┃◈ delete
-┃◈ getpic
-┃◈ ginfo
-┃◈ allreq
-┃◈ updategname
-┃◈ updategdesc
-┃◈ joinrequests
-┃◈ senddm
-┃◈ nikal
-┃◈ mute
-┃◈ unmute
-┃◈ lockgc
-┃◈ unlockgc
-┃◈ tagall
-┃◈ hidetag
-╰──────────────┈⊷
-
-╭━━〔 🎨 *𝐋𝐎𝐆𝐎 𝐌𝐀𝐊𝐄𝐑* 〕━━┈⊷
-┃◈ neonlight
-┃◈ blackpink
-┃◈ dragonball
-┃◈ 3dcomic
-┃◈ america
-┃◈ naruto
-┃◈ sadgirl
-┃◈ clouds
-┃◈ futuristic
-┃◈ 3dpaper
-┃◈ eraser
-┃◈ sunset
-┃◈ leaf
-┃◈ galaxy
-┃◈ sans
-┃◈ boom
-┃◈ hacker
-┃◈ devilwings
-┃◈ nigeria
-┃◈ bulb
-┃◈ angelwings
-┃◈ zodiac
-┃◈ luxury
-┃◈ paint
-┃◈ frozen
-┃◈ castle
-┃◈ tatoo
-┃◈ valorant
-┃◈ bear
-┃◈ typography
-┃◈ birthday
-╰──────────────┈⊷
-
-╭━━〔 🤖 *𝐀𝐈* 〕━━┈⊷
-┃◈ ai
-┃◈ gpt3
-┃◈ gpt2
-┃◈ gptmini
-┃◈ gpt
-┃◈ meta
-┃◈ blackbox
-┃◈ luma
-┃◈ dj
-┃◈ obed
-┃◈ hunter
-┃◈ gpt4
-┃◈ bing
-┃◈ imagine
-┃◈ imagine2
-┃◈ copilot
-╰──────────────┈⊷
-
-╭━━〔 👑 *𝐎𝐖𝐍𝐄𝐑* 〕━━┈⊷
-┃◈ owner
-┃◈ vv
-┃◈ block
-┃◈ unblock
-┃◈ fullpp
-┃◈ setpp
-┃◈ restart
-┃◈ shutdown
-┃◈ updatecmd
-┃◈ alive
-┃◈ ping
-┃◈ gjid
-┃◈ jid
-╰──────────────┈⊷
-
-╭━━〔 🎉 *𝐅𝐔𝐍* 〕━━┈⊷
-┃◈ shapar
-┃◈ rate
-┃◈ insult
-┃◈ hack
-┃◈ ship
-┃◈ character
-┃◈ pickup
-┃◈ joke
-┃◈ hrt
-┃◈ hpy
-┃◈ syd
-┃◈ anger
-┃◈ shy
-┃◈ kiss
-┃◈ mon
-┃◈ cunfuzed
-┃◈ hand
-┃◈ nikal
-┃◈ hold
-┃◈ hug
-┃◈ hifi
-┃◈ poke
-╰──────────────┈⊷
-
-╭━━〔 ℹ️ *𝐎𝐓𝐇𝐄𝐑* 〕━━┈⊷
-┃◈ timenow
-┃◈ date
-┃◈ count
-┃◈ calculate
-┃◈ flip
-┃◈ coinflip
-┃◈ rcolor
-┃◈ roll
-┃◈ fact
-┃◈ cpp
-┃◈ rw
-┃◈ pair
-┃◈ news
-┃◈ movie
-┃◈ weather
-┃◈ save
-┃◈ wikipedia
-╰──────────────┈⊷
-
-> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ ɢᴜʀᴜᴛᴇᴄʜ`;
-
-        // Send the Vertical List
-        await conn.sendMessage(from, { text: dec }, { quoted: mek });
-
-        // 3. Send Audio
-        await conn.sendMessage(from, {
-            audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
-            mimetype: 'audio/mp4',
-            ptt: true
-        }, { quoted: mek });
+        // Optional Audio - wrapped to prevent failure
+        try {
+            await conn.sendMessage(from, {
+                audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
+                mimetype: 'audio/mp4',
+                ptt: true
+            }, { quoted: mek });
+        } catch (e) {}
         
     } catch (e) {
         console.error(e);
-        reply("❌ Critical Error: Bot memory full or connection lost.");
+        // Final fallback: Text only if image caption is still too long
+        reply("❌ Error with Image Caption. Sending Text Version:\n\n" + dec);
     }
 });
