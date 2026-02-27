@@ -1,5 +1,6 @@
-/* Note: GURU MD STEEL EDITION - PAGE STYLE 
-   Optimized for horizontal document layout.
+/* Note: GURU MD STEEL EDITION - HORIZONTAL BANNER STYLE 
+   This uses the Newsletter Context to display the image as a 
+   clean horizontal page header.
 */
 
 const config = require('../config');
@@ -7,42 +8,44 @@ const { cmd, commands } = require('../command');
 
 const coolEmojis = ['✨', '🔥', '🌟', '💫', '⚡', '🚀', '💎', '🌈', '🪐', '🎇', '💥', '🦋', '🧊', '🪩', '🌙'];
 
-// Helper for the "Page Style" (Document) Message
-const sendPageStyle = async (conn, from, m, caption, title) => {
+// Helper for the "Horizontal Page" (Newsletter) Style
+const sendHorizontalPage = async (conn, from, m, caption, title) => {
     return await conn.sendMessage(from, {
-        document: { url: 'https://github.com/itsguruu/GURU' }, // Dummy link for doc
-        mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        fileName: `𝔾𝕌ℝ𝕌 𝕄𝔻 𝕍𝟝 - ${title}`, // Page Title
-        fileLength: 999999999999,
-        pageCount: 2026,
+        image: { url: "https://files.catbox.moe/ntfw9h.jpg" }, // Your matched image
+        caption: caption,
         contextInfo: {
             mentionedJid: [m.sender],
             forwardingScore: 999,
             isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: '120363421164015033@newsletter',
+                newsletterName: `𝐆𝐔𝐑𝐔 𝐌𝐃: ${title}`,
+                serverMessageId: 143
+            },
             externalAdReply: {
-                title: `𝐆𝐔𝐑𝐔 𝐌𝐃 - ${title}`,
-                body: "ᴛʜᴇ ꜰᴜᴛᴜʀᴇ ᴏꜰ ᴡʜᴀᴛꜱᴀᴘᴘ ʙᴏᴛꜱ",
-                thumbnailUrl: "https://files.catbox.moe/ntfw9h.jpg", // Your matched image
-                sourceUrl: 'https://github.com/itsguruu/GURU',
+                title: `𝔾𝕌ℝ𝕌 𝕄𝔻 𝕍𝟝 - ${title}`,
+                body: "⚡ ᴘʀᴇᴍɪᴜᴍ ᴇᴅɪᴛɪᴏɴ ⚡",
                 mediaType: 1,
-                renderLargerThumbnail: false // Keeps it horizontal
+                sourceUrl: 'https://github.com/itsguruu/GURU',
+                thumbnailUrl: "https://files.catbox.moe/ntfw9h.jpg",
+                renderLargerThumbnail: false // Forces the horizontal "small" look
             }
-        },
-        caption: caption
+        }
     }, { quoted: m });
 };
 
 // === MAIN MENU ===
 cmd({
     pattern: "menu",
-    desc: "Page style main menu",
+    desc: "Horizontal banner style menu",
     category: "menu",
     react: "⚡",
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
     try {
         const randomEmoji = coolEmojis[Math.floor(Math.random() * coolEmojis.length)];
-        const dec = `█║▌│█│║▌║││█║▌║▌║
+        const dec = `
+█║▌│█│║▌║││█║▌║▌║
    *𝔾𝕌ℝ𝕌 𝕄𝔻 𝕊𝕐𝕊𝕋𝔼𝕄*
 █║▌│█│║▌║││█║▌║▌║
 
@@ -62,7 +65,7 @@ cmd({
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 > © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
 
-        await sendPageStyle(conn, from, mek, dec, "𝕄𝔸𝕀ℕ 𝕊𝕐𝕊𝕋𝔼𝕄");
+        await sendHorizontalPage(conn, from, mek, dec, "𝕊𝕐𝕊𝕋𝔼𝕄 ℙ𝔸𝔾𝔼");
         
         await conn.sendMessage(from, {
             audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
@@ -72,7 +75,7 @@ cmd({
     } catch (e) { reply(`${e}`); }
 });
 
-// === DOWNLOAD MENU ===
+// === DL MENU ===
 cmd({
     pattern: "dlmenu",
     category: "menu",
@@ -87,25 +90,25 @@ cmd({
 ╰──────────────┈⊷
 > © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
 
-        await sendPageStyle(conn, from, mek, dec, "𝔻𝕆𝕎ℕ𝕃𝕆𝔸𝔻 ℙ𝔸𝔾𝔼");
+        await sendHorizontalPage(conn, from, mek, dec, "𝔻𝕆𝕎ℕ𝕃𝕆𝔸𝔻𝕊");
     } catch (e) { reply(`${e}`); }
 });
 
-// === GROUP MENU ===
+// === REACTIONS MENU ===
 cmd({
-    pattern: "groupmenu",
+    pattern: "reactions",
     category: "menu",
-    react: "🛡️",
+    react: "💫",
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
     try {
-        let dec = `╭━━〔 *𝙶𝚛𝚘𝚞𝚙 𝙼𝚎𝚗𝚞* 〕━━┈⊷
-┃◈ • kick, • add, • promote
-┃◈ • demote, • mute, • tagall
-┃◈ • hidetag, • invite
+        let dec = `╭━━〔 *𝚁𝚎𝚊𝚌𝚝𝚒𝚘𝚗𝚜 𝙼𝚎𝚗𝚞* 〕━━┈⊷
+┃◈ • bully, • cuddle, • cry
+┃◈ • hug, • kiss, • slap
+┃◈ • kill, • happy, • wink
 ╰──────────────┈⊷
 > © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`;
 
-        await sendPageStyle(conn, from, mek, dec, "𝔾ℝ𝕆𝕌ℙ ℙ𝔸𝔾𝔼");
+        await sendHorizontalPage(conn, from, mek, dec, "ℝ𝔼𝔸ℂ𝕋𝕀𝕆ℕ𝕊");
     } catch (e) { reply(`${e}`); }
 });
