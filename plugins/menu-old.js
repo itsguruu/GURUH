@@ -1,10 +1,7 @@
 const config = require('../config');
 const { cmd } = require('../command');
 
-// ================= RANDOM EMOJIS =================
-const coolEmojis = ['✨', '🔥', '🌟', '💫', '⚡', '🚀', '💎', '🌈', '🪐', '🎇', '💥', '🦋', '🧊', '🪩', '🌙'];
-
-// ================= RUNTIME FUNCTION =================
+// ================= RUNTIME =================
 function runtime(seconds) {
     seconds = Number(seconds);
     const d = Math.floor(seconds / (3600 * 24));
@@ -26,210 +23,164 @@ function greeting() {
 // ================= MAIN MENU =================
 cmd({
     pattern: "menu",
-    desc: "Main menu",
+    desc: "Ultra interactive menu",
     category: "menu",
-    react: "⚡",
+    react: "🚀",
     filename: __filename
 },
 async (conn, mek, m, { from, pushname }) => {
+
     try {
 
-        const randomEmoji = coolEmojis[Math.floor(Math.random() * coolEmojis.length)];
         const time = new Date().toLocaleTimeString();
         const date = new Date().toLocaleDateString();
         const up = runtime(process.uptime());
 
-        const dec = `
-╭━━━〔 ${randomEmoji} GURU MD SYSTEM ${randomEmoji} 〕━━━⬣
+        const caption = `
+╭━━━〔 ⚡ GURU MD SYSTEM ⚡ 〕━━━⬣
 ┃ 👋 ${greeting()}, ${pushname}
 ┃ 🕒 Time   : ${time}
 ┃ 📅 Date   : ${date}
 ┃ ⏳ Uptime : ${up}
 ┃ 🛠 Mode   : ${config.MODE}
 ┃ ⚙ Prefix : ${config.PREFIX}
-┃ 🚀 Version: 8.0.0 Premium
+┃ 🚀 Version: 9.0.0 Ultra
 ╰━━━━━━━━━━━━━━━━━━━━━━⬣
 
-╭━━━〔 📂 MENU CATEGORIES 〕━━━⬣
-┃ 🤖 aimenu
-┃ 🕌 quranmenu
-┃ 🕋 prayertime
-┃ 🎌 animemenu
-┃ 💫 reactions
-┃ 🔄 convertmenu
-┃ 😂 funmenu
-┃ ⬇️ dlmenu
-┃ 👥 groupmenu
-┃ 👑 ownermenu
-┃ 🎨 logo
-┃ 📜 listcmd
-┃ 📦 repo
-┃ 📂 allmenu
-╰━━━━━━━━━━━━━━━━━━━━━━⬣
-
-> 💎 Powered By GuruTech Lab
+💎 Choose how you want to open the menu below
 `;
+
+        // ===== BUTTON MENU =====
+        const buttons = [
+            { buttonId: `${config.PREFIX}menulist`, buttonText: { displayText: "📋 List Menu" }, type: 1 },
+            { buttonId: `${config.PREFIX}menuimage`, buttonText: { displayText: "🖼 Image Menu" }, type: 1 },
+            { buttonId: `${config.PREFIX}menucategories`, buttonText: { displayText: "📂 Categories" }, type: 1 }
+        ];
 
         await conn.sendMessage(from, {
             image: { url: "https://files.catbox.moe/66h86e.jpg" },
-            caption: dec,
+            caption: caption,
+            footer: "✨ Powered By GuruTech Lab",
+            buttons: buttons,
+            headerType: 4,
             contextInfo: {
                 mentionedJid: [m.sender],
                 forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363421164015033@newsletter',
-                    newsletterName: 'GURU MD',
-                    serverMessageId: 143
-                }
+                isForwarded: true
             }
         }, { quoted: mek });
 
-        // Menu Sound
+        // ===== MENU SOUND =====
         await conn.sendMessage(from, {
             audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
             mimetype: 'audio/mp4',
             ptt: true
         }, { quoted: mek });
 
-    } catch (e) {
-        console.log(e);
+    } catch (err) {
+        console.log(err);
     }
 });
 
 
-// ================= LOGO MENU =================
+// ================= LIST MENU =================
 cmd({
-    pattern: "logo",
-    alias: ["logomenu"],
-    desc: "Logo menu",
+    pattern: "menulist",
+    desc: "List style menu",
     category: "menu",
-    react: "🎨",
     filename: __filename
 },
 async (conn, mek, m, { from }) => {
 
-    const dec = `
-╭━━━〔 🎨 LOGO GENERATOR 〕━━━⬣
-┃ ✨ neonlight
-┃ ✨ blackpink
-┃ ✨ dragonball
-┃ ✨ futuristic
-┃ ✨ galaxy
-┃ ✨ hacker
-┃ ✨ devilwings
-┃ ✨ angelwings
-┃ ✨ luxury
-┃ ✨ frozen
-┃ ✨ valorant
-┃ ✨ typography
-┃ ✨ birthday
+    const sections = [
+        {
+            title: "🤖 AI & Search",
+            rows: [
+                { title: "AI Menu", rowId: `${config.PREFIX}aimenu` },
+                { title: "Quran Menu", rowId: `${config.PREFIX}quranmenu` },
+                { title: "Prayer Time", rowId: `${config.PREFIX}prayertime` }
+            ]
+        },
+        {
+            title: "⬇️ Download Center",
+            rows: [
+                { title: "Download Menu", rowId: `${config.PREFIX}dlmenu` }
+            ]
+        },
+        {
+            title: "👥 Group",
+            rows: [
+                { title: "Group Menu", rowId: `${config.PREFIX}groupmenu` }
+            ]
+        },
+        {
+            title: "👑 Owner",
+            rows: [
+                { title: "Owner Menu", rowId: `${config.PREFIX}ownermenu` }
+            ]
+        }
+    ];
+
+    await conn.sendMessage(from, {
+        text: "📋 Select a category",
+        footer: "GURU MD ULTRA",
+        title: "Main Menu List",
+        buttonText: "Open Menu",
+        sections
+    }, { quoted: mek });
+});
+
+
+// ================= IMAGE MENU =================
+cmd({
+    pattern: "menuimage",
+    desc: "Image style menu",
+    category: "menu",
+    filename: __filename
+},
+async (conn, mek, m, { from }) => {
+
+    const text = `
+╭━━━〔 📂 ALL CATEGORIES 〕━━━⬣
+┃ 🤖 aimenu
+┃ 🕌 quranmenu
+┃ 🕋 prayertime
+┃ 😂 funmenu
+┃ 💫 reactions
+┃ ⬇️ dlmenu
+┃ 👥 groupmenu
+┃ 👑 ownermenu
+┃ 🎨 logo
+┃ 📜 listcmd
+┃ 📦 repo
 ╰━━━━━━━━━━━━━━━━━━━━━━⬣
 `;
 
     await conn.sendMessage(from, {
         image: { url: "https://files.catbox.moe/66h86e.jpg" },
-        caption: dec
+        caption: text
     }, { quoted: mek });
 });
 
 
-// ================= REACTIONS MENU =================
+// ================= SIMPLE CATEGORY MENU =================
 cmd({
-    pattern: "reactions",
-    desc: "Reaction commands",
+    pattern: "menucategories",
+    desc: "Category quick menu",
     category: "menu",
-    react: "💫",
     filename: __filename
 },
 async (conn, mek, m, { from }) => {
 
-    const dec = `
-╭━━━〔 💫 REACTIONS MENU 〕━━━⬣
-┃ 💕 hug @tag
-┃ 😘 kiss @tag
-┃ 😭 cry @tag
-┃ 😡 slap @tag
-┃ 🥺 cuddle @tag
-┃ 😎 smile
-┃ 💃 dance
-┃ 🐶 awoo
-┃ 🤝 highfive
-┃ 😳 blush
-╰━━━━━━━━━━━━━━━━━━━━━━⬣
-`;
-
     await conn.sendMessage(from, {
-        image: { url: "https://files.catbox.moe/ntfw9h.jpg" },
-        caption: dec
-    }, { quoted: mek });
-});
+        text: `
+📂 *Quick Categories*
 
-
-// ================= DOWNLOAD MENU =================
-cmd({
-    pattern: "dlmenu",
-    desc: "Download menu",
-    category: "menu",
-    react: "⬇️",
-    filename: __filename
-},
-async (conn, mek, m, { from }) => {
-
-    const dec = `
-╭━━━〔 ⬇️ DOWNLOAD CENTER 〕━━━⬣
-┃ 🎵 play
-┃ 🎶 ytmp3
-┃ 🎬 ytmp4
-┃ 📱 tiktok
-┃ 📘 facebook
-┃ 📸 instagram
-┃ 🐦 twitter
-┃ 📦 mediafire
-┃ 📌 pinterest
-┃ ☁ gdrive
-┃ 🌐 ssweb
-╰━━━━━━━━━━━━━━━━━━━━━━⬣
-`;
-
-    await conn.sendMessage(from, {
-        image: { url: "https://files.catbox.moe/66h86e.jpg" },
-        caption: dec
-    }, { quoted: mek });
-});
-
-
-// ================= GROUP MENU =================
-cmd({
-    pattern: "groupmenu",
-    desc: "Group menu",
-    category: "menu",
-    react: "👥",
-    filename: __filename
-},
-async (conn, mek, m, { from }) => {
-
-    const dec = `
-╭━━━〔 👥 GROUP MANAGEMENT 〕━━━⬣
-┃ 🔗 grouplink
-┃ ➕ add
-┃ ➖ remove
-┃ 👢 kick
-┃ ⬆ promote
-┃ ⬇ demote
-┃ 🔒 lockgc
-┃ 🔓 unlockgc
-┃ 🏷 tagall
-┃ 👑 tagadmins
-┃ 📴 mute
-┃ 🔊 unmute
-┃ 📝 updategname
-┃ 📄 updategdesc
-╰━━━━━━━━━━━━━━━━━━━━━━⬣
-`;
-
-    await conn.sendMessage(from, {
-        image: { url: "https://files.catbox.moe/66h86e.jpg" },
-        caption: dec
+🤖 .aimenu
+⬇️ .dlmenu
+👥 .groupmenu
+😂 .funmenu
+👑 .ownermenu
+`
     }, { quoted: mek });
 });
