@@ -222,7 +222,6 @@ function logPerformance(operation, timeMs) {
   const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
   const operationDisplay = chalk.hex(colors.system)(operation);
   
-  // Fixed version - no broken templates, no invalid escapes
   console.log(
     `⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} ` +
     chalk.gray(`(${timeColor})`)
@@ -277,9 +276,42 @@ const prefix = config.PREFIX;
 
 const ownerNumber = ['254778074353@s.whatsapp.net'];  
 
+// ========== AUTO RESTART CONFIGURATION ==========
+const AUTO_RESTART_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+let restartTimer = null;
+
+// Function to restart the bot
+function restartBot() {
+    logWarning('🔄 AUTO-RESTART INITIATED', '🔄');
+    logSystem(`Restarting after ${AUTO_RESTART_INTERVAL/3600000} hours...`, '⏰');
+    
+    // Clear the restart timer
+    if (restartTimer) {
+        clearTimeout(restartTimer);
+        restartTimer = null;
+    }
+    
+    // Exit process to let process manager restart
+    process.exit(0);
+}
+
+// Schedule auto-restart
+function scheduleAutoRestart() {
+    if (restartTimer) {
+        clearTimeout(restartTimer);
+    }
+    
+    restartTimer = setTimeout(restartBot, AUTO_RESTART_INTERVAL);
+    logSystem(`Auto-restart scheduled in ${AUTO_RESTART_INTERVAL/3600000} hours`, '⏰');
+}
+
 // ========== GLOBAL MESSAGE STORE FOR ANTIDELETE ==========
 global.messageStore = new Map();
 global.mediaStore = new Map();
+
+// Store messages with immediate capture
+const messageCache = new Map();
+const deletedMessages = new Map();
 
 // Clean old messages from store every 30 minutes
 setInterval(() => {
@@ -720,6 +752,9 @@ async function connectToWA() {
                         });
                     }
                     
+                    // Schedule auto-restart when connected
+                    scheduleAutoRestart();
+                    
                     logConnection('READY', 'Bot connected to WhatsApp');
                     logDivider();
 
@@ -743,22 +778,28 @@ async function connectToWA() {
 
             conn.ev.on('creds.update', saveCreds);
           
-            // ==================== 100% FIXED ANTIDELETE ====================
+            // ==================== FIXED ANTIDELETE - IMMEDIATE DETECTION ====================
             // Ensure global stores exist
             if (!global.messageStore) global.messageStore = new Map();
             if (!global.mediaStore) global.mediaStore = new Map();
 
-            // Store messages when received - PRESERVES ALL MESSAGE DATA
+            // Store messages immediately when received
             conn.ev.on('messages.upsert', async ({ messages }) => {
                 for (const msg of messages) {
                     if (msg.key && msg.key.id) {
-                        // Store the full message in memory
-                        global.messageStore.set(msg.key.id, {
+                        // Store the full message in memory with timestamp
+                        const messageData = {
                             ...msg,
-                            timestamp: Date.now()
-                        });
+                            capturedAt: Date.now(),
+                            message: msg.message // Store the actual message content
+                        };
                         
-                        // If it's media, download and store it
+                        global.messageStore.set(msg.key.id, messageData);
+                        
+                        // Also store in messageCache for quick access
+                        messageCache.set(msg.key.id, messageData);
+                        
+                        // If it's media, download and store it immediately
                         if (msg.message) {
                             const type = getContentType(msg.message);
                             if (type === 'imageMessage' || type === 'videoMessage' || 
@@ -769,19 +810,24 @@ async function connectToWA() {
                                         logger: P({ level: 'silent' }),
                                         reuploadRequest: conn.updateMediaMessage
                                     }).catch(() => null);
+                                    
                                     if (buffer) {
-                                        global.mediaStore.set(msg.key.id, {
+                                        const mediaData = {
                                             buffer,
                                             type,
                                             mimetype: msg.message[type]?.mimetype,
-                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`
-                                        });
+                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`,
+                                            caption: msg.message[type]?.caption || ''
+                                        };
+                                        global.mediaStore.set(msg.key.id, mediaData);
                                     }
-                                } catch (e) {}
+                                } catch (e) {
+                                    logError(`Failed to store media: ${e.message}`, '❌');
+                                }
                             }
                         }
                         
-                        // Also save to database using the existing function - PRESERVES DATABASE TABLE
+                        // Also save to database using the existing function
                         try {
                             if (typeof saveMessage === 'function') {
                                 await saveMessage(msg).catch(() => {});
@@ -791,59 +837,52 @@ async function connectToWA() {
                 }
             });
 
-            // Detect and handle deleted messages - FIXED VERSION
+            // Detect deleted messages IMMEDIATELY
             conn.ev.on('messages.update', async (updates) => {
                 try {
                     // Handle both array and single update
-                    let updateArray = [];
+                    const updateArray = Array.isArray(updates) ? updates : [updates];
                     
-                    if (Array.isArray(updates)) {
-                        updateArray = updates;
-                    } else if (updates && typeof updates === 'object' && updates.key) {
-                        updateArray = [updates];
-                    } else if (updates && typeof updates === 'object') {
-                        const values = Object.values(updates);
-                        if (values.length > 0 && values[0] && (values[0].key || values[0].update)) {
-                            updateArray = values;
-                        }
-                    } else if (updates && updates.updates && Array.isArray(updates.updates)) {
-                        updateArray = updates.updates;
-                    }
-                    
-                    if (updateArray.length === 0) return;
-
                     for (const update of updateArray) {
-                        if (!update) continue;
+                        if (!update?.key) continue;
                         
-                        // Check if message was deleted
+                        const key = update.key;
+                        const messageId = key.id;
+                        
+                        if (!messageId) continue;
+                        
+                        // Check if message was deleted (IMMEDIATE DETECTION)
                         const isDeleted = 
                             (update.update && update.update.message === null) ||
                             (update.message === null) ||
-                            (update.message && Object.keys(update.message).length === 0) ||
-                            (update.messageStubType === 2) ||
-                            (update.messageStubType === 20) ||
-                            (update.messageStubType === 21);
+                            (update.messageStubType === 2) || // Revoke message
+                            (update.messageStubType === 20) || // Delete for me
+                            (update.messageStubType === 21) || // Delete for everyone
+                            (update.messageStubParameters && update.messageStubParameters[0] === 'message_revoke');
 
                         if (isDeleted) {
-                            logWarning('🚨 DELETE DETECTED', '🗑️');
-
+                            logWarning('🚨 DELETE DETECTED IMMEDIATELY!', '🗑️');
+                            
                             try {
-                                // Get message key info
-                                const key = update.key || update.update?.key || update;
-                                const jid = key?.remoteJid;
-                                const sender = key?.participant || key?.remoteJid;
-                                const messageId = key?.id;
-                                const fromMe = key?.fromMe || false;
+                                const jid = key.remoteJid;
+                                const sender = key.participant || key.remoteJid;
+                                const fromMe = key.fromMe || false;
                                 
                                 if (!jid || !messageId) continue;
                                 if (fromMe) continue; // Don't track own deletions
 
-                                // Try to recover deleted message from various sources
+                                // Try to recover deleted message from various sources (IMMEDIATE RECOVERY)
                                 let deletedMsg = null;
                                 let mediaData = null;
                                 
-                                // Check memory store first
-                                if (global.messageStore && global.messageStore.has(messageId)) {
+                                // Check messageCache first (fastest)
+                                if (messageCache.has(messageId)) {
+                                    deletedMsg = messageCache.get(messageId);
+                                    logSuccess('Recovered message from cache', '⚡');
+                                }
+                                
+                                // Check memory store
+                                if (!deletedMsg && global.messageStore && global.messageStore.has(messageId)) {
                                     deletedMsg = global.messageStore.get(messageId);
                                     logSuccess('Recovered message from memory store', '💾');
                                 }
@@ -854,7 +893,7 @@ async function connectToWA() {
                                     logSuccess('Recovered media from memory store', '🎬');
                                 }
                                 
-                                // Check database - PRESERVES DATABASE TABLE USAGE
+                                // Check database if not found in memory
                                 if (!deletedMsg) {
                                     try {
                                         deletedMsg = await loadMessage(jid, messageId);
@@ -875,14 +914,20 @@ async function connectToWA() {
                                 deleteAlert += '*👤 Sender:* ' + (sender?.split('@')[0] || 'Unknown') + '\n';
                                 deleteAlert += '*💬 Chat:* ' + (jid?.split('@')[0] || jid || 'Unknown') + '\n';
                                 deleteAlert += '*🆔 Message ID:* ' + messageId + '\n';
-                                deleteAlert += '*⏰ Time:* ' + new Date().toLocaleString() + '\n\n';
+                                deleteAlert += '*⏰ Deleted at:* ' + new Date().toLocaleString() + '\n';
 
                                 if (deletedMsg) {
                                     const msg = deletedMsg.message || deletedMsg;
                                     const msgType = Object.keys(msg || {})[0] || 'unknown';
                                     const msgContent = msg?.[msgType];
                                     
-                                    deleteAlert += '*📄 Deleted Content:*\n';
+                                    // Add message age info
+                                    if (deletedMsg.capturedAt) {
+                                        const age = Math.round((Date.now() - deletedMsg.capturedAt) / 1000);
+                                        deleteAlert += '*⏱️ Message age:* ' + age + ' seconds\n';
+                                    }
+                                    
+                                    deleteAlert += '\n*📄 Deleted Content:*\n';
                                     
                                     if (msgType === 'conversation') {
                                         deleteAlert += '💬 "' + (msgContent || 'No text') + '"\n';
@@ -901,8 +946,15 @@ async function connectToWA() {
                                     } else {
                                         deleteAlert += '[' + msgType + ']\n';
                                     }
+                                    
+                                    // Add quoted message info if available
+                                    if (msgContent?.contextInfo?.quotedMessage) {
+                                        deleteAlert += '\n*💬 Replying to:*\n';
+                                        const quotedType = Object.keys(msgContent.contextInfo.quotedMessage)[0];
+                                        deleteAlert += '  └─ [' + quotedType + ']\n';
+                                    }
                                 } else {
-                                    deleteAlert += '*⚠️ Could not recover message content*\n';
+                                    deleteAlert += '\n*⚠️ Could not recover message content*\n';
                                     deleteAlert += '_The message was deleted before it could be saved._\n';
                                 }
                                 
@@ -913,6 +965,7 @@ async function connectToWA() {
                                 
                                 // Send text alert
                                 await conn.sendMessage(ownerJid, { text: deleteAlert });
+                                logSuccess('AntiDelete alert sent to owner', '✅');
                                 
                                 // Send recovered media if available
                                 if (mediaData && mediaData.buffer) {
@@ -936,7 +989,11 @@ async function connectToWA() {
                                     }
                                 }
                                 
-                                logSuccess('AntiDelete alert sent to owner', '✅');
+                                // Store in deletedMessages map for tracking
+                                deletedMessages.set(messageId, {
+                                    time: Date.now(),
+                                    alert: deleteAlert
+                                });
                                 
                             } catch (err) {
                                 logError('AntiDelete processing failed: ' + err.message, '❌');
@@ -946,6 +1003,18 @@ async function connectToWA() {
                 } catch (error) {
                     logError('messages.update handler error: ' + error.message, '❌');
                 }
+            });
+
+            // Also check for protocol messages that indicate deletion
+            conn.ev.on('message-receipt.update', async (updates) => {
+                try {
+                    for (const update of updates) {
+                        if (update.receipt && update.receipt.messageStubType === 2) {
+                            // This is a deletion receipt
+                            logWarning('🚨 DELETE DETECTED VIA RECEIPT', '🗑️');
+                        }
+                    }
+                } catch (e) {}
             });
 
             // === AUTO VIEW + AUTO SAVE + AUTO REACT ===
@@ -979,7 +1048,6 @@ async function connectToWA() {
                     await conn.readMessages([mek.key]);
                 }
 
-                // PRESERVES saveMessage function call - maintains database table
                 await Promise.all([
                     saveMessage(mek),
                 ]);
@@ -1770,4 +1838,9 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason, p) => {
   logError(`UNHANDLED PROMISE REJECTION: ${reason}`, '💥');
+});
+
+// Handle exit for auto-restart
+process.on('exit', (code) => {
+    logSystem(`Process exiting with code: ${code}`, '👋');
 });
