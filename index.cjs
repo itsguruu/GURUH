@@ -274,7 +274,7 @@ const readline = require('readline');
 
 const prefix = config.PREFIX;
 
-const ownerNumber = ['254778074353@s.whatsapp.net'];  
+const ownerNumber = ['254116284050@s.whatsapp.net'];  
 
 // ========== AUTO RESTART CONFIGURATION ==========
 const AUTO_RESTART_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
@@ -293,19 +293,406 @@ function scheduleAutoRestart() {
     logSystem(`Auto-restart scheduled in ${AUTO_RESTART_INTERVAL/3600000} hours`, '⏰');
 }
 
-// ========== GLOBAL MESSAGE STORE FOR ANTIDELETE ==========
+// ========== ENHANCED ANTIDELETE SYSTEM - MODERN ORGANIZED ==========
+class AntiDeleteManager {
+    constructor() {
+        this.messageStore = new Map();
+        this.mediaStore = new Map();
+        this.deletedMessages = new Map();
+        this.maxStoreSize = 5000;
+        this.cleanupInterval = 30 * 60 * 1000; // 30 minutes
+        this.enabled = true;
+        this.notifyPM = true; // Send to PM of person who linked the bot
+        this.startCleanup();
+    }
+
+    startCleanup() {
+        setInterval(() => this.cleanup(), this.cleanupInterval);
+    }
+
+    cleanup() {
+        const now = Date.now();
+        const maxAge = 60 * 60 * 1000; // 1 hour
+        
+        // Clean message store
+        if (this.messageStore.size > this.maxStoreSize) {
+            const keys = Array.from(this.messageStore.keys());
+            const toDelete = keys.slice(0, keys.length - this.maxStoreSize);
+            toDelete.forEach(key => this.messageStore.delete(key));
+            logSystem(`Cleaned ${toDelete.length} old messages from AntiDelete store`, '🧹');
+        }
+
+        // Clean old messages based on age
+        for (const [key, value] of this.messageStore.entries()) {
+            if (now - value.timestamp > maxAge) {
+                this.messageStore.delete(key);
+            }
+        }
+
+        // Clean media store
+        for (const [key, value] of this.mediaStore.entries()) {
+            if (now - value.timestamp > maxAge) {
+                this.mediaStore.delete(key);
+            }
+        }
+    }
+
+    storeMessage(msg) {
+        if (!msg?.key?.id) return;
+        
+        const messageData = {
+            ...msg,
+            timestamp: Date.now(),
+            processed: false
+        };
+        
+        this.messageStore.set(msg.key.id, messageData);
+        
+        // Store media if present
+        if (msg.message) {
+            const type = getContentType(msg.message);
+            if (['imageMessage', 'videoMessage', 'audioMessage', 'stickerMessage', 'documentMessage'].includes(type)) {
+                this.downloadAndStoreMedia(msg, type).catch(err => 
+                    logWarning(`Failed to store media: ${err.message}`, '⚠️')
+                );
+            }
+        }
+    }
+
+    async downloadAndStoreMedia(msg, type) {
+        try {
+            const buffer = await downloadMediaMessage(msg, 'buffer', {}, {
+                logger: P({ level: 'silent' }),
+                reuploadRequest: () => {}
+            }).catch(() => null);
+            
+            if (buffer) {
+                this.mediaStore.set(msg.key.id, {
+                    buffer,
+                    type,
+                    mimetype: msg.message[type]?.mimetype,
+                    fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`,
+                    timestamp: Date.now()
+                });
+            }
+        } catch (e) {
+            // Silent fail for media download
+        }
+    }
+
+    async handleMessageDelete(update, conn) {
+        if (!this.enabled || !update?.key) return;
+
+        const key = update.key;
+        const jid = key.remoteJid;
+        const sender = key.participant || key.remoteJid;
+        const messageId = key.id;
+        const fromMe = key.fromMe || false;
+
+        // Don't track own deleted messages
+        if (fromMe) return;
+
+        // Check if already processed
+        const existing = this.deletedMessages.get(messageId);
+        if (existing) return;
+        
+        this.deletedMessages.set(messageId, { timestamp: Date.now() });
+
+        // Get stored message
+        let deletedMsg = this.messageStore.get(messageId);
+        let mediaData = this.mediaStore.get(messageId);
+
+        if (!deletedMsg) {
+            try {
+                deletedMsg = await loadMessage(jid, messageId).catch(() => null);
+            } catch (e) {}
+        }
+
+        // Prepare delete alert
+        const alert = this.formatDeleteAlert(deletedMsg, sender, jid, messageId);
+        
+        // Send to bot owner's PM (the person who linked the bot)
+        if (this.notifyPM && conn.user?.id) {
+            await this.sendDeleteNotification(conn, conn.user.id, alert, mediaData, sender);
+        }
+
+        // Also send to owner numbers if configured
+        if (ownerNumber.length > 0) {
+            for (const owner of ownerNumber) {
+                if (owner !== conn.user?.id) { // Avoid duplicate if same as bot PM
+                    await this.sendDeleteNotification(conn, owner, alert, mediaData, sender);
+                }
+            }
+        }
+
+        logSuccess(`AntiDelete: Recovered message from ${sender.split('@')[0]}`, '🗑️');
+    }
+
+    formatDeleteAlert(deletedMsg, sender, jid, messageId) {
+        let alert = '━━━━━━━━━━━━━━━━━━━━━━\n';
+        alert += '⎯⎯✧ *MESSAGE DELETED* ✧⎯⎯\n';
+        alert += '━━━━━━━━━━━━━━━━━━━━━━\n\n';
+        
+        alert += `👤 *Sender:* @${sender.split('@')[0]}\n`;
+        alert += `💬 *Chat:* ${jid.endsWith('@g.us') ? 'Group' : 'Private'}\n`;
+        alert += `🆔 *Message ID:* \`${messageId.substring(0, 8)}...\`\n`;
+        alert += `⏰ *Time:* ${new Date().toLocaleString()}\n\n`;
+
+        if (deletedMsg) {
+            const msg = deletedMsg.message || deletedMsg;
+            const msgType = Object.keys(msg || {})[0] || 'unknown';
+            const msgContent = msg?.[msgType];
+
+            alert += '━━━━━━ *CONTENT* ━━━━━━\n';
+
+            switch(msgType) {
+                case 'conversation':
+                case 'extendedTextMessage':
+                    const text = msgType === 'conversation' ? msgContent : msgContent?.text;
+                    alert += `💬 *Text:* "${text || 'No text'}"\n`;
+                    break;
+                case 'imageMessage':
+                    alert += `📸 *Image* ${msgContent?.caption ? `\n📝 Caption: "${msgContent.caption}"` : ''}\n`;
+                    break;
+                case 'videoMessage':
+                    alert += `🎬 *Video* ${msgContent?.caption ? `\n📝 Caption: "${msgContent.caption}"` : ''}\n`;
+                    break;
+                case 'audioMessage':
+                    alert += `🎵 *Audio*\n`;
+                    alert += `⏱️ Duration: ${msgContent?.seconds || 0}s\n`;
+                    break;
+                case 'stickerMessage':
+                    alert += `🩹 *Sticker*\n`;
+                    break;
+                case 'documentMessage':
+                    alert += `📄 *Document*\n`;
+                    alert += `📁 Name: ${msgContent?.fileName || 'Unknown'}\n`;
+                    alert += `📏 Size: ${(msgContent?.fileLength || 0) / 1024}KB\n`;
+                    break;
+                default:
+                    alert += `📦 *${msgType.replace('Message', '')}*\n`;
+            }
+        } else {
+            alert += '⚠️ *Could not recover message content*\n';
+            alert += '_Message was deleted before it could be saved_\n';
+        }
+
+        alert += '\n━━━━━━━━━━━━━━━━━━━━━━\n';
+        alert += '⎯⎯✧ *ᴳᵁᴿᵁᴹᴰ AntiDelete* ✧⎯⎯\n';
+        alert += '━━━━━━━━━━━━━━━━━━━━━━';
+
+        return alert;
+    }
+
+    async sendDeleteNotification(conn, targetJid, alert, mediaData, sender) {
+        try {
+            // Send text alert with mention
+            await conn.sendMessage(targetJid, { 
+                text: alert,
+                mentions: [sender]
+            });
+
+            // Send media if available
+            if (mediaData?.buffer) {
+                await this.sendRecoveredMedia(conn, targetJid, mediaData, sender);
+            }
+        } catch (err) {
+            logError(`Failed to send delete notification: ${err.message}`, '❌');
+        }
+    }
+
+    async sendRecoveredMedia(conn, targetJid, mediaData, sender) {
+        try {
+            const mediaType = mediaData.type.replace('Message', '').toLowerCase();
+            const caption = `📎 *Recovered ${mediaType.toUpperCase()}*\n👤 From: @${sender.split('@')[0]}\n⏰ ${new Date().toLocaleString()}`;
+            
+            const messageOptions = {
+                caption: caption,
+                mentions: [sender],
+                mimetype: mediaData.mimetype
+            };
+
+            messageOptions[mediaType] = mediaData.buffer;
+            await conn.sendMessage(targetJid, messageOptions);
+            
+            logSuccess(`Recovered ${mediaType} media sent`, '📎');
+        } catch (err) {
+            logWarning(`Failed to send recovered media: ${err.message}`, '⚠️');
+        }
+    }
+
+    // Command handlers
+    async handleAntiDeleteCommand(conn, from, args, reply) {
+        if (!args || args.length === 0) {
+            const status = this.enabled ? '✅ ENABLED' : '❌ DISABLED';
+            const notifyStatus = this.notifyPM ? '✅ ON' : '❌ OFF';
+            
+            let message = '━━━━━━━━━━━━━━━━━━━━━━\n';
+            message += '⎯⎯✧ *ANTI-DELETE SETTINGS* ✧⎯⎯\n';
+            message += '━━━━━━━━━━━━━━━━━━━━━━\n\n';
+            message += `📊 *Status:* ${status}\n`;
+            message += `📱 *PM Notify:* ${notifyStatus}\n`;
+            message += `💾 *Stored Messages:* ${this.messageStore.size}\n`;
+            message += `📎 *Stored Media:* ${this.mediaStore.size}\n\n`;
+            message += '━━━━━━━━━━━━━━━━━━━━━━\n';
+            message += '⎯⎯✧ *Commands* ✧⎯⎯\n';
+            message += '▸ *.antidel on* - Enable\n';
+            message += '▸ *.antidel off* - Disable\n';
+            message += '▸ *.antidel pm* - Toggle PM notify\n';
+            message += '━━━━━━━━━━━━━━━━━━━━━━';
+            
+            return reply(message);
+        }
+
+        const subCmd = args[0].toLowerCase();
+        
+        switch(subCmd) {
+            case 'on':
+                this.enabled = true;
+                reply('✅ *Anti-Delete System* has been *ENABLED*\n\nDeleted messages will be recovered and sent to your PM.');
+                break;
+            case 'off':
+                this.enabled = false;
+                reply('❌ *Anti-Delete System* has been *DISABLED*');
+                break;
+            case 'pm':
+                this.notifyPM = !this.notifyPM;
+                reply(`📱 *PM Notifications*: ${this.notifyPM ? '✅ ON' : '❌ OFF'}\n\nMessages will be sent to ${this.notifyPM ? 'your PM' : 'owner numbers only'}.`);
+                break;
+            default:
+                reply('❌ Invalid option! Use: `.antidel on` / `.antidel off` / `.antidel pm`');
+        }
+    }
+}
+
+// ========== AUTO BIO MANAGER ==========
+class AutoBioManager {
+    constructor(conn) {
+        this.conn = conn;
+        this.enabled = true; // Auto-enabled by default
+        this.updateInterval = 60 * 1000; // 1 minute
+        this.timer = null;
+        this.formats = [
+            () => `ᴳᵁᴿᵁᴹᴰ • ${new Date().toLocaleTimeString()}`,
+            () => `⚡ ${this.getRandomEmoji()} ${new Date().toLocaleString()}`,
+            () => `📊 Users: ${this.getTotalUsers()} • Chats: ${this.getTotalChats()}`,
+            () => `🚀 Uptime: ${runtime(process.uptime())}`,
+            () => `💾 RAM: ${this.getMemoryUsage()}MB`,
+            () => `📱 ${this.getRandomStatus()}`
+        ];
+        this.currentFormat = 0;
+        this.start();
+    }
+
+    getRandomEmoji() {
+        const emojis = ['🔥', '✨', '⭐', '💫', '⚡', '💥', '🌟', '🎯', '🚀', '💎'];
+        return emojis[Math.floor(Math.random() * emojis.length)];
+    }
+
+    getRandomStatus() {
+        const statuses = [
+            'Always Online',
+            'Powered by Guru',
+            'WhatsApp Bot',
+            '24/7 Active',
+            'Fast & Reliable',
+            'Multi-Device',
+            'GURU TECH'
+        ];
+        return statuses[Math.floor(Math.random() * statuses.length)];
+    }
+
+    getTotalUsers() {
+        // This would need actual implementation based on your data
+        return '1K+';
+    }
+
+    getTotalChats() {
+        // This would need actual implementation
+        return '500+';
+    }
+
+    getMemoryUsage() {
+        const used = process.memoryUsage();
+        return Math.round(used.heapUsed / 1024 / 1024);
+    }
+
+    start() {
+        if (this.timer) clearInterval(this.timer);
+        this.timer = setInterval(() => this.update(), this.updateInterval);
+        logSuccess('Auto Bio System started (default: ON)', '📝');
+    }
+
+    stop() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+    }
+
+    async update() {
+        if (!this.enabled || !this.conn?.user) return;
+
+        try {
+            // Rotate through formats
+            const bio = this.formats[this.currentFormat]();
+            await this.conn.setStatus(bio);
+            
+            this.currentFormat = (this.currentFormat + 1) % this.formats.length;
+        } catch (err) {
+            // Silent fail for bio updates
+        }
+    }
+
+    toggle() {
+        this.enabled = !this.enabled;
+        if (this.enabled) {
+            this.start();
+        } else {
+            this.stop();
+        }
+        return this.enabled;
+    }
+
+    async handleBioCommand(conn, from, args, reply) {
+        if (!args || args.length === 0) {
+            const status = this.enabled ? '✅ ON' : '❌ OFF';
+            reply(`📝 *Auto Bio Status:* ${status}\n\nUse:\n▸ *.autobio on* - Enable\n▸ *.autobio off* - Disable\n▸ *.autobio toggle* - Toggle`);
+            return;
+        }
+
+        const subCmd = args[0].toLowerCase();
+        
+        switch(subCmd) {
+            case 'on':
+                if (!this.enabled) {
+                    this.toggle();
+                    reply('✅ *Auto Bio* has been *ENABLED*');
+                } else {
+                    reply('⚠️ Auto Bio is already enabled');
+                }
+                break;
+            case 'off':
+                if (this.enabled) {
+                    this.toggle();
+                    reply('❌ *Auto Bio* has been *DISABLED*');
+                } else {
+                    reply('⚠️ Auto Bio is already disabled');
+                }
+                break;
+            case 'toggle':
+                const newStatus = this.toggle();
+                reply(`${newStatus ? '✅' : '❌'} *Auto Bio* ${newStatus ? 'enabled' : 'disabled'}`);
+                break;
+            default:
+                reply('❌ Invalid option! Use: `.autobio on/off/toggle`');
+        }
+    }
+}
+
+// ========== GLOBAL STORES ==========
 global.messageStore = new Map();
 global.mediaStore = new Map();
-
-// Clean old messages from store every 30 minutes
-setInterval(() => {
-    if (global.messageStore.size > 5000) {
-        const keys = Array.from(global.messageStore.keys());
-        const toDelete = keys.slice(0, keys.length - 4000);
-        toDelete.forEach(key => global.messageStore.delete(key));
-        logSystem(`Cleaned ${toDelete.length} old messages from AntiDelete store`, '🧹');
-    }
-}, 30 * 60 * 1000);
 
 const tempDir = path.join(os.tmpdir(), 'cache-temp');
 if (!fs.existsSync(tempDir)) {
@@ -604,6 +991,10 @@ async function connectToWA() {
                 } : {})
             });
 
+            // Initialize managers
+            const antiDelete = new AntiDeleteManager();
+            let autoBio = null;
+
             // Handle connection updates
             conn.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
@@ -640,6 +1031,9 @@ async function connectToWA() {
                     sessionReady = true;
                     connectionHealth.status = 'connected';
                     connectionHealth.lastMessage = Date.now();
+                    
+                    // Initialize Auto Bio (enabled by default)
+                    autoBio = new AutoBioManager(conn);
                     
                     logDivider('BOT STARTED');
                     logSuccess('BOT STARTUP SUCCESS', '🚀');
@@ -684,41 +1078,24 @@ async function connectToWA() {
 
             conn.ev.on('creds.update', saveCreds);
           
-            // ==================== FIXED ANTIDELETE - IMMEDIATE DETECTION ====================
-            // Ensure global stores exist
-            if (!global.messageStore) global.messageStore = new Map();
-            if (!global.mediaStore) global.mediaStore = new Map();
-
-            // Store messages when received - PRESERVES ALL MESSAGE DATA
+            // ==================== ENHANCED ANTIDELETE - STORE MESSAGES ====================
             conn.ev.on('messages.upsert', async ({ messages }) => {
                 for (const msg of messages) {
+                    // Store message in AntiDelete manager
+                    antiDelete.storeMessage(msg);
+                    
+                    // Also store in global for backup
                     if (msg.key && msg.key.id) {
                         global.messageStore.set(msg.key.id, { ...msg, timestamp: Date.now() });
                         
-                        if (msg.message) {
-                            const type = getContentType(msg.message);
-                            if (['imageMessage','videoMessage','audioMessage','stickerMessage','documentMessage'].includes(type)) {
-                                try {
-                                    const buffer = await downloadMediaMessage(msg, 'buffer', {}, {
-                                        logger: P({ level: 'silent' }),
-                                        reuploadRequest: conn.updateMediaMessage
-                                    }).catch(() => null);
-                                    if (buffer) {
-                                        global.mediaStore.set(msg.key.id, {
-                                            buffer, type,
-                                            mimetype: msg.message[type]?.mimetype,
-                                            fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`
-                                        });
-                                    }
-                                } catch (e) {}
-                            }
-                        }
-                        try { if (typeof saveMessage === 'function') await saveMessage(msg).catch(() => {}); } catch (e) {}
+                        try { 
+                            if (typeof saveMessage === 'function') await saveMessage(msg).catch(() => {}); 
+                        } catch (e) {}
                     }
                 }
             });
 
-            // Detect and handle deleted messages - FIXED VERSION
+            // Detect and handle deleted messages - ENHANCED VERSION
             conn.ev.on('messages.update', async (updates) => {
                 try {
                     const updateArray = Array.isArray(updates) ? updates : [updates];
@@ -736,76 +1113,12 @@ async function connectToWA() {
 
                         if (isDeleted) {
                             logWarning('🚨 DELETE DETECTED', '🗑️');
-
-                            const key = update.key;
-                            const jid = key.remoteJid;
-                            const sender = key.participant || key.remoteJid;
-                            const messageId = key.id;
-                            const fromMe = key.fromMe || false;
-                            
-                            if (!jid || !messageId || fromMe) continue;
-
-                            let deletedMsg = global.messageStore.get(messageId);
-                            let mediaData = global.mediaStore.get(messageId);
-                            
-                            if (!deletedMsg) {
-                                try { deletedMsg = await loadMessage(jid, messageId).catch(() => null); } catch (e) {}
-                            }
-                            if (!deletedMsg && conn.store) {
-                                try { deletedMsg = await conn.store.loadMessage(jid, messageId).catch(() => null); } catch (e) {}
-                            }
-
-                            let deleteAlert = '*🗑️ MESSAGE DELETED DETECTED*\n\n';
-                            deleteAlert += '*👤 Sender:* ' + (sender?.split('@')[0] || 'Unknown') + '\n';
-                            deleteAlert += '*💬 Chat:* ' + (jid?.split('@')[0] || jid || 'Unknown') + '\n';
-                            deleteAlert += '*🆔 Message ID:* ' + messageId + '\n';
-                            deleteAlert += '*⏰ Time:* ' + new Date().toLocaleString() + '\n\n';
-
-                            if (deletedMsg) {
-                                const msg = deletedMsg.message || deletedMsg;
-                                const msgType = Object.keys(msg || {})[0] || 'unknown';
-                                const msgContent = msg?.[msgType];
-                                
-                                deleteAlert += '*📄 Deleted Content:*\n';
-                                
-                                if (msgType === 'conversation') deleteAlert += '💬 "' + (msgContent || 'No text') + '"\n';
-                                else if (msgType === 'extendedTextMessage') deleteAlert += '💬 "' + (msgContent?.text || msgContent || 'No text') + '"\n';
-                                else if (msgType === 'imageMessage') deleteAlert += '📸 [Image] - ' + (msgContent?.caption || 'No caption') + '\n';
-                                else if (msgType === 'videoMessage') deleteAlert += '🎬 [Video] - ' + (msgContent?.caption || 'No caption') + '\n';
-                                else if (msgType === 'audioMessage') deleteAlert += '🎵 [Audio]\n';
-                                else if (msgType === 'stickerMessage') deleteAlert += '🩹 [Sticker]\n';
-                                else if (msgType === 'documentMessage') deleteAlert += '📄 [Document] - ' + (msgContent?.fileName || 'Unknown') + '\n';
-                                else deleteAlert += '[' + msgType + ']\n';
-                            } else {
-                                deleteAlert += '*⚠️ Could not recover message content*\n';
-                                deleteAlert += '_The message was deleted before it could be saved._\n';
-                            }
-                            
-                            deleteAlert += '\n_ᴳᵁᴿᵁᴹᴰ AntiDelete System_';
-
-                            const ownerJid = ownerNumber[0];
-                            await conn.sendMessage(ownerJid, { text: deleteAlert });
-                            
-                            if (mediaData && mediaData.buffer) {
-                                try {
-                                    const mediaType = mediaData.type === 'imageMessage' ? 'image' :
-                                                    mediaData.type === 'videoMessage' ? 'video' :
-                                                    mediaData.type === 'audioMessage' ? 'audio' :
-                                                    mediaData.type === 'stickerMessage' ? 'sticker' : 'document';
-                                    const msgOptions = {
-                                        caption: '📎 *Recovered ' + mediaType.toUpperCase() + ' from deleted message*\n👤 From: ' + (sender?.split('@')[0] || 'Unknown') + '\n⏰ ' + new Date().toLocaleString(),
-                                        mimetype: mediaData.mimetype
-                                    };
-                                    msgOptions[mediaType] = mediaData.buffer;
-                                    await conn.sendMessage(ownerJid, msgOptions);
-                                    logSuccess('Recovered ' + mediaType + ' media sent to owner', '📎');
-                                } catch (mediaErr) { logError('Failed to send recovered media: ' + mediaErr.message, '❌'); }
-                            }
-                            
-                            logSuccess('AntiDelete alert sent to owner', '✅');
+                            await antiDelete.handleMessageDelete(update, conn);
                         }
                     }
-                } catch (error) { logError('messages.update handler error: ' + error.message, '❌'); }
+                } catch (error) { 
+                    logError(`AntiDelete handler error: ${error.message}`, '❌'); 
+                }
             });
 
             // === AUTO VIEW + AUTO SAVE + AUTO REACT ===
@@ -884,9 +1197,33 @@ async function connectToWA() {
                     logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
                 }
 
-                // ========== COMPACT COMMAND HANDLER (ONLY 20 LINES) ==========
+                // ========== COMPACT COMMAND HANDLER ==========
                 if (isCmd) {
                     const cmd = command;
+                    
+                    // Anti-Delete command
+                    if (cmd === 'antidel' || cmd === 'antidelete' || cmd === 'ad') {
+                        if (!isOwner && !isCreator) { 
+                            await taggedReply(conn, from, '❌ Owner only!', mek); 
+                            return; 
+                        }
+                        await antiDelete.handleAntiDeleteCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek));
+                        return;
+                    }
+                    
+                    // Auto Bio command
+                    if (cmd === 'autobio' || cmd === 'ab') {
+                        if (!isOwner && !isCreator) { 
+                            await taggedReply(conn, from, '❌ Owner only!', mek); 
+                            return; 
+                        }
+                        if (autoBio) {
+                            await autoBio.handleBioCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek));
+                        } else {
+                            await taggedReply(conn, from, '❌ Auto Bio not initialized yet!', mek);
+                        }
+                        return;
+                    }
                     
                     if (cmd === 'autoviewstatus' || cmd === 'avs') {
                         if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
