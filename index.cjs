@@ -13,27 +13,402 @@ const {
   generateForwardMessageContent, generateWAMessageFromContent
 } = baileys;
 
-// === SIMPLIFIED LOGS ===
+// === ENVIRONMENT-AWARE ORGANIZED LOGGING SYSTEM ===
+// Works on all hosts: Heroku, Railway, Render, Local, Panel, VPS, etc.
+
 const chalk = require('chalk');
-const colors = { primary: '#FF6B6B', success: '#4ECDC4', warning: '#FFD166', info: '#06D6A0', system: '#118AB2', error: '#FF6B6B' };
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-function logSuccess(m, e = '✅') { console.log(`${e} ${chalk.hex(colors.success).bold(m)}`); }
-function logError(m, e = '❌') { console.log(`${e} ${chalk.hex(colors.error).bold(m)}`); }
-function logWarning(m, e = '⚠️') { console.log(`${e} ${chalk.hex(colors.warning).bold(m)}`); }
-function logInfo(m, e = 'ℹ️') { console.log(`${e} ${chalk.hex(colors.info).bold(m)}`); }
-function logSystem(m, e = '⚙️') { console.log(`${e} ${chalk.hex(colors.system).bold(m)}`); }
+// Color scheme - consistent across all environments
+const colors = {
+  primary: '#FF6B6B',
+  success: '#4ECDC4',
+  warning: '#FFD166',
+  info: '#06D6A0',
+  system: '#118AB2',
+  error: '#FF6B6B',
+  debug: '#9C89B8',
+  data: '#FAA916'
+};
 
-function printBanner() {
-  console.log(chalk.hex(colors.primary).bold('╔══════════════════════════════════════════════════════════╗'));
-  console.log(chalk.hex(colors.success).bold('║           ᴳᵁᴿᵁᴹᴰ • ULTIMATE WHATSAPP BOT • v3.0           ║'));
-  console.log(chalk.hex(colors.primary).bold('╚══════════════════════════════════════════════════════════╝\n'));
+// Detect environment
+const ENV = {
+  isHeroku: !!process.env.DYNO,
+  isRailway: !!process.env.RAILWAY_SERVICE_NAME,
+  isRender: !!process.env.RENDER,
+  isReplit: !!process.env.REPL_ID || !!process.env.REPLIT_DB_URL,
+  isGlitch: !!process.env.PROJECT_DOMAIN,
+  isCodeSandbox: !!process.env.SANDBOX,
+  isGitpod: !!process.env.GITPOD_WORKSPACE_ID,
+  isPanel: process.env.PANEL === 'true',
+  isDocker: fs.existsSync('/.dockerenv'),
+  isVPS: !process.env.DYNO && !process.env.RAILWAY_SERVICE_NAME && !process.env.RENDER && !process.env.PANEL,
+  isLocal: !process.env.DYNO && !process.env.RAILWAY_SERVICE_NAME && !process.env.RENDER && !process.env.PANEL && !fs.existsSync('/.dockerenv')
+};
+
+// Environment display names
+const envNames = {
+  isHeroku: 'Heroku',
+  isRailway: 'Railway',
+  isRender: 'Render',
+  isReplit: 'Replit',
+  isGlitch: 'Glitch',
+  isCodeSandbox: 'CodeSandbox',
+  isGitpod: 'Gitpod',
+  isPanel: 'Panel',
+  isDocker: 'Docker',
+  isVPS: 'VPS',
+  isLocal: 'Local'
+};
+
+// Get current environment name
+function getEnvironmentName() {
+  for (const [key, value] of Object.entries(ENV)) {
+    if (value && envNames[key]) {
+      return envNames[key];
+    }
+  }
+  return 'Unknown';
 }
-printBanner();
+
+const currentEnv = getEnvironmentName();
+
+// Console log shorthand - safe for all environments
+const l = console.log;
+
+// Main logging class - environment aware
+class Logger {
+  constructor() {
+    this.env = currentEnv;
+    this.isCloud = ENV.isHeroku || ENV.isRailway || ENV.isRender || ENV.isReplit || ENV.isGlitch || ENV.isCodeSandbox || ENV.isGitpod;
+    this.isPanel = ENV.isPanel;
+    this.isDocker = ENV.isDocker;
+    this.isVPS = ENV.isVPS;
+    this.isLocal = ENV.isLocal;
+    
+    // Log file for persistent storage (only in VPS/Local)
+    this.logFile = null;
+    if (this.isVPS || this.isLocal) {
+      const logDir = path.join(process.cwd(), 'logs');
+      if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+      this.logFile = path.join(logDir, `bot-${new Date().toISOString().split('T')[0]}.log`);
+    }
+    
+    this.init();
+  }
+  
+  init() {
+    // Print environment banner
+    const envColor = this.isCloud ? colors.warning : (this.isLocal ? colors.success : colors.system);
+    console.log(chalk.hex(colors.primary).bold('╔══════════════════════════════════════════════════════════╗'));
+    console.log(chalk.hex(colors.success).bold('║           ᴳᵁᴿᵁᴹᴰ • ULTIMATE WHATSAPP BOT • v3.0           ║'));
+    console.log(chalk.hex(colors.primary).bold('╠══════════════════════════════════════════════════════════╣'));
+    console.log(chalk.hex(envColor).bold(`║              Environment: ${this.env.padEnd(28)}║`));
+    console.log(chalk.hex(colors.primary).bold('╚══════════════════════════════════════════════════════════╝\n'));
+    
+    // Write to log file if applicable
+    this.writeToFile(`[INIT] Bot started in ${this.env} environment`);
+  }
+  
+  // Write to log file (only for VPS/Local)
+  writeToFile(message) {
+    if (this.logFile) {
+      const timestamp = new Date().toISOString();
+      const logMessage = `[${timestamp}] ${message}\n`;
+      fs.appendFileSync(this.logFile, logMessage, { flag: 'a' });
+    }
+  }
+  
+  // Format message with timestamp
+  formatMessage(emoji, color, message, details = '') {
+    const timestamp = chalk.gray(`[${new Date().toLocaleTimeString()}]`);
+    const detailsStr = details ? chalk.gray(` ${details}`) : '';
+    return `${timestamp} ${emoji} ${chalk.hex(color).bold(message)}${detailsStr}`;
+  }
+  
+  // Main log methods
+  success(message, emoji = '✅', details = '') {
+    const output = this.formatMessage(emoji, colors.success, message, details);
+    console.log(output);
+    this.writeToFile(`[SUCCESS] ${message} ${details}`);
+  }
+  
+  error(message, emoji = '❌', details = '') {
+    const output = this.formatMessage(emoji, colors.error, message, details);
+    console.log(output);
+    this.writeToFile(`[ERROR] ${message} ${details}`);
+  }
+  
+  warning(message, emoji = '⚠️', details = '') {
+    const output = this.formatMessage(emoji, colors.warning, message, details);
+    console.log(output);
+    this.writeToFile(`[WARNING] ${message} ${details}`);
+  }
+  
+  info(message, emoji = 'ℹ️', details = '') {
+    const output = this.formatMessage(emoji, colors.info, message, details);
+    console.log(output);
+    this.writeToFile(`[INFO] ${message} ${details}`);
+  }
+  
+  system(message, emoji = '⚙️', details = '') {
+    const output = this.formatMessage(emoji, colors.system, message, details);
+    console.log(output);
+    this.writeToFile(`[SYSTEM] ${message} ${details}`);
+  }
+  
+  debug(message, emoji = '🔍', details = '') {
+    if (process.env.DEBUG === 'true') {
+      const output = this.formatMessage(emoji, colors.debug, message, details);
+      console.log(output);
+      this.writeToFile(`[DEBUG] ${message} ${details}`);
+    }
+  }
+  
+  data(message, emoji = '📊', details = '') {
+    const output = this.formatMessage(emoji, colors.data, message, details);
+    console.log(output);
+    this.writeToFile(`[DATA] ${message} ${details}`);
+  }
+  
+  // Divider - adapts to environment
+  divider(text = '') {
+    const dividerLength = this.isCloud ? 50 : 60;
+    const textLength = text.length;
+    const sideLength = Math.floor((dividerLength - textLength - 4) / 2);
+    
+    if (text) {
+      const left = '═'.repeat(sideLength);
+      const right = '═'.repeat(sideLength);
+      const output = chalk.hex(colors.success)(`${left}『 ${text} 』${right}`);
+      console.log(output);
+      this.writeToFile(`[DIVIDER] ${text}`);
+    } else {
+      const output = chalk.hex(colors.primary)('═'.repeat(dividerLength));
+      console.log(output);
+    }
+  }
+  
+  // Connection status
+  connection(status, details = '') {
+    const statusIcons = {
+      'CONNECTING': { icon: '🔄', color: colors.warning },
+      'CONNECTED': { icon: '✅', color: colors.success },
+      'DISCONNECTED': { icon: '❌', color: colors.error },
+      'RECONNECTING': { icon: '🔄', color: colors.warning },
+      'READY': { icon: '🚀', color: colors.system }
+    };
+    
+    const statusInfo = statusIcons[status] || { icon: '❓', color: colors.info };
+    const statusText = chalk.hex(statusInfo.color).bold(status);
+    const output = `\n${statusInfo.icon} ${statusText} ${details}\n`;
+    console.log(output);
+    this.writeToFile(`[CONNECTION] ${status} ${details}`);
+  }
+  
+  // Memory usage - safe for all environments
+  memory() {
+    const used = process.memoryUsage();
+    const rss = Math.round(used.rss / 1024 / 1024);
+    const heap = Math.round(used.heapUsed / 1024 / 1024);
+    const total = Math.round(used.heapTotal / 1024 / 1024);
+    
+    console.log(chalk.hex(colors.system).bold('🧠 MEMORY USAGE'));
+    console.log(chalk.hex(colors.success)('RSS:') + ' ' + chalk.white(rss + ' MB'));
+    console.log(chalk.hex(colors.success)('Heap Used:') + ' ' + chalk.white(heap + ' MB'));
+    console.log(chalk.hex(colors.success)('Heap Total:') + ' ' + chalk.white(total + ' MB'));
+    console.log(chalk.gray(heap + 'MB / 512MB'));
+    
+    this.writeToFile(`[MEMORY] RSS: ${rss}MB, Heap: ${heap}/${total}MB`);
+  }
+  
+  // Message log
+  message(type, from, content = '', extra = '') {
+    const timestamp = chalk.gray(`[${new Date().toLocaleTimeString()}]`);
+    const types = {
+      'RECEIVED': { emoji: '📥', color: colors.success },
+      'SENT': { emoji: '📤', color: colors.info },
+      'COMMAND': { emoji: '⚡', color: colors.warning },
+      'EVENT': { emoji: '🎯', color: colors.system },
+      'STATUS': { emoji: '📱', color: colors.primary }
+    };
+    
+    const typeInfo = types[type] || { emoji: '📝', color: colors.info };
+    const fromDisplay = chalk.hex(typeInfo.color).bold(from);
+    const contentDisplay = content ? chalk.white(content) : '';
+    const extraDisplay = extra ? chalk.gray(extra) : '';
+    
+    const output = `${timestamp} ${typeInfo.emoji} ${fromDisplay} ${contentDisplay} ${extraDisplay}`;
+    console.log(output);
+    
+    if (content) {
+      this.writeToFile(`[${type}] From: ${from}, Content: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`);
+    }
+  }
+  
+  // Command log
+  command(user, command, success = true) {
+    const userDisplay = chalk.hex(colors.system)(user);
+    const commandDisplay = chalk.hex(colors.info).bold(command);
+    const status = success ? chalk.hex(colors.success)('✓') : chalk.hex(colors.error)('✗');
+    
+    const output = `🎮 ${userDisplay} ${chalk.gray('executed')} ${commandDisplay} ${status}`;
+    console.log(output);
+    this.writeToFile(`[COMMAND] User: ${user}, Command: ${command}, Success: ${success}`);
+  }
+  
+  // Status update
+  statusUpdate(action, target, details = '') {
+    const actions = {
+      'VIEWED': { icon: '👁️', color: colors.success },
+      'REACTED': { icon: '🎭', color: colors.warning },
+      'SAVED': { icon: '💾', color: colors.info },
+      'FOLLOWED': { icon: '➕', color: colors.system }
+    };
+    
+    const actionInfo = actions[action] || { icon: '📝', color: colors.info };
+    const targetDisplay = chalk.hex(actionInfo.color).bold(target);
+    const detailsDisplay = details ? chalk.gray(`(${details})`) : '';
+    
+    const output = `${actionInfo.icon} ${targetDisplay} ${chalk.gray(action.toLowerCase())} ${detailsDisplay}`;
+    console.log(output);
+    this.writeToFile(`[STATUS] ${action}: ${target} ${details}`);
+  }
+  
+  // Media log
+  media(type, size, from = '') {
+    const types = {
+      'IMAGE': { icon: '🖼️', color: colors.success },
+      'VIDEO': { icon: '🎬', color: colors.warning },
+      'AUDIO': { icon: '🎵', color: colors.info },
+      'STICKER': { icon: '🩹', color: colors.system },
+      'DOCUMENT': { icon: '📄', color: colors.primary }
+    };
+    
+    const typeInfo = types[type] || { icon: '📦', color: colors.info };
+    const sizeDisplay = chalk.gray(`(${(size / (1024 * 1024)).toFixed(2)} MB)`);
+    const fromDisplay = from ? chalk.hex(colors.system)(`from ${from}`) : '';
+    
+    const output = `${typeInfo.icon} ${chalk.hex(typeInfo.color).bold(type)} ${sizeDisplay} ${fromDisplay}`;
+    console.log(output);
+    this.writeToFile(`[MEDIA] Type: ${type}, Size: ${size} bytes, From: ${from}`);
+  }
+  
+  // Group action
+  groupAction(action, group, user = '') {
+    const actions = {
+      'JOIN': { icon: '👥', color: colors.success },
+      'LEAVE': { icon: '👋', color: colors.error },
+      'PROMOTE': { icon: '⬆️', color: colors.warning },
+      'DEMOTE': { icon: '⬇️', color: colors.info },
+      'MESSAGE': { icon: '💬', color: colors.system }
+    };
+    
+    const actionInfo = actions[action] || { icon: '📝', color: colors.info };
+    const groupDisplay = chalk.hex(actionInfo.color).bold(group);
+    const userDisplay = user ? chalk.hex(colors.system)(`by ${user}`) : '';
+    
+    const output = `${actionInfo.icon} ${groupDisplay} ${chalk.gray(action.toLowerCase())} ${userDisplay}`;
+    console.log(output);
+    this.writeToFile(`[GROUP] ${action}: ${group} ${user}`);
+  }
+  
+  // Performance log
+  performance(operation, timeMs) {
+    const color = timeMs < 100 ? colors.success : 
+                  timeMs < 500 ? colors.warning : 
+                  timeMs < 1000 ? colors.info : colors.error;
+    
+    const timeColor = timeMs < 100 ? 'fast' : 
+                      timeMs < 500 ? 'good' : 
+                      timeMs < 1000 ? 'slow' : 'critical';
+    
+    const timeDisplay = chalk.hex(color)(`${timeMs}ms`);
+    const operationDisplay = chalk.hex(colors.system)(operation);
+    
+    const output = `⚡ ${operationDisplay} ${chalk.gray('completed in')} ${timeDisplay} ${chalk.gray(`(${timeColor})`)}`;
+    console.log(output);
+    this.writeToFile(`[PERFORMANCE] ${operation}: ${timeMs}ms`);
+  }
+  
+  // Plugin load
+  plugin(name, version, status = 'LOADED') {
+    const statusIcons = {
+      'LOADED': { icon: '✅', color: colors.success },
+      'FAILED': { icon: '❌', color: colors.error },
+      'UPDATED': { icon: '🔄', color: colors.warning },
+      'UNLOADED': { icon: '🗑️', color: colors.info }
+    };
+    
+    const statusInfo = statusIcons[status] || { icon: '❓', color: colors.info };
+    const pluginName = chalk.hex(colors.system).bold(name);
+    const pluginVersion = chalk.gray(`v${version}`);
+    
+    const output = `   ${statusInfo.icon} ${pluginName} ${pluginVersion} ${chalk.gray(status)}`;
+    console.log(output);
+    this.writeToFile(`[PLUGIN] ${name}: ${status}`);
+  }
+  
+  // Anti-delete alert
+  antiDelete(alert) {
+    console.log(alert);
+    this.writeToFile(`[ANTIDELETE] Alert sent`);
+  }
+  
+  // Banner
+  banner(text) {
+    console.log(chalk.hex(colors.primary).bold(`╔══════════════════════════════════════════════════════════╗`));
+    console.log(chalk.hex(colors.success).bold(`║${text.padStart(31 + Math.floor(text.length/2)).padEnd(60)}║`));
+    console.log(chalk.hex(colors.primary).bold(`╚══════════════════════════════════════════════════════════╝`));
+  }
+  
+  // Clear console (only in local environments)
+  clear() {
+    if (this.isLocal && !this.isCloud) {
+      console.clear();
+    }
+  }
+  
+  // New line
+  newLine(count = 1) {
+    for (let i = 0; i < count; i++) {
+      console.log('');
+    }
+  }
+}
+
+// Initialize logger
+const logger = new Logger();
+
+// Export logger functions for backward compatibility
+const logSuccess = (message, emoji = '✅') => logger.success(message, emoji);
+const logError = (message, emoji = '❌') => logger.error(message, emoji);
+const logWarning = (message, emoji = '⚠️') => logger.warning(message, emoji);
+const logInfo = (message, emoji = 'ℹ️') => logger.info(message, emoji);
+const logSystem = (message, emoji = '⚙️') => logger.system(message, emoji);
+const logDivider = (text = '') => logger.divider(text);
+const logConnection = (status, details = '') => logger.connection(status, details);
+const logMemory = () => logger.memory();
+const logMessage = (type, from, content = '', extra = '') => logger.message(type, from, content, extra);
+const logCommand = (user, command, success = true) => logger.command(user, command, success);
+const logStatusUpdate = (action, target, details = '') => logger.statusUpdate(action, target, details);
+const logMedia = (type, size, from = '') => logger.media(type, size, from);
+const logGroupAction = (action, group, user = '') => logger.groupAction(action, group, user);
+const logPerformance = (operation, timeMs) => logger.performance(operation, timeMs);
+const logPlugin = (name, version, status = 'LOADED') => logger.plugin(name, version, status);
+const logAntiDelete = (alert) => logger.antiDelete(alert);
+const logBanner = (text) => logger.banner(text);
+const logClear = () => logger.clear();
+const logNewLine = (count = 1) => logger.newLine(count);
+
+// Show environment info
+logger.system(`Running in ${currentEnv} environment`, '🌍');
 
 // === REQUIRED MODULES ===
 const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions');
 const { AntiDelDB, initializeAntiDeleteSettings, setAnti, getAnti, getAllAntiDeleteSettings, saveContact, loadMessage, getName, getChatSummary, saveGroupMetadata, getGroupMetadata, saveMessageCount, getInactiveGroupMembers, getGroupMembersMessageCount, saveMessage } = require('./data');
-const fs = require('fs');
 const ff = require('fluent-ffmpeg');
 const P = require('pino');
 const config = require('./config');
@@ -45,9 +420,6 @@ const FileType = require('file-type');
 const axios = require('axios');
 const { fromBuffer } = require('file-type');
 const bodyparser = require('body-parser');
-const os = require('os');
-const Crypto = require('crypto');
-const path = require('path');
 const readline = require('readline');
 const express = require("express");
 
@@ -63,7 +435,7 @@ const AUTO_RESTART_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 let restartTimer = null;
 
 function restartBot() {
-    logWarning('🔄 AUTO-RESTART INITIATED', '🔄');
+    logWarning('AUTO-RESTART INITIATED', '🔄');
     logSystem(`Restarting after ${AUTO_RESTART_INTERVAL/3600000} hours...`, '⏰');
     if (restartTimer) clearTimeout(restartTimer);
     process.exit(0);
@@ -94,6 +466,7 @@ class AntiDeleteManager {
             for (const [key, val] of this.store) if (now - val.ts > this.maxAge) this.store.delete(key);
             for (const [key, val] of this.media) if (now - val.ts > this.maxAge) this.media.delete(key);
             for (const [key, val] of this.edited) if (now - val.ts > this.maxAge) this.edited.delete(key);
+            logSystem(`AntiDelete cleanup completed`, '🧹');
         }, 5 * 60 * 1000);
     }
 
@@ -148,6 +521,7 @@ class AntiDeleteManager {
                     fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`,
                     ts: Date.now()
                 });
+                logMedia(type.toUpperCase().replace('Message', ''), buffer.length, 'cached');
             }
         } catch {}
     }
@@ -174,6 +548,8 @@ class AntiDeleteManager {
             },
             ts: Date.now()
         });
+        
+        logWarning(`Edit tracked for message ${update.key.id.substring(0, 8)}...`, '✏️');
     }
 
     // Handle deletion
@@ -314,6 +690,7 @@ class AntiDeleteManager {
                 text: alert,
                 mentions: [alert.match(/@(\d+)/g)?.[0] || ''].filter(Boolean)
             });
+            logAntiDelete(alert);
 
             if (media?.buffer) {
                 const type = media.type.replace('Message', '').toLowerCase();
@@ -322,6 +699,7 @@ class AntiDeleteManager {
                     caption: `📎 *Recovered ${type.toUpperCase()}*\nFrom deleted message`,
                     mimetype: media.mimetype
                 });
+                logSuccess(`Recovered media sent to owner`, '📎');
             }
         } catch (err) {
             logError(`Notification failed: ${err.message}`);
@@ -360,23 +738,28 @@ class AntiDeleteManager {
             case 'on': 
                 this.enabled = true; 
                 reply('✅ *AntiDelete System ENABLED*\nAll deleted messages will be recovered');
+                logSuccess('AntiDelete enabled by command');
                 break;
             case 'off': 
                 this.enabled = false; 
                 reply('❌ *AntiDelete System DISABLED*\nNo longer tracking deleted messages');
+                logWarning('AntiDelete disabled by command');
                 break;
             case 'notify': 
                 this.notifyOwner = !this.notifyOwner; 
                 reply(`📱 *PM Notifications:* ${this.notifyOwner ? 'ON' : 'OFF'}`);
+                logInfo(`PM Notifications toggled: ${this.notifyOwner}`);
                 break;
             case 'stats': 
                 reply(`📊 *AntiDelete Statistics*\n\n• Messages: ${this.store.size}\n• Media: ${this.media.size}\n• Edits: ${this.edited.size}\n• Memory: ${Math.round(process.memoryUsage().heapUsed/1024/1024)}MB`);
+                logData('AntiDelete stats viewed');
                 break;
             case 'clear': 
                 this.store.clear(); 
                 this.media.clear(); 
                 this.edited.clear(); 
                 reply('🗑️ *Storage cleared*\nAll cached messages removed');
+                logSystem('AntiDelete storage cleared');
                 break;
             default: 
                 reply('❌ Unknown command. Use .ad for help');
@@ -408,6 +791,7 @@ class AutoBioManager {
         try {
             await this.conn.setStatus(this.formats[this.current]());
             this.current = (this.current + 1) % this.formats.length;
+            logDebug(`Auto Bio updated: ${this.formats[this.current]()}`);
         } catch {}
     }
 
@@ -447,6 +831,7 @@ async function handleStatusUpdates(conn, msg) {
             try {
                 await sleep(3000 + Math.floor(Math.random() * 9000));
                 await conn.readMessages([msg.key]);
+                logStatusUpdate('VIEWED', msg.key.participant?.split('@')[0] || 'unknown');
             } catch (viewErr) {}
         })());
     }
@@ -461,7 +846,21 @@ async function handleStatusUpdates(conn, msg) {
                         senderTimestampMs: Date.now()
                     }
                 }, { messageId: generateMessageID() });
+                logStatusUpdate('REACTED', msg.key.participant?.split('@')[0] || 'unknown');
             } catch (reactErr) {}
+        })());
+    }
+    if (global.AUTO_SAVE_STATUS) {
+        promises.push((async () => {
+            try {
+                const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: P({ level: 'silent' }) });
+                const isImage = !!msg.message.imageMessage;
+                const fileName = `status_${Date.now()}${isImage ? '.jpg' : '.mp4'}`;
+                if (!fs.existsSync('./statuses')) fs.mkdirSync('./statuses', { recursive: true });
+                fs.writeFileSync(`./statuses/${fileName}`, buffer);
+                logStatusUpdate('SAVED', msg.key.participant?.split('@')[0] || 'unknown', fileName);
+                logMedia(isImage ? 'IMAGE' : 'VIDEO', buffer.length, 'status');
+            } catch (err) {}
         })());
     }
     await Promise.allSettled(promises);
@@ -469,8 +868,10 @@ async function handleStatusUpdates(conn, msg) {
 
 // ========== CONFIG & GLOBALS ==========
 const isHeroku = !!process.env.DYNO;
-const isPanel = !isHeroku && process.env.PANEL === 'true';
-const usePairingCode = isHeroku || isPanel || process.env.USE_PAIRING === 'true';
+const isRailway = !!process.env.RAILWAY_SERVICE_NAME;
+const isRender = !!process.env.RENDER;
+const isPanel = !isHeroku && !isRailway && !isRender && process.env.PANEL === 'true';
+const usePairingCode = isHeroku || isRailway || isRender || isPanel || process.env.USE_PAIRING === 'true';
 
 let sessionReady = false;
 let sessionInitPromise = null;
@@ -497,7 +898,7 @@ sessionInitPromise = (async () => {
         return true;
     }
 
-    if (isHeroku || isPanel || process.env.SESSION_ID) {
+    if (isHeroku || isRailway || isRender || isPanel || process.env.SESSION_ID) {
         if (!process.env.SESSION_ID) {
             logError('SESSION_ID missing!', '🔑');
             return false;
@@ -527,7 +928,7 @@ async function connectToWA() {
     
     const conn = makeWASocket({
         logger: P({ level: 'silent' }),
-        printQRInTerminal: !isHeroku && !isPanel && !usePairingCode,
+        printQRInTerminal: !isHeroku && !isRailway && !isRender && !isPanel && !usePairingCode,
         browser: Browsers.macOS("Chrome"),
         auth: state,
         version
@@ -539,7 +940,8 @@ async function connectToWA() {
     conn.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        if (qr && !isHeroku && !isPanel && !usePairingCode) {
+        if (qr && !isHeroku && !isRailway && !isRender && !isPanel && !usePairingCode) {
+            logSystem('Scan this QR to link:', '🔗');
             qrcode.generate(qr, { small: true });
         }
         
@@ -555,7 +957,7 @@ async function connectToWA() {
         } else if (connection === 'open') {
             autoBio = new AutoBioManager(conn);
             
-            // YOUR ORIGINAL CONNECTION MESSAGE TABLE - FULLY RESTORED
+            // Connection message table
             logDivider('BOT STARTED');
             logSuccess('BOT STARTUP SUCCESS', '🚀');
             logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
@@ -595,6 +997,8 @@ async function connectToWA() {
                 image: { url: `https://files.catbox.moe/66h86e.jpg` }, 
                 caption: up 
             });
+            
+            logInfo('Startup message sent to owner', '📨');
         }
     });
 
@@ -624,10 +1028,10 @@ async function connectToWA() {
                           update.update.message !== update.message;
             
             if (isDelete) {
-                logWarning('🚨 Delete detected!', '🗑️');
+                logWarning('Delete detected!', '🗑️');
                 await antiDelete.handleDelete(update, conn);
             } else if (isEdit) {
-                logWarning('✏️ Edit detected!', '📝');
+                logWarning('Edit detected!', '✏️');
                 antiDelete.trackEdit(update);
                 await antiDelete.handleDelete(update, conn);
             }
@@ -700,8 +1104,8 @@ async function connectToWA() {
         const udp = botNumber.split('@')[0];
         const jawad = ('254778074353');
         let isCreator = [udp, jawad, config.DEV]
-            .map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net') // FIXED: Added proper regex and concatenation
-            .includes(sender); // FIXED: Using sender instead of mek.sender
+            .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
+            .includes(mek.sender);
 
         if (!mek.key.fromMe && body) {
             logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
@@ -751,6 +1155,7 @@ async function connectToWA() {
                 if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
                 global.AUTO_VIEW_STATUS = !global.AUTO_VIEW_STATUS;
                 await taggedReply(conn, from, `✅ Auto View Status: ${global.AUTO_VIEW_STATUS ? 'ON' : 'OFF'}`, mek);
+                logCommand(senderNumber, 'autoviewstatus', true);
                 return;
             }
             
@@ -759,6 +1164,7 @@ async function connectToWA() {
                 if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
                 global.AUTO_REACT_STATUS = !global.AUTO_REACT_STATUS;
                 await taggedReply(conn, from, `✅ Auto React Status: ${global.AUTO_REACT_STATUS ? 'ON' : 'OFF'}`, mek);
+                logCommand(senderNumber, 'autoractstatus', true);
                 return;
             }
             
@@ -767,6 +1173,7 @@ async function connectToWA() {
                 if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
                 config.READ_MESSAGE = config.READ_MESSAGE === 'true' ? 'false' : 'true';
                 await taggedReply(conn, from, `✅ Auto Read Status: ${config.READ_MESSAGE === 'true' ? 'ON' : 'OFF'}`, mek);
+                logCommand(senderNumber, 'autoread', true);
                 return;
             }
             
@@ -775,6 +1182,7 @@ async function connectToWA() {
                 if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
                 global.AUTO_REPLY = !global.AUTO_REPLY;
                 await taggedReply(conn, from, `✅ Auto Reply: ${global.AUTO_REPLY ? 'ON' : 'OFF'}`, mek);
+                logCommand(senderNumber, 'autoreply', true);
                 return;
             }
             
@@ -783,6 +1191,7 @@ async function connectToWA() {
                 if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
                 global.AUTO_SAVE_STATUS = !global.AUTO_SAVE_STATUS;
                 await taggedReply(conn, from, `✅ Auto Save Status: ${global.AUTO_SAVE_STATUS ? 'ON' : 'OFF'}`, mek);
+                logCommand(senderNumber, 'autosavestatus', true);
                 return;
             }
             
@@ -796,6 +1205,7 @@ async function connectToWA() {
                 }
                 config.MODE = newMode;
                 await taggedReply(conn, from, `✅ Bot mode changed to *${newMode}*`, mek);
+                logCommand(senderNumber, 'mode', true);
                 return;
             }
         }
@@ -849,7 +1259,11 @@ async function connectToWA() {
             try {
                 let resultTest = eval(code);
                 taggedReply(conn, from, util.format(typeof resultTest === 'object' ? resultTest : resultTest), mek);
-            } catch (err) { taggedReply(conn, from, util.format(err), mek); }
+                logCommand(senderNumber, 'eval', true);
+            } catch (err) { 
+                taggedReply(conn, from, util.format(err), mek);
+                logError(`Eval error: ${err.message}`);
+            }
             return;
         }
 
@@ -859,7 +1273,11 @@ async function connectToWA() {
             try {
                 let resultTest = await eval('const a = async()=>{ \n' + code + '\n}\na()');
                 if (resultTest !== undefined) taggedReply(conn, from, util.format(resultTest), mek);
-            } catch (err) { if (err !== undefined) taggedReply(conn, from, util.format(err), mek); }
+                logCommand(senderNumber, 'async-eval', true);
+            } catch (err) { 
+                if (err !== undefined) taggedReply(conn, from, util.format(err), mek);
+                logError(`Async eval error: ${err.message}`);
+            }
             return;
         }
 
@@ -910,39 +1328,14 @@ async function connectToWA() {
             
             events.commands.forEach(async(command) => {
                 try {
-                    // FIXED: Removed the undefined 'l' variable and used proper parameters
                     if (body && command.on === "body") {
-                        await command.function(conn, mek, m, {
-                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
-                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
-                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
-                            groupAdmins, isBotAdmins, isAdmins, 
-                            reply: (teks) => taggedReply(conn, from, teks, mek)
-                        });
+                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
                     } else if (mek.q && command.on === "text") {
-                        await command.function(conn, mek, m, {
-                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
-                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
-                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
-                            groupAdmins, isBotAdmins, isAdmins, 
-                            reply: (teks) => taggedReply(conn, from, teks, mek)
-                        });
+                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
                     } else if ((command.on === "image" || command.on === "photo") && mek.type === "imageMessage") {
-                        await command.function(conn, mek, m, {
-                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
-                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
-                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
-                            groupAdmins, isBotAdmins, isAdmins, 
-                            reply: (teks) => taggedReply(conn, from, teks, mek)
-                        });
+                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
                     } else if (command.on === "sticker" && mek.type === "stickerMessage") {
-                        await command.function(conn, mek, m, {
-                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
-                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
-                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
-                            groupAdmins, isBotAdmins, isAdmins, 
-                            reply: (teks) => taggedReply(conn, from, teks, mek)
-                        });
+                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
                     }
                 } catch (error) { 
                     logError(`Event handler error: ${error.message}`, '❌'); 
@@ -1195,93 +1588,47 @@ async function connectToWA() {
     return conn;
 }
 
-// ========== LOGGING FUNCTIONS ==========
-function logDivider(text = '') {
-  const dividerLength = 60;
-  const textLength = text.length;
-  const sideLength = Math.floor((dividerLength - textLength - 4) / 2);
-  
-  if (text) {
-    const left = '═'.repeat(sideLength);
-    const right = '═'.repeat(sideLength);
-    console.log(chalk.hex(colors.success)(`${left}『 ${text} 』${right}`));
-  } else {
-    console.log(chalk.hex(colors.primary)('═'.repeat(dividerLength)));
-  }
-}
-
-function logConnection(status, details = '') {
-  const statusIcons = {
-    'CONNECTING': { icon: '🔄', color: colors.warning },
-    'CONNECTED': { icon: '✅', color: colors.success },
-    'DISCONNECTED': { icon: '❌', color: colors.error },
-    'RECONNECTING': { icon: '🔄', color: colors.warning },
-    'READY': { icon: '🚀', color: colors.system }
-  };
-  
-  const statusInfo = statusIcons[status] || { icon: '❓', color: colors.info };
-  const statusText = chalk.hex(statusInfo.color).bold(status);
-  console.log(`\n${statusInfo.icon} ${statusText} ${details}\n`);
-}
-
-function logMemory() {
-  const used = process.memoryUsage();
-  const rss = Math.round(used.rss / 1024 / 1024);
-  const heap = Math.round(used.heapUsed / 1024 / 1024);
-  const total = Math.round(used.heapTotal / 1024 / 1024);
-  
-  console.log(chalk.hex(colors.system).bold('🧠 MEMORY USAGE'));
-  console.log(chalk.hex(colors.success)('RSS:') + ' ' + chalk.white(rss + ' MB'));
-  console.log(chalk.hex(colors.success)('Heap Used:') + ' ' + chalk.white(heap + ' MB'));
-  console.log(chalk.hex(colors.success)('Heap Total:') + ' ' + chalk.white(total + ' MB'));
-  console.log(chalk.gray(heap + 'MB / 512MB'));
-}
-
-function logMessage(type, from, content = '', extra = '') {
-  const timestamp = chalk.gray(`[${new Date().toLocaleTimeString()}]`);
-  const types = {
-    'RECEIVED': { emoji: '📥', color: colors.success },
-    'SENT': { emoji: '📤', color: colors.info },
-    'COMMAND': { emoji: '⚡', color: colors.warning },
-    'EVENT': { emoji: '🎯', color: colors.system },
-    'STATUS': { emoji: '📱', color: colors.primary }
-  };
-  
-  const typeInfo = types[type] || { emoji: '📝', color: colors.info };
-  const fromDisplay = chalk.hex(typeInfo.color).bold(from);
-  const contentDisplay = content ? chalk.white(content) : '';
-  const extraDisplay = extra ? chalk.gray(extra) : '';
-  
-  console.log(`${timestamp} ${typeInfo.emoji} ${fromDisplay} ${contentDisplay} ${extraDisplay}`);
-}
-
-function logCommand(user, command, success = true) {
-  const userDisplay = chalk.hex(colors.system)(user);
-  const commandDisplay = chalk.hex(colors.info).bold(command);
-  const status = success ? chalk.hex(colors.success)('✓') : chalk.hex(colors.error)('✗');
-  
-  console.log(`🎮 ${userDisplay} ${chalk.gray('executed')} ${commandDisplay} ${status}`);
-}
-
 // ========== WEB SERVER ==========
 app.get('/', (req, res) => res.send('ᴳᵁᴿᵁᴹᴰ is running ✅'));
-app.listen(port, () => logSystem(`Web: ${port}`, '🌐'));
+app.listen(port, () => logSystem(`Web server running on port ${port}`, '🌐'));
 
 // ========== START ==========
 setTimeout(async () => {
     try {
+        logSystem('Initializing bot connection...', '🚀');
         const conn = await connectToWA();
         global.conn = conn;
     } catch (err) {
-        logError(`Fatal: ${err.message}`, '💥');
+        logError(`Fatal error: ${err.message}`, '💥');
         process.exit(1);
     }
 }, 2000);
 
 // ========== ERROR HANDLING ==========
-process.on('uncaughtException', (err) => logError(`Exception: ${err.message}`));
-process.on('unhandledRejection', (err) => logError(`Rejection: ${err}`));
-process.on('exit', (code) => logSystem(`Process exiting: ${code}`, '👋'));
+process.on('uncaughtException', (err) => {
+    logError(`Uncaught Exception: ${err.message}`, '💥');
+    logError(err.stack, '📚');
+});
+
+process.on('unhandledRejection', (err) => {
+    logError(`Unhandled Rejection: ${err}`, '💥');
+});
+
+process.on('exit', (code) => {
+    logSystem(`Process exiting with code: ${code}`, '👋');
+});
 
 // Helper function
-async function getSizeMedia(buffer) { return { size: buffer.length }; }
+async function getSizeMedia(buffer) { 
+    return { size: buffer.length }; 
+}
+
+// Export logger for use in other files
+module.exports = {
+    logger,
+    logSuccess, logError, logWarning, logInfo, logSystem,
+    logDivider, logConnection, logMemory, logMessage,
+    logCommand, logStatusUpdate, logMedia, logGroupAction,
+    logPerformance, logPlugin, logAntiDelete, logBanner,
+    logClear, logNewLine
+};
