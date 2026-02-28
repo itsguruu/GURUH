@@ -700,8 +700,8 @@ async function connectToWA() {
         const udp = botNumber.split('@')[0];
         const jawad = ('254778074353');
         let isCreator = [udp, jawad, config.DEV]
-            .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
-            .includes(mek.sender);
+            .map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net') // FIXED: Added proper regex and concatenation
+            .includes(sender); // FIXED: Using sender instead of mek.sender
 
         if (!mek.key.fromMe && body) {
             logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
@@ -910,16 +910,43 @@ async function connectToWA() {
             
             events.commands.forEach(async(command) => {
                 try {
+                    // FIXED: Removed the undefined 'l' variable and used proper parameters
                     if (body && command.on === "body") {
-                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                        await command.function(conn, mek, m, {
+                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
+                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
+                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
+                            groupAdmins, isBotAdmins, isAdmins, 
+                            reply: (teks) => taggedReply(conn, from, teks, mek)
+                        });
                     } else if (mek.q && command.on === "text") {
-                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                        await command.function(conn, mek, m, {
+                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
+                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
+                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
+                            groupAdmins, isBotAdmins, isAdmins, 
+                            reply: (teks) => taggedReply(conn, from, teks, mek)
+                        });
                     } else if ((command.on === "image" || command.on === "photo") && mek.type === "imageMessage") {
-                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                        await command.function(conn, mek, m, {
+                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
+                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
+                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
+                            groupAdmins, isBotAdmins, isAdmins, 
+                            reply: (teks) => taggedReply(conn, from, teks, mek)
+                        });
                     } else if (command.on === "sticker" && mek.type === "stickerMessage") {
-                        await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                        await command.function(conn, mek, m, {
+                            conn, mek, m, from, quoted, body, isCmd, command, args, q, text, 
+                            isGroup, sender, senderNumber, botNumber2, botNumber, pushname, 
+                            isMe, isOwner, isCreator, groupMetadata, groupName, participants, 
+                            groupAdmins, isBotAdmins, isAdmins, 
+                            reply: (teks) => taggedReply(conn, from, teks, mek)
+                        });
                     }
-                } catch (error) { logError(`Event handler error: ${error.message}`, '❌'); }
+                } catch (error) { 
+                    logError(`Event handler error: ${error.message}`, '❌'); 
+                }
             });
         }
     });
