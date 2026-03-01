@@ -1,83 +1,74 @@
-const axios = require('axios'); 
+const axios = require('axios');
 const config = require('../config');
-const { cmd, commands } = require('../command');
-const fetch = require('node-fetch'); 
+const { cmd } = require('../command');
 
 cmd({
-    pattern: "praytime", 
-    alias: ["prayertimes", "prayertime", "ptime" ], 
-    react: "✅", 
-    desc: "Get the prayer times, weather, and location for the city.", 
-    category: "information", 
+    pattern: "praytime",
+    alias: ["prayertimes", "prayertime", "ptime"],
+    react: "🕌",
+    desc: "Get prayer times, weather, and location for a city (default: Athi River, Kenya)",
+    category: "information",
     filename: __filename,
 },
-async(conn, mek, m, {from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, isItzcp, groupAdmins, isBotAdmins, isAdmins, reply}) => {
+async (conn, mek, m, { from, reply, args, q }) => {
     try {
-        const city = args.length > 0 ? args.join(" ") : "bhakkar"; // Default to Bhakkar if no city is provided
-        const apiUrl = `https://api.nexoracle.com/islamic/prayer-times?city=${city}`;
+        // Default to Athi River (your location)
+        const city = args.length > 0 ? args.join(" ") : "Athi River";
 
-        const response = await fetch(apiUrl);
+        // Reliable free prayer time API
+        const apiUrl = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=Kenya&method=2`;
 
-        if (!response.ok) {
-            return reply('Error fetching prayer times!');
+        const response = await axios.get(apiUrl);
+
+        if (response.status !== 200 || !response.data.data) {
+            return reply('Failed to fetch prayer times. Try another city.');
         }
 
-        const data = await response.json();
+        const timings = response.data.data.timings;
+        const date = response.data.data.date.readable;
+        const cityInfo = response.data.data.meta.timezone;
 
-        if (data.status !== 200) {
-            return reply('Failed to get prayer times. Please try again later.');
-        }
+        // Build message with your branding
+        let msg = `*ᴳᵁᴿᵁᴹᴰ Prayer Times*\n\n`;
+        msg += `📍 *Location*: ${city}, Kenya\n`;
+        msg += `📅 *Date*: ${date}\n`;
+        msg += `🕌 *Timezone*: ${cityInfo}\n\n`;
 
-        const prayerTimes = data.result.items[0];
-        const weather = data.result.today_weather; // Weather data
-        const location = data.result.city; // Location name
+        msg += `🌅 *Fajr*: ${timings.Fajr}\n`;
+        msg += `🌞 *Sunrise*: ${timings.Sunrise}\n`;
+        msg += `☀️ *Dhuhr*: ${timings.Dhuhr}\n`;
+        msg += `🌇 *Asr*: ${timings.Asr}\n`;
+        msg += `🌆 *Maghrib*: ${timings.Maghrib}\n`;
+        msg += `🌃 *Isha*: ${timings.Isha}\n\n`;
 
-        // Building the message content
-        let dec = `*Prayer Times for ${location}, ${data.result.state}*\n\n`;
-        dec += `📍 *Location*: ${location}, ${data.result.state}, ${data.result.country}\n`;
-        dec += `🕌 *Method*: ${data.result.prayer_method_name}\n\n`;
+        msg += `🧭 *Qibla Direction*: ${response.data.data.meta.offset || 'N/A'}°\n\n`;
+        msg += `> _Powered by ᴳᵁᴿᵁᴹᴰ • Stay blessed 🕌`;
 
-        dec += `🌅 *Fajr*: ${prayerTimes.fajr}\n`;
-        dec += `🌄 *Shurooq*: ${prayerTimes.shurooq}\n`;
-        dec += `☀️ *Dhuhr*: ${prayerTimes.dhuhr}\n`;
-        dec += `🌇 *Asr*: ${prayerTimes.asr}\n`;
-        dec += `🌆 *Maghrib*: ${prayerTimes.maghrib}\n`;
-        dec += `🌃 *Isha*: ${prayerTimes.isha}\n\n`;
-
-        dec += `🧭 *Qibla Direction*: ${data.result.qibla_direction}°\n`;
-
-        const temperature = weather.temperature !== null ? `${weather.temperature}°C` : 'Data not available';
-        dec += `🌡️ *Temperature*: ${temperature}\n`;
-
-        // Sending the image with the caption and context info
-        await conn.sendMessage(
-            from,
-            {
-                image: { url: `https://files.catbox.moe/11w56r.jpg` },
-                caption: dec,
-                contextInfo: {
-                    mentionedJid: [m.sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363416335506023@newsletter',
-                        newsletterName: 'HUNTER-XMD SUPPORT',
-                        serverMessageId: 143
-                    }
-                }
-            },
-            { quoted: mek }
-        );
-
-        // Optionally, send an audio file related to the prayer time
+        // Send with your image and updated channel forwarding
         await conn.sendMessage(from, {
-            audio: { url: 'https://github.com/XdTechPro/KHAN-DATA/raw/refs/heads/main/autovoice/Islamic.m4a' },
+            image: { url: "https://files.catbox.moe/ntfw9h.jpg" },
+            caption: msg,
+            contextInfo: {
+                mentionedJid: [m.sender],
+                forwardingScore: 999,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363406466294627@newsletter',
+                    newsletterName: 'GURU TECH',
+                    serverMessageId: 143
+                }
+            }
+        }, { quoted: mek });
+
+        // Optional Islamic audio (you can remove or change URL)
+        await conn.sendMessage(from, {
+            audio: { url: "https://github.com/XdTechPro/KHAN-DATA/raw/refs/heads/main/autovoice/Islamic.m4a" },
             mimetype: 'audio/mp4',
             ptt: false
         }, { quoted: mek });
 
-    } catch (e) {
-        console.log(e);
-        reply('*Error occurred while fetching prayer times and weather.*');
+    } catch (error) {
+        console.error(error);
+        reply('Error fetching prayer times. Please try again or check the city name.');
     }
 });
