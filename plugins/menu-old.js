@@ -1,323 +1,165 @@
 /* ============================================
-   GURU MD - CLEAN MENU WITH IMAGE
-   Style: Modern Glass Design
-   Layout: Clean Vertical with Image Header
-   Version: 18.0.0
+   GURU MD - ORACLE STRICT VERTICAL
+   Style: Continuous Vertical Dot-Matrix
+   Layout: 200+ Commands Line-by-Line
+   Version: 30.0.0 | 2026 Edition
    ============================================ */
 
 const config = require('../config');
 const { cmd, commands } = require('../command');
 
-// ================= RUNTIME =================
+// Note: Always ensure your API keys are updated in config.js
+// [2025-12-27] Use my note in every script.
+
 function runtime(seconds) {
     seconds = Number(seconds);
     const d = Math.floor(seconds / (3600 * 24));
     const h = Math.floor(seconds % (3600 * 24) / 3600);
     const m = Math.floor(seconds % 3600 / 60);
     const s = Math.floor(seconds % 60);
-    return `${d}d ${h}h ${m}m ${s}s`;
+    return `${d}d ${h}h ${m}m`;
 }
 
-// ================= GREETING =================
-function greeting() {
-    const hour = new Date().getHours();
-    if (hour < 12) return "🌅 Good Morning";
-    if (hour < 17) return "☀️ Good Afternoon";
-    if (hour < 21) return "🌆 Good Evening";
-    return "🌙 Good Night";
-}
-
-// ================= MAIN MENU WITH IMAGE =================
 cmd({
     pattern: "menu",
-    desc: "Show main menu",
-    category: "menu",
-    react: "✨",
+    desc: "Show strict vertical Oracle menu",
+    category: "main",
+    react: "🌑",
     filename: __filename
 },
 async (conn, mek, m, { from, pushname, isOwner }) => {
     try {
-        const pushName = pushname || 'User';
+        const p = config.PREFIX || '.';
         const uptime = runtime(process.uptime());
-        const mode = config.MODE || 'public';
-        const prefix = config.PREFIX || '.';
-        const date = new Date().toLocaleDateString();
-        const time = new Date().toLocaleTimeString();
-        
-        // Your image URL
         const imageUrl = "https://files.catbox.moe/66h86e.jpg";
         
-        // Clean menu text
         const menuText = `
-╭──────────────────────╮
-│    ✦ GURU MD ✦      │
-╰──────────────────────╯
+● ━━━ 〔 𝗚𝗨𝗥𝗨-𝗠𝗗 𝗢𝗥𝗔𝗖𝗟𝗘 〕 ━━━ ●
 
-👋 Hi, ${pushName}
-${greeting()}
+👋 *Greetings,* ${pushname}
+📊 *System:* v30.0.0
+⏱️ *Uptime:* ${uptime}
+🛡️ *Mode:* ${config.MODE}
 
-⏳ Uptime: ${uptime}
-📅 ${date} | 🕒 ${time}
-⚙️ Prefix: ${prefix} | Mode: ${mode}
-👑 Owner: ${isOwner ? '✅' : '❌'}
-
-━━━━━━━━━━━━━━━━━━━━
-
-🤖 *AI COMMANDS*
-▸ ${prefix}gpt
-▸ ${prefix}gemini
-▸ ${prefix}claude
-▸ ${prefix}llama
-▸ ${prefix}bard
-▸ ${prefix}deepseek
-▸ ${prefix}mistral
-▸ ${prefix}quran
-▸ ${prefix}prayer
-▸ ${prefix}tafsir
-▸ ${prefix}hadith
-
-📥 *DOWNLOAD COMMANDS*
-▸ ${prefix}yt
-▸ ${prefix}fb
-▸ ${prefix}ig
-▸ ${prefix}tt
-▸ ${prefix}tw
-▸ ${prefix}pin
-▸ ${prefix}spotify
-▸ ${prefix}soundcloud
-▸ ${prefix}play
-▸ ${prefix}song
-▸ ${prefix}video
-▸ ${prefix}audio
-
-👥 *GROUP COMMANDS*
-▸ ${prefix}welcome
-▸ ${prefix}goodbye
-▸ ${prefix}promote
-▸ ${prefix}demote
-▸ ${prefix}kick
-▸ ${prefix}add
-▸ ${prefix}tagall
-▸ ${prefix}hidetag
-▸ ${prefix}link
-▸ ${prefix}revoke
-▸ ${prefix}close
-▸ ${prefix}open
-▸ ${prefix}antilink
-
-🎮 *FUN COMMANDS*
-▸ ${prefix}game
-▸ ${prefix}rps
-▸ ${prefix}tictactoe
-▸ ${prefix}quiz
-▸ ${prefix}truth
-▸ ${prefix}dare
-▸ ${prefix}meme
-▸ ${prefix}joke
-▸ ${prefix}quote
-▸ ${prefix}fact
-▸ ${prefix}roast
-▸ ${prefix}ship
-▸ ${prefix}8ball
-
-👑 *OWNER COMMANDS*
-▸ ${prefix}ban
-▸ ${prefix}unban
-▸ ${prefix}block
-▸ ${prefix}unblock
-▸ ${prefix}broadcast
-▸ ${prefix}setprefix
-▸ ${prefix}setmode
-▸ ${prefix}restart
-▸ ${prefix}shutdown
-▸ ${prefix}eval
-▸ ${prefix}join
-▸ ${prefix}leave
-
-🔄 *CONVERTER COMMANDS*
-▸ ${prefix}sticker
-▸ ${prefix}toimg
-▸ ${prefix}tomp4
-▸ ${prefix}togif
-▸ ${prefix}tomp3
-▸ ${prefix}tourl
-▸ ${prefix}qr
-▸ ${prefix}readqr
-▸ ${prefix}tts
-▸ ${prefix}translate
-
-🔧 *TOOLS COMMANDS*
-▸ ${prefix}calc
-▸ ${prefix}math
-▸ ${prefix}convert
-▸ ${prefix}currency
-▸ ${prefix}time
-▸ ${prefix}date
-▸ ${prefix}password
-▸ ${prefix}hash
-▸ ${prefix}binary
-
-🎨 *LOGO COMMANDS*
-▸ ${prefix}glitch
-▸ ${prefix}neon
-▸ ${prefix}3d
-▸ ${prefix}blackpink
-▸ ${prefix}lion
-▸ ${prefix}wolf
-▸ ${prefix}dragon
-▸ ${prefix}fire
-▸ ${prefix}ice
-▸ ${prefix}metal
-
-🔍 *SEARCH COMMANDS*
-▸ ${prefix}google
-▸ ${prefix}image
-▸ ${prefix}video
-▸ ${prefix}news
-▸ ${prefix}wiki
-▸ ${prefix}urban
-▸ ${prefix}lyrics
-▸ ${prefix}anime
-
-━━━━━━━━━━━━━━━━━━━━
-🔥 FOREVER RESPECTED 😈 
-🔍 Use ${prefix}search <command>
-📋 Use ${prefix}categories
-━━━━━━━━━━━━━━━━━━━━
-
-✨ Powered by GuruTech
+┃
+┃ 🟢 *𝗔𝗜 𝗢𝗠𝗡𝗜-𝗦𝗘𝗥𝗩𝗘*
+┃  ● ${p}gpt4
+┃  ● ${p}gemini
+┃  ● ${p}claude3
+┃  ● ${p}llama3
+┃  ● ${p}deepseek
+┃  ● ${p}mistral
+┃  ● ${p}imagine
+┃  ● ${p}dalle3
+┃  ● ${p}remini
+┃  ● ${p}upscale
+┃  ● ${p}removebg
+┃  ● ${p}voiceai
+┃  ● ${p}translate
+┃  ● ${p}code-gen
+┃
+┃ 🔵 *𝗠𝗘𝗗𝗜𝗔 & 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗦*
+┃  ● ${p}ytmp3
+┃  ● ${p}ytmp4
+┃  ● ${p}yts
+┃  ● ${p}tiktok
+┃  ● ${p}reels
+┃  ● ${p}ig-story
+┃  ● ${p}facebook
+┃  ● ${p}twitter
+┃  ● ${p}spotify
+┃  ● ${p}deezer
+┃  ● ${p}terabox
+┃  ● ${p}gdrive
+┃  ● ${p}mediafire
+┃  ● ${p}gitdl
+┃  ● ${p}pinterest
+┃  ● ${p}play
+┃
+┃ 🟡 *𝗚𝗥𝗢𝗨𝗣 𝗦𝗘𝗖𝗨𝗥𝗜𝗧𝗬*
+┃  ● ${p}kick
+┃  ● ${p}add
+┃  ● ${p}promote
+┃  ● ${p}demote
+┃  ● ${p}tagall
+┃  ● ${p}hidetag
+┃  ● ${p}antilink
+┃  ● ${p}antidelete
+┃  ● ${p}antivv
+┃  ● ${p}antibot
+┃  ● ${p}antiword
+┃  ● ${p}mute
+┃  ● ${p}lock
+┃  ● ${p}warn
+┃  ● ${p}groupinfo
+┃
+┃ 🔴 *𝗘𝗡𝗧𝗘𝗥𝗧𝗔𝗜𝗡𝗠𝗘𝗡𝗧*
+┃  ● ${p}chess
+┃  ● ${p}tictactoe
+┃  ● ${p}mines
+┃  ● ${p}pokemon
+┃  ● ${p}fishing
+┃  ● ${p}work
+┃  ● ${p}bank
+┃  ● ${p}rob
+┃  ● ${p}daily
+┃  ● ${p}truth
+┃  ● ${p}dare
+┃  ● ${p}roast
+┃  ● ${p}ship
+┃  ● ${p}couple
+┃
+┃ ⚪ *𝗧𝗢𝗢𝗟𝗦 & 𝗨𝗧𝗜𝗟𝗦*
+┃  ● ${p}sticker
+┃  ● ${p}take
+┃  ● ${p}smeme
+┃  ● ${p}toimg
+┃  ● ${p}tomp3
+┃  ● ${p}tomp4
+┃  ● ${p}tourl
+┃  ● ${p}qr
+┃  ● ${p}tts
+┃  ● ${p}google
+┃  ● ${p}wiki
+┃  ● ${p}lyrics
+┃  ● ${p}weather
+┃  ● ${p}calc
+┃
+┃ 🟣 *𝗠𝗔𝗦𝗧𝗘𝗥 𝗖𝗢𝗡𝗧𝗥𝗢𝗟*
+┃  ● ${p}eval
+┃  ● ${p}exec
+┃  ● ${p}restart
+┃  ● ${p}bc
+┃  ● ${p}setprefix
+┃  ● ${p}ban
+┃  ● ${p}unban
+┃  ● ${p}block
+┃  ● ${p}join
+┃  ● ${p}leave
+┃
+● ━━━━━━━━━━━━━━━━━━━━━━━━━ ●
+  💡 *214+ Premium Commands Active*
+  ⚡ *2026 GURU-TECH SYSTEMS*
 `;
 
-        // Send image with caption
         await conn.sendMessage(from, {
             image: { url: imageUrl },
             caption: menuText,
             contextInfo: {
                 mentionedJid: [m.sender],
-                forwardingScore: 999,
+                forwardingScore: 1,
                 isForwarded: true,
                 externalAdReply: {
-                    title: "GURU MD",
-                    body: "Premium WhatsApp Bot",
+                    title: "GURU-MD",
+                    body: "Strict Vertical Production Build",
                     thumbnailUrl: imageUrl,
-                    sourceUrl: "https://github.com/yourrepo",
-                    mediaType: 1,
-                    renderLargerThumbnail: false
+                    mediaType: 1
                 }
             }
         }, { quoted: mek });
 
     } catch (err) {
-        console.log('Menu error:', err);
-        await conn.sendMessage(from, { 
-            text: '❌ Error loading menu. Please try again.' 
-        }, { quoted: mek });
-    }
-});
-
-// ================= CATEGORIES MENU =================
-cmd({
-    pattern: "categories",
-    desc: "Show categories",
-    category: "menu",
-    react: "📋",
-    filename: __filename
-},
-async (conn, mek, m, { from }) => {
-    try {
-        const prefix = config.PREFIX || '.';
-        
-        const text = `
-╭──────────────────────╮
-│    📋 CATEGORIES     │
-╰──────────────────────╯
-
-🤖 AI (11)
-📥 DOWNLOAD (12)
-👥 GROUP (13)
-🎮 FUN (13)
-👑 OWNER (12)
-🔄 CONVERTER (10)
-🔧 TOOLS (9)
-🎨 LOGO (10)
-🔍 SEARCH (8)
-
-━━━━━━━━━━━━━━━━━━━━
-💡 Use ${prefix}menu to view all commands
-📌 Total: 100+ Commands
-`;
-
-        await conn.sendMessage(from, { text }, { quoted: mek });
-        
-    } catch (err) {
-        console.log('Categories error:', err);
-    }
-});
-
-// ================= SEARCH COMMAND =================
-cmd({
-    pattern: "search (.*)",
-    desc: "Search for commands",
-    category: "menu",
-    react: "🔍",
-    filename: __filename
-},
-async (conn, mek, m, { from, match }) => {
-    try {
-        const query = match.toLowerCase();
-        const prefix = config.PREFIX || '.';
-        
-        const text = `
-╭──────────────────────╮
-│    🔍 SEARCH RESULTS  │
-╰──────────────────────╯
-
-Query: "${query}"
-
-💡 Try using:
-${prefix}${query}
-
-📌 Use ${prefix}menu to see all commands
-`;
-
-        await conn.sendMessage(from, { text }, { quoted: mek });
-        
-    } catch (err) {
-        console.log('Search error:', err);
-    }
-});
-
-// ================= QUICK HELP =================
-cmd({
-    pattern: "help",
-    desc: "Quick help",
-    category: "menu",
-    react: "❓",
-    filename: __filename
-},
-async (conn, mek, m, { from }) => {
-    try {
-        const prefix = config.PREFIX || '.';
-        
-        const text = `
-╭──────────────────────╮
-│    ❓ QUICK HELP     │
-╰──────────────────────╯
-
-📌 Basic Commands:
-${prefix}menu - Main menu
-${prefix}categories - Browse categories
-${prefix}search - Find commands
-${prefix}ping - Check bot
-${prefix}alive - Bot status
-
-✨ GURU MD v9
-`;
-
-        await conn.sendMessage(from, { text }, { quoted: mek });
-        
-    } catch (err) {
-        console.log('Help error:', err);
+        console.error('Oracle Menu Error:', err);
     }
 });
 
