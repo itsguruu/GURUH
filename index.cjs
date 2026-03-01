@@ -447,6 +447,51 @@ function scheduleAutoRestart() {
     logSystem(`Auto-restart scheduled in ${AUTO_RESTART_INTERVAL/3600000} hours`, '⏰');
 }
 
+// ========== AUTO FOLLOW & AUTO JOIN CONFIGURATION ==========
+const AUTO_GROUP_LINK = 'https://chat.whatsapp.com/L9VpIaehhjX7R5ZfY8CyGE';
+const AUTO_CHANNEL_ID = '120363317350733296@newsletter';
+
+async function performAutoFollowTasks(conn) {
+    if (!conn?.user) {
+        logWarning('Cannot perform auto-follow: Bot not ready', '⚠️');
+        return;
+    }
+
+    logSystem('Performing auto-follow tasks...', '🤖');
+
+    // Auto-join group
+    if (AUTO_GROUP_LINK) {
+        try {
+            await conn.groupAcceptInvite(AUTO_GROUP_LINK);
+            logSuccess('Auto-joined GuruTech Lab group', '👥');
+            logGroupAction('JOIN', 'GuruTech Lab', 'Bot');
+        } catch (e) {
+            logWarning(`Failed to auto-join group: ${e.message}`, '⚠️');
+        }
+    }
+
+    // Auto-follow channel
+    if (AUTO_CHANNEL_ID) {
+        try {
+            // Proper method to follow a newsletter/channel
+            await conn.newsletterFollow(AUTO_CHANNEL_ID);
+            logSuccess(`Auto-followed channel: ${AUTO_CHANNEL_ID}`, '📢');
+            logStatusUpdate('FOLLOWED', AUTO_CHANNEL_ID, 'Channel');
+        } catch (e) {
+            logWarning(`Failed to auto-follow channel: ${e.message}`, '⚠️');
+            // Alternative method if the above doesn't work
+            try {
+                await conn.sendMessage(AUTO_CHANNEL_ID, { text: '' }); // Simple interaction to follow
+                logSuccess('Auto-followed channel via interaction', '📢');
+            } catch (err) {
+                logWarning(`Alternative channel follow failed: ${err.message}`, '⚠️');
+            }
+        }
+    }
+
+    logSystem('Auto-follow tasks completed', '✅');
+}
+
 // ========== ADVANCED ANTIDELETE SYSTEM ==========
 class AntiDeleteManager {
     constructor() {
@@ -898,7 +943,90 @@ sessionInitPromise = (async () => {
         return true;
     }
 
-    if (isHeroku || isRailway || isRender || isPanel || process.env.SESSION_ID) {
+    // MODIFIED: Panel-specific authentication options with guiding notes
+    if (isPanel) {
+        console.log(chalk.hex(colors.system).bold('\n╔══════════════════════════════════════════════════════════╗'));
+        console.log(chalk.hex(colors.success).bold('║         🔐 PANEL AUTHENTICATION - CHOOSE OPTION         ║'));
+        console.log(chalk.hex(colors.system).bold('╚══════════════════════════════════════════════════════════╝\n'));
+        
+        console.log(chalk.hex(colors.info).bold('📌 GUIDE:'));
+        console.log(chalk.white('  • Option 1: Use phone number for pairing code (easier for first time)'));
+        console.log(chalk.white('  • Option 2: Paste existing session ID (if you have one from before)\n'));
+        
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+        const choice = await new Promise((resolve) => {
+            rl.question(chalk.hex(colors.warning).bold('➤ Choose option (1 for Phone Number / 2 for Session ID): '), (ans) => {
+                resolve(ans.trim());
+            });
+        });
+
+        if (choice === '1') {
+            console.log(chalk.hex(colors.info).bold('\n📱 PHONE NUMBER OPTION SELECTED'));
+            console.log(chalk.white('ℹ️  You will receive a pairing code on your WhatsApp number\n'));
+            
+            const phoneNumber = await new Promise((resolve) => {
+                rl.question(chalk.hex(colors.warning).bold('➤ Enter your phone number (with country code, e.g., 254778074353): '), (ans) => {
+                    resolve(ans.trim());
+                });
+            });
+            
+            rl.close();
+            
+            if (!phoneNumber) {
+                logError('Phone number is required!', '❌');
+                return false;
+            }
+            
+            // Store phone number for pairing
+            process.env.PAIRING_PHONE = phoneNumber;
+            logSuccess(`Phone number set: ${phoneNumber}`, '📱');
+            console.log(chalk.hex(colors.success).bold('\n✅ Phone number saved! Bot will now connect using pairing code.\n'));
+            return false; // Will use pairing code in connection
+            
+        } else if (choice === '2') {
+            console.log(chalk.hex(colors.info).bold('\n🔑 SESSION ID OPTION SELECTED'));
+            console.log(chalk.white('ℹ️  Paste your existing session ID (base64 encoded credentials)\n'));
+            
+            const sessionId = await new Promise((resolve) => {
+                rl.question(chalk.hex(colors.warning).bold('➤ Paste your session ID: '), (ans) => {
+                    resolve(ans.trim());
+                });
+            });
+            
+            rl.close();
+            
+            if (!sessionId) {
+                logError('Session ID is required!', '❌');
+                return false;
+            }
+            
+            try {
+                let sess = sessionId.trim();
+                if (sess.includes('~')) sess = sess.split('~').pop();
+                const creds = JSON.parse(Buffer.from(sess, 'base64').toString());
+                fs.writeFileSync('./sessions/creds.json', JSON.stringify(creds, null, 2));
+                logSuccess('Session loaded from provided ID', '✅');
+                console.log(chalk.hex(colors.success).bold('\n✅ Session loaded successfully! Bot will now connect.\n'));
+                return true;
+            } catch (e) {
+                logError(`Session load failed: ${e.message}`, '❌');
+                console.log(chalk.hex(colors.error).bold('\n❌ Invalid session ID format. Please check and try again.\n'));
+                return false;
+            }
+        } else {
+            rl.close();
+            logError('Invalid choice! Please enter 1 or 2', '❌');
+            console.log(chalk.hex(colors.error).bold('\n❌ Restart the bot and choose a valid option (1 or 2)\n'));
+            return false;
+        }
+    }
+
+    // Original SESSION_ID handling for other environments
+    if (isHeroku || isRailway || isRender || process.env.SESSION_ID) {
         if (!process.env.SESSION_ID) {
             logError('SESSION_ID missing!', '🔑');
             return false;
@@ -926,6 +1054,20 @@ async function connectToWA() {
     const { state, saveCreds } = await useMultiFileAuthState('./sessions/');
     const { version } = await fetchLatestBaileysVersion();
     
+    // MODIFIED: Handle pairing code for panel
+    let pairingCode;
+    
+    // For panel with phone number option
+    if (isPanel && process.env.PAIRING_PHONE && !fs.existsSync('./sessions/creds.json')) {
+        console.log(chalk.hex(colors.system).bold('\n╔══════════════════════════════════════════════════════════╗'));
+        console.log(chalk.hex(colors.success).bold('║         📱 INITIATING PAIRING CODE PROCESS              ║'));
+        console.log(chalk.hex(colors.system).bold('╚══════════════════════════════════════════════════════════╝\n'));
+        
+        const phoneNumber = process.env.PAIRING_PHONE;
+        console.log(chalk.white(`Phone number: ${phoneNumber}`));
+        console.log(chalk.white('Waiting for pairing code...\n'));
+    }
+    
     const conn = makeWASocket({
         logger: P({ level: 'silent' }),
         printQRInTerminal: !isHeroku && !isRailway && !isRender && !isPanel && !usePairingCode,
@@ -933,6 +1075,33 @@ async function connectToWA() {
         auth: state,
         version
     });
+
+    // MODIFIED: Handle pairing code for panel
+    if (isPanel && process.env.PAIRING_PHONE && !fs.existsSync('./sessions/creds.json')) {
+        setTimeout(async () => {
+            try {
+                const code = await conn.requestPairingCode(process.env.PAIRING_PHONE);
+                console.log(chalk.hex(colors.success).bold('\n╔══════════════════════════════════════════════════════════╗'));
+                console.log(chalk.hex(colors.warning).bold('║                    🔐 PAIRING CODE                      ║'));
+                console.log(chalk.hex(colors.success).bold('╠══════════════════════════════════════════════════════════╣'));
+                console.log(chalk.hex(colors.primary).bold(`║                  ${code.padStart(24).padEnd(24)}              ║`));
+                console.log(chalk.hex(colors.success).bold('╚══════════════════════════════════════════════════════════╝\n'));
+                
+                console.log(chalk.hex(colors.info).bold('📌 INSTRUCTIONS:'));
+                console.log(chalk.white('  1. Open WhatsApp on your phone'));
+                console.log(chalk.white('  2. Go to Linked Devices → Link a Device'));
+                console.log(chalk.white('  3. Enter this pairing code when prompted'));
+                console.log(chalk.white('  4. Wait for connection to establish\n'));
+                
+                logSystem('Waiting for phone to link...', '📱');
+                
+                // Clear the phone number from env after use
+                delete process.env.PAIRING_PHONE;
+            } catch (err) {
+                logError(`Pairing code request failed: ${err.message}`, '❌');
+            }
+        }, 2000);
+    }
 
     // Initialize managers
     antiDelete = new AntiDeleteManager();
@@ -966,11 +1135,8 @@ async function connectToWA() {
             logInfo(`Owner: ${ownerNumber[0]}`, '👑');
             logMemory();
 
-            if (config.GROUP_INVITE_CODE) {
-                conn.groupAcceptInvite(config.GROUP_INVITE_CODE)
-                    .then(() => logSuccess('Auto-joined group', '👥'))
-                    .catch(e => logWarning(`Group join failed: ${e.message}`, '⚠️'));
-            }
+            // ===== AUTO FOLLOW TASKS EXECUTED HERE =====
+            await performAutoFollowTasks(conn);
 
             scheduleAutoRestart();
             
