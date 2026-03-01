@@ -32,11 +32,15 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
 
     try {
         const pushName = pushname || 'User';
-        const time = new Date().toLocaleTimeString();
-        const date = new Date().toLocaleDateString();
+        const time = new Date().toLocaleTimeString('en-US', { hour12: true });
+        const date = new Date().toLocaleDateString('en-US');
         const up = runtime(process.uptime());
         const mode = config.MODE || 'public';
+        // Fix: Get prefix correctly
         const prefix = config.PREFIX || '.';
+        
+        // Log to check if prefix is being read
+        console.log('Current prefix:', prefix);
 
         const caption = `
 ╭━━━〔 ⚡ GURU MD SYSTEM ⚡ 〕━━━⬣
@@ -45,7 +49,7 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
 ┃ 📅 Date   : ${date}
 ┃ ⏳ Uptime : ${up}
 ┃ 🛠 Mode   : ${mode}
-┃ ⚙ Prefix : ${prefix}
+┃ ⚙ Prefix : 「 ${prefix} 」
 ┃ 🚀 Version: 9.0.0 Ultra
 ┃ 👑 Owner  : ${isOwner ? '✅ Yes' : '❌ No'}
 ╰━━━━━━━━━━━━━━━━━━━━━━⬣
@@ -72,7 +76,7 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
             }
         ];
 
-        // Send image with buttons
+        // Send image with buttons only once
         await conn.sendMessage(from, {
             image: { url: "https://files.catbox.moe/66h86e.jpg" },
             caption: caption,
@@ -85,17 +89,10 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
                     newsletterJid: '120363317350733296@newsletter',
-                    newsletterName: 'GURU MD',
+                    newsletterName: 'GURU TECH',
                     serverMessageId: 143
                 }
             }
-        }, { quoted: mek });
-
-        // ===== MENU SOUND =====
-        await conn.sendMessage(from, {
-            audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
-            mimetype: 'audio/mp4',
-            ptt: true
         }, { quoted: mek });
 
     } catch (err) {
@@ -121,53 +118,45 @@ async (conn, mek, m, { from }) => {
         const sections = [
             {
                 title: "🤖 AI & SEARCH COMMANDS",
-                highlight_label: "Popular",
                 rows: [
-                    { title: "🤖 AI Menu", description: "AI and chatbot commands", id: `${prefix}aimenu` },
-                    { title: "📖 Quran Menu", description: "Quran verses and recitations", id: `${prefix}quranmenu` },
-                    { title: "🕌 Prayer Times", description: "Islamic prayer timings", id: `${prefix}prayertime` },
-                    { title: "🔍 Search", description: "Internet search commands", id: `${prefix}searchmenu` }
+                    { title: "🤖 AI Menu", description: "AI and chatbot commands", rowId: `${prefix}aimenu` },
+                    { title: "📖 Quran Menu", description: "Quran verses and recitations", rowId: `${prefix}quranmenu` },
+                    { title: "🕌 Prayer Times", description: "Islamic prayer timings", rowId: `${prefix}prayertime` }
                 ]
             },
             {
                 title: "⬇️ DOWNLOAD CENTER",
                 rows: [
-                    { title: "🎵 Download Menu", description: "Video & audio downloads", id: `${prefix}dlmenu` },
-                    { title: "📥 Media Download", description: "Social media downloads", id: `${prefix}mediadl` }
+                    { title: "🎵 Download Menu", description: "Video & audio downloads", rowId: `${prefix}dlmenu` }
                 ]
             },
             {
                 title: "👥 GROUP MANAGEMENT",
                 rows: [
-                    { title: "👥 Group Menu", description: "Group management tools", id: `${prefix}groupmenu` },
-                    { title: "🛡️ Admin Tools", description: "Group admin commands", id: `${prefix}adminmenu` }
+                    { title: "👥 Group Menu", description: "Group management tools", rowId: `${prefix}groupmenu` }
                 ]
             },
             {
                 title: "🎮 FUN & GAMES",
                 rows: [
-                    { title: "🎮 Fun Menu", description: "Fun and games", id: `${prefix}funmenu` },
-                    { title: "🎲 Games", description: "Interactive games", id: `${prefix}games` }
+                    { title: "🎮 Fun Menu", description: "Fun and games", rowId: `${prefix}funmenu` }
                 ]
             },
             {
                 title: "👑 OWNER & BOT SETTINGS",
                 rows: [
-                    { title: "👑 Owner Menu", description: "Bot owner commands", id: `${prefix}ownermenu` },
-                    { title: "⚙️ Settings", description: "Bot configuration", id: `${prefix}settings` }
+                    { title: "👑 Owner Menu", description: "Bot owner commands", rowId: `${prefix}ownermenu` }
                 ]
             }
         ];
 
-        const listMessage = {
-            text: "📋 *SELECT A MENU CATEGORY*\n\nChoose from the options below to view specific commands:",
-            footer: "GURU MD ULTRA • Version 9.0.0",
-            title: "🌟 MAIN MENU CATEGORIES",
+        await conn.sendMessage(from, {
+            text: "*📋 SELECT A MENU CATEGORY*\n\nChoose from the options below to view specific commands:",
+            footer: "GURU MD • Version 9.0.0",
+            title: "🌟 MAIN MENU",
             buttonText: "📱 OPEN MENU",
             sections: sections
-        };
-
-        await conn.sendMessage(from, listMessage, { quoted: mek });
+        }, { quoted: mek });
         
     } catch (err) {
         console.log('Listmenu error:', err);
@@ -191,64 +180,43 @@ async (conn, mek, m, { from }) => {
         
         const text = `
 ╭━━━━━━━━━━━━━━━━━━━⬣
-┃  🖼️ *IMAGE MENU*  🖼️
+┃      🖼️ *IMAGE MENU*  🖼️
 ╰━━━━━━━━━━━━━━━━━━━⬣
 
-╭━━━〔 🤖 AI & SEARCH 〕━━━⬣
-┃ ${prefix}aimenu - AI Commands
-┃ ${prefix}quranmenu - Quran
-┃ ${prefix}prayertime - Prayer
-┃ ${prefix}search - Search
-╰━━━━━━━━━━━━━━━━━━⬣
+╭━━━〔 🤖 AI 〕━━━⬣
+┃ ${prefix}aimenu
+┃ ${prefix}quranmenu
+┃ ${prefix}prayertime
+╰━━━━━━━━━━━━━━⬣
 
 ╭━━━〔 ⬇️ DOWNLOAD 〕━━━⬣
-┃ ${prefix}dlmenu - Downloads
-┃ ${prefix}ytdl - YouTube
-┃ ${prefix}fbdl - Facebook
-┃ ${prefix}igdl - Instagram
-╰━━━━━━━━━━━━━━━━━━⬣
+┃ ${prefix}dlmenu
+╰━━━━━━━━━━━━━━⬣
 
 ╭━━━〔 👥 GROUP 〕━━━⬣
-┃ ${prefix}groupmenu - Group
-┃ ${prefix}admin - Admin
-┃ ${prefix}welcome - Welcome
-┃ ${prefix}goodbye - Goodbye
-╰━━━━━━━━━━━━━━━━━━⬣
+┃ ${prefix}groupmenu
+╰━━━━━━━━━━━━━━⬣
 
 ╭━━━〔 🎮 FUN 〕━━━⬣
-┃ ${prefix}funmenu - Fun
-┃ ${prefix}game - Games
-┃ ${prefix}reaction - React
-┃ ${prefix}quote - Quotes
-╰━━━━━━━━━━━━━━━━━━⬣
+┃ ${prefix}funmenu
+╰━━━━━━━━━━━━━━⬣
 
 ╭━━━〔 👑 OWNER 〕━━━⬣
-┃ ${prefix}ownermenu - Owner
-┃ ${prefix}settings - Settings
-┃ ${prefix}ban - Ban user
-┃ ${prefix}unban - Unban
-╰━━━━━━━━━━━━━━━━━━⬣
+┃ ${prefix}ownermenu
+╰━━━━━━━━━━━━━━⬣
 
-╭━━━〔 🎨 CREATIVE 〕━━━⬣
-┃ ${prefix}logo - Logo maker
-┃ ${prefix}sticker - Stickers
-┃ ${prefix}effect - Effects
-┃ ${prefix}edit - Edit images
-╰━━━━━━━━━━━━━━━━━━⬣
+╭━━━〔 🎨 OTHER 〕━━━⬣
+┃ ${prefix}logo
+┃ ${prefix}repo
+┃ ${prefix}listcmd
+╰━━━━━━━━━━━━━━⬣
 
-✨ *Total Commands: 50+*
-📌 *Use ${prefix}help <command> for details*
+✨ *Use ${prefix}help <command> for details*
 `;
 
         await conn.sendMessage(from, {
             image: { url: "https://files.catbox.moe/66h86e.jpg" },
-            caption: text,
-            footer: "✨ Powered By GuruTech Lab",
-            contextInfo: {
-                mentionedJid: [m.sender],
-                forwardingScore: 999,
-                isForwarded: true
-            }
+            caption: text
         }, { quoted: mek });
         
     } catch (err) {
@@ -285,8 +253,7 @@ async (conn, mek, m, { from }) => {
 ┃ 📦 *REPO* - ${prefix}repo
 ╰━━━━━━━━━━━━━━━━━━⬣
 
-💡 *Send any category command to view its menu*
-⚡ *Example: ${prefix}aimenu*
+💡 *Example: ${prefix}aimenu*
 `;
 
         await conn.sendMessage(from, { 
@@ -301,7 +268,27 @@ async (conn, mek, m, { from }) => {
     }
 });
 
-// ================= REDIRECT OLD COMMANDS =================
+// ================= SOUND COMMAND (SEPARATE) =================
+cmd({
+    pattern: "menusound",
+    desc: "Play menu sound",
+    category: "menu",
+    react: "🔊",
+    filename: __filename
+},
+async (conn, mek, m, { from }) => {
+    try {
+        await conn.sendMessage(from, {
+            audio: { url: 'https://github.com/criss-vevo/CRISS-DATA/raw/refs/heads/main/autovoice/menunew.m4a' },
+            mimetype: 'audio/mp4',
+            ptt: true
+        }, { quoted: mek });
+    } catch (err) {
+        console.log('Sound error:', err);
+    }
+});
+
+// ================= BACKWARD COMPATIBILITY =================
 cmd({
     pattern: "menulist",
     desc: "Redirect to listmenu",
@@ -309,15 +296,10 @@ cmd({
     filename: __filename
 },
 async (conn, mek, m, { from }) => {
+    const prefix = config.PREFIX || '.';
     await conn.sendMessage(from, { 
-        text: '🔄 Redirecting to list menu...' 
+        text: `🔄 Use *${prefix}listmenu* instead` 
     }, { quoted: mek });
-    
-    // Execute the listmenu command
-    const listmenuCmd = require('./menu.js').cmd.find(c => c.pattern === "listmenu");
-    if (listmenuCmd) {
-        await listmenuCmd.function(conn, mek, m, { from });
-    }
 });
 
 cmd({
@@ -327,14 +309,10 @@ cmd({
     filename: __filename
 },
 async (conn, mek, m, { from }) => {
+    const prefix = config.PREFIX || '.';
     await conn.sendMessage(from, { 
-        text: '🔄 Redirecting to image menu...' 
+        text: `🔄 Use *${prefix}imgmenu* instead` 
     }, { quoted: mek });
-    
-    const imgmenuCmd = require('./menu.js').cmd.find(c => c.pattern === "imgmenu");
-    if (imgmenuCmd) {
-        await imgmenuCmd.function(conn, mek, m, { from });
-    }
 });
 
 cmd({
@@ -344,14 +322,10 @@ cmd({
     filename: __filename
 },
 async (conn, mek, m, { from }) => {
+    const prefix = config.PREFIX || '.';
     await conn.sendMessage(from, { 
-        text: '🔄 Redirecting to categories...' 
+        text: `🔄 Use *${prefix}categories* instead` 
     }, { quoted: mek });
-    
-    const categoriesCmd = require('./menu.js').cmd.find(c => c.pattern === "categories");
-    if (categoriesCmd) {
-        await categoriesCmd.function(conn, mek, m, { from });
-    }
 });
 
 module.exports = { cmd };
