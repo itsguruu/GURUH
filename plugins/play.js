@@ -5,19 +5,18 @@ const ytSearch = require('yt-search');
 cmd({
     pattern: "play",
     alias: ["song", "ytplay", "music", "audio"],
-    desc: "Download YouTube audio (WhatsApp compatible)",
+    desc: "Download YouTube audio",
     category: "download",
     use: ".play <song name>",
     react: "🎵",
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
     try {
-        if (!q) return reply("❌ Please provide a song name!\n\n*Example:* .play Alan Walker Faded");
+        if (!q) return reply("❌ Please provide a song name!\n\n*Example:* .play Helplessly Tatiana Manaois");
 
         await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
         
-        // Send searching status
-        const statusMsg = await reply(`🔍 *Searching:* ${q}\n⏱️ Please wait...`);
+        await reply(`🔍 Searching for: ${q}`);
 
         // Search for the video
         const searchResults = await ytSearch(q);
@@ -29,153 +28,126 @@ cmd({
         // Get the best match
         const video = searchResults.videos[0];
         
-        const videoInfo = {
-            title: video.title,
-            url: video.url,
-            duration: video.timestamp,
-            views: formatNumber(video.views),
-            thumbnail: video.thumbnail,
-            author: video.author.name,
-        };
-
-        // Update status
-        await conn.sendMessage(from, {
-            text: `📥 *Downloading:*\n🎵 ${videoInfo.title}\n👤 ${videoInfo.author}\n⏱️ ${videoInfo.duration}\n\n⏳ Getting audio...`,
-            edit: statusMsg.key
-        });
-
-        // List of reliable audio APIs (in order of reliability)
-        const apis = [
-            {
-                name: 'API 1',
-                url: `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(video.url)}`,
-                getUrl: (data) => data.downloadUrl || data.url
-            },
-            {
-                name: 'API 2',
-                url: `https://api.ryzendesu.vip/api/downloader/yt?url=${encodeURIComponent(video.url)}&type=mp3`,
-                getUrl: (data) => data.url || data.download
-            },
-            {
-                name: 'API 3',
-                url: `https://api.agatz.xyz/api/yt?url=${encodeURIComponent(video.url)}`,
-                getUrl: (data) => data.audio
-            },
-            {
-                name: 'API 4',
-                url: `https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(video.url)}`,
-                getUrl: (data) => data.data?.download
+        // Try the most reliable APIs in order
+        let downloadUrl = null;
+        let method = '';
+        
+        // API 1: Vihangayt (Most reliable for audio)
+        try {
+            const api1 = `https://vihangayt.me/download/ytmp3?url=${encodeURIComponent(video.url)}`;
+            const res1 = await axios.get(api1, { timeout: 15000 });
+            if (res1.data && res1.data.data && res1.data.data.url) {
+                downloadUrl = res1.data.data.url;
+                method = 'Vihangayt';
             }
-        ];
+        } catch (e) { console.log("API 1 failed"); }
 
-        let audioUrl = null;
-        let methodUsed = '';
-        let errors = [];
-
-        // Try each API until one works
-        for (const api of apis) {
+        // API 2: Paja API
+        if (!downloadUrl) {
             try {
-                console.log(`Trying ${api.name}...`);
-                const response = await axios.get(api.url, { 
-                    timeout: 10000,
-                    headers: { 'User-Agent': 'Mozilla/5.0' }
-                });
-                
-                if (response.data) {
-                    audioUrl = api.getUrl(response.data);
-                    if (audioUrl) {
-                        methodUsed = api.name;
-                        console.log(`✅ Success with ${api.name}`);
-                        break;
-                    }
+                const api2 = `https://pajaapi.vercel.app/api/yt?url=${encodeURIComponent(video.url)}&type=mp3`;
+                const res2 = await axios.get(api2, { timeout: 15000 });
+                if (res2.data && res2.data.result && res2.data.result.url) {
+                    downloadUrl = res2.data.result.url;
+                    method = 'Paja API';
                 }
-            } catch (err) {
-                errors.push(`${api.name}: ${err.message}`);
-                console.log(`${api.name} failed`);
-            }
+            } catch (e) { console.log("API 2 failed"); }
         }
 
-        // If no API worked, try direct download from known working sources
-        if (!audioUrl) {
-            // Try y2mate style API
+        // API 3: Vytix API
+        if (!downloadUrl) {
             try {
-                const y2mateApi = `https://y2mate.guru/api/convert?url=${encodeURIComponent(video.url)}&format=mp3`;
-                const response = await axios.get(y2mateApi, { timeout: 10000 });
-                if (response.data && response.data.download_url) {
-                    audioUrl = response.data.download_url;
-                    methodUsed = 'Y2Mate';
+                const api3 = `https://vytix.codershakil.org/api/ytmp3?url=${encodeURIComponent(video.url)}`;
+                const res3 = await axios.get(api3, { timeout: 15000 });
+                if (res3.data && res3.data.url) {
+                    downloadUrl = res3.data.url;
+                    method = 'Vytix';
                 }
-            } catch (err) {
-                errors.push(`Y2Mate: ${err.message}`);
-            }
+            } catch (e) { console.log("API 3 failed"); }
         }
 
-        // If still no URL, try alternative
-        if (!audioUrl) {
+        // API 4: Y2Mate
+        if (!downloadUrl) {
             try {
-                const altApi = `https://vkrdownloader.com/api/yt?url=${encodeURIComponent(video.url)}&format=mp3`;
-                const response = await axios.get(altApi, { timeout: 10000 });
-                if (response.data && response.data.url) {
-                    audioUrl = response.data.url;
-                    methodUsed = 'VKR';
+                const api4 = `https://y2mate.guru/api/convert?url=${encodeURIComponent(video.url)}&format=mp3`;
+                const res4 = await axios.get(api4, { timeout: 15000 });
+                if (res4.data && res4.data.download_url) {
+                    downloadUrl = res4.data.download_url;
+                    method = 'Y2Mate';
                 }
-            } catch (err) {
-                errors.push(`VKR: ${err.message}`);
-            }
+            } catch (e) { console.log("API 4 failed"); }
         }
 
-        // If we have a URL, send the audio
-        if (audioUrl) {
+        // API 5: Hardolaf API
+        if (!downloadUrl) {
+            try {
+                const api5 = `https://api.hardolaf.com/yt/download?url=${encodeURIComponent(video.url)}&type=audio`;
+                const res5 = await axios.get(api5, { timeout: 15000 });
+                if (res5.data && res5.data.url) {
+                    downloadUrl = res5.data.url;
+                    method = 'Hardolaf';
+                }
+            } catch (e) { console.log("API 5 failed"); }
+        }
+
+        // API 6: Savefrom API
+        if (!downloadUrl) {
+            try {
+                const api6 = `https://api.savefrom.net/api/convert?url=${encodeURIComponent(video.url)}&format=mp3`;
+                const res6 = await axios.get(api6, { timeout: 15000 });
+                if (res6.data && res6.data.url) {
+                    downloadUrl = res6.data.url;
+                    method = 'Savefrom';
+                }
+            } catch (e) { console.log("API 6 failed"); }
+        }
+
+        // If we got a download URL
+        if (downloadUrl) {
             const caption = `╭══━ ★ *GURU-MD PLAYER* ★ ━══╮\n\n` +
-                `🎵 *Title:* ${videoInfo.title}\n` +
-                `👤 *Channel:* ${videoInfo.author}\n` +
-                `⏱️ *Duration:* ${videoInfo.duration}\n` +
-                `👀 *Views:* ${videoInfo.views}\n` +
-                `🔧 *Source:* ${methodUsed}\n\n` +
+                `🎵 *Title:* ${video.title}\n` +
+                `👤 *Channel:* ${video.author.name}\n` +
+                `⏱️ *Duration:* ${video.timestamp}\n` +
+                `👀 *Views:* ${formatNumber(video.views)}\n` +
+                `📦 *Source:* ${method}\n\n` +
                 `╰══━ ★ *Powered By GuruTech* ★ ━══╯`;
 
             await conn.sendMessage(from, {
-                audio: { url: audioUrl },
+                audio: { url: downloadUrl },
                 mimetype: 'audio/mpeg',
-                fileName: `${videoInfo.title.replace(/[^\w\s]/gi, '')}.mp3`,
-                caption: caption,
-                contextInfo: {
-                    externalAdReply: {
-                        title: videoInfo.title.substring(0, 30),
-                        body: `👤 ${videoInfo.author} • ⏱️ ${videoInfo.duration}`,
-                        thumbnailUrl: videoInfo.thumbnail,
-                        sourceUrl: video.url,
-                        mediaType: 2
-                    }
-                }
+                fileName: `${video.title.replace(/[^\w\s]/gi, '')}.mp3`,
+                caption: caption
             }, { quoted: mek });
 
             await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
             
             // Send thumbnail
             await conn.sendMessage(from, {
-                image: { url: videoInfo.thumbnail },
-                caption: `🎵 *Now Playing:*\n> ${videoInfo.title}\n> ${videoInfo.author}`,
+                image: { url: video.thumbnail },
+                caption: `🎵 *Downloaded:*\n> ${video.title}\n> ${video.author.name}`,
                 viewOnce: true
             }, { quoted: mek });
 
         } else {
-            // All APIs failed
-            console.log("All APIs failed:", errors);
-            
+            // All APIs failed - provide alternative download links
+            const altLinks = [
+                `https://www.y2mate.com/youtube/${video.videoId}`,
+                `https://en.savefrom.net/${video.videoId}/`,
+                `https://loader.to/api/button/?url=${video.url}&f=mp3`,
+                `https://yt1s.com/en/youtube-to-mp3?q=${video.videoId}`
+            ];
+
             const errorMsg = `❌ *Download Failed*\n\n` +
-                `🎵 *Title:* ${videoInfo.title}\n` +
-                `👤 *Channel:* ${videoInfo.author}\n` +
-                `⏱️ *Duration:* ${videoInfo.duration}\n\n` +
-                `⚠️ Could not download audio.\n\n` +
-                `🔗 *Watch on YouTube:*\n${video.url}\n\n` +
-                `💡 *Try:*\n` +
-                `• Use different keywords\n` +
-                `• Try again later\n` +
-                `• Download manually from the link above`;
+                `🎵 *Title:* ${video.title}\n` +
+                `👤 *Channel:* ${video.author.name}\n` +
+                `⏱️ *Duration:* ${video.timestamp}\n\n` +
+                `⚠️ Could not download automatically.\n\n` +
+                `📱 *Manual Download Links:*\n` +
+                altLinks.map((link, i) => `${i+1}. ${link}`).join('\n') + '\n\n' +
+                `🔗 *Watch on YouTube:*\n${video.url}`;
 
             await conn.sendMessage(from, {
-                image: { url: videoInfo.thumbnail },
+                image: { url: video.thumbnail },
                 caption: errorMsg
             }, { quoted: mek });
             
@@ -189,11 +161,11 @@ cmd({
     }
 });
 
-// SIMPLE VERSION - Most reliable
+// Simple direct download command
 cmd({
     pattern: "yt",
-    alias: ["ytaudio", "ytmp3"],
-    desc: "Simple YouTube audio download",
+    alias: ["ytaudio"],
+    desc: "Simple YouTube download",
     category: "download",
     react: "🎧",
     filename: __filename
@@ -203,19 +175,18 @@ cmd({
         
         await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
         
-        // Search
         const search = await ytSearch(q);
         if (!search.videos.length) return reply("❌ No results!");
         
         const video = search.videos[0];
         
-        // Use David Cyril API (most reliable)
-        const apiUrl = `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(video.url)}`;
-        const response = await axios.get(apiUrl, { timeout: 15000 });
+        // Try Vihangayt API first
+        const api = `https://vihangayt.me/download/ytmp3?url=${encodeURIComponent(video.url)}`;
+        const response = await axios.get(api, { timeout: 15000 });
         
-        if (response.data && response.data.downloadUrl) {
+        if (response.data && response.data.data && response.data.data.url) {
             await conn.sendMessage(from, {
-                audio: { url: response.data.downloadUrl },
+                audio: { url: response.data.data.url },
                 mimetype: 'audio/mpeg',
                 fileName: `${video.title}.mp3`,
                 caption: `🎵 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
@@ -223,7 +194,7 @@ cmd({
             
             await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
         } else {
-            reply("❌ No download URL found");
+            reply("❌ Could not get download URL");
         }
         
     } catch (error) {
@@ -233,57 +204,44 @@ cmd({
     }
 });
 
-// Emergency backup command
+// Alternative command using different API
 cmd({
-    pattern: "ytdl",
-    alias: ["youtubedl"],
-    desc: "Emergency YouTube download",
+    pattern: "music",
+    alias: ["mp3"],
+    desc: "Alternative music download",
     category: "download",
-    react: "⚡",
+    react: "🎼",
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
     try {
-        if (!q) return reply("❌ Provide YouTube URL or song name!");
+        if (!q) return reply("❌ Provide a song name!");
         
         await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
         
-        let url = q;
-        // If not a URL, search first
-        if (!q.includes('youtube.com') && !q.includes('youtu.be')) {
-            const search = await ytSearch(q);
-            if (!search.videos.length) return reply("❌ No results!");
-            url = search.videos[0].url;
+        const search = await ytSearch(q);
+        if (!search.videos.length) return reply("❌ No results!");
+        
+        const video = search.videos[0];
+        
+        // Try different API
+        const api = `https://pajaapi.vercel.app/api/yt?url=${encodeURIComponent(video.url)}&type=mp3`;
+        const response = await axios.get(api, { timeout: 15000 });
+        
+        if (response.data && response.data.result && response.data.result.url) {
+            await conn.sendMessage(from, {
+                audio: { url: response.data.result.url },
+                mimetype: 'audio/mpeg',
+                fileName: `${video.title}.mp3`,
+                caption: `🎵 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
+            }, { quoted: mek });
+            
+            await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+        } else {
+            reply("❌ Could not get download URL");
         }
-        
-        // Try multiple APIs
-        const apis = [
-            `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(url)}`,
-            `https://api.ryzendesu.vip/api/downloader/yt?url=${encodeURIComponent(url)}&type=mp3`,
-            `https://api.agatz.xyz/api/yt?url=${encodeURIComponent(url)}`
-        ];
-        
-        for (const apiUrl of apis) {
-            try {
-                const response = await axios.get(apiUrl, { timeout: 10000 });
-                let downloadUrl = response.data.downloadUrl || response.data.url || response.data.audio;
-                
-                if (downloadUrl) {
-                    await conn.sendMessage(from, {
-                        audio: { url: downloadUrl },
-                        mimetype: 'audio/mpeg'
-                    }, { quoted: mek });
-                    
-                    await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
-                    return;
-                }
-            } catch (e) {
-                continue;
-            }
-        }
-        
-        reply("❌ All APIs failed");
         
     } catch (error) {
+        console.error("Music error:", error);
         reply("❌ Error: " + error.message);
         await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
     }
