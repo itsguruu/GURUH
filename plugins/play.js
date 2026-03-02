@@ -4,11 +4,13 @@ const ytdl = require('ytdl-core');
 const ytSearch = require('yt-search');
 const fs = require('fs');
 const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
+const { exec } = require('child_process');
 
 cmd({
     pattern: "play",
     alias: ["song", "ytplay", "music", "video", "ytvideo"],
-    desc: "Download YouTube videos or audio",
+    desc: "Download YouTube videos or audio (WhatsApp compatible)",
     category: "download",
     use: ".play <song name> or .play video <song name>",
     react: "🎵",
@@ -61,179 +63,195 @@ cmd({
             edit: statusMsg.key
         });
 
+        // Create temp directory if not exists
+        const tempDir = path.join(__dirname, 'temp');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
         let mediaBuffer = null;
         let downloadMethod = '';
         let errorLog = [];
 
-        // METHOD 1: Try y2mate API (most reliable for both audio/video)
-        const y2mateApis = [
-            {
-                name: 'Y2Mate API 1',
-                url: `https://y2mate.guru/api/convert?url=${encodeURIComponent(video.url)}&format=${isVideo ? 'mp4' : 'mp3'}`
-            },
-            {
-                name: 'Y2Mate API 2',
-                url: `https://y2mate.ch/api/v1/convert?url=${encodeURIComponent(video.url)}&type=${isVideo ? 'video' : 'audio'}`
-            }
-        ];
-
-        for (const api of y2mateApis) {
-            try {
-                console.log(`Attempting ${api.name}...`);
-                const response = await axios.get(api.url, { timeout: 15000 });
-                
-                if (response.data && response.data.download_url) {
-                    const mediaResponse = await axios.get(response.data.download_url, {
-                        responseType: 'arraybuffer',
-                        timeout: 60000
-                    });
-                    mediaBuffer = Buffer.from(mediaResponse.data);
-                    downloadMethod = api.name;
-                    console.log(`✅ ${api.name} success`);
-                    break;
+        if (isVideo) {
+            // VIDEO DOWNLOAD - WhatsApp compatible (MP4, H.264, AAC)
+            const videoApis = [
+                {
+                    name: 'Video API 1',
+                    url: `https://api.davidcyriltech.my.id/download/ytvideo?url=${encodeURIComponent(video.url)}`,
+                    parse: (data) => data.downloadUrl || data.url
+                },
+                {
+                    name: 'Video API 2',
+                    url: `https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(video.url)}`,
+                    parse: (data) => data.data?.download
+                },
+                {
+                    name: 'Video API 3',
+                    url: `https://api.ryzendesu.vip/api/downloader/yt?url=${encodeURIComponent(video.url)}&type=mp4`,
+                    parse: (data) => data.url || data.download
                 }
-            } catch (err) {
-                errorLog.push(`${api.name}: ${err.message}`);
-            }
-        }
+            ];
 
-        // METHOD 2: Try SSYoutube API
-        if (!mediaBuffer) {
-            try {
-                console.log("Attempting SSYoutube API...");
-                const ssyApi = `https://api.ssyoutube.com/api/v1/${isVideo ? 'getVideo' : 'getAudio'}?url=${encodeURIComponent(video.url)}`;
-                const response = await axios.get(ssyApi, { timeout: 15000 });
-                
-                if (response.data && response.data.url) {
-                    const mediaResponse = await axios.get(response.data.url, {
-                        responseType: 'arraybuffer',
-                        timeout: 60000
-                    });
-                    mediaBuffer = Buffer.from(mediaResponse.data);
-                    downloadMethod = 'SSYoutube';
-                }
-            } catch (err) {
-                errorLog.push(`SSYoutube: ${err.message}`);
-            }
-        }
-
-        // METHOD 3: Try multiple download APIs
-        const downloadApis = [
-            {
-                name: 'API 1',
-                url: `https://api.davidcyriltech.my.id/download/${isVideo ? 'ytvideo' : 'ytmp3'}?url=${encodeURIComponent(video.url)}`,
-                parse: (data) => data.downloadUrl || data.url
-            },
-            {
-                name: 'API 2',
-                url: `https://api.siputzx.my.id/api/d/${isVideo ? 'ytmp4' : 'ytmp3'}?url=${encodeURIComponent(video.url)}`,
-                parse: (data) => data.data?.download
-            },
-            {
-                name: 'API 3',
-                url: `https://api.ryzendesu.vip/api/downloader/yt?url=${encodeURIComponent(video.url)}&type=${isVideo ? 'mp4' : 'mp3'}`,
-                parse: (data) => data.url || data.download
-            },
-            {
-                name: 'API 4',
-                url: `https://api.agatz.xyz/api/yt?url=${encodeURIComponent(video.url)}`,
-                parse: (data) => isVideo ? data.video : data.audio
-            },
-            {
-                name: 'API 5',
-                url: `https://ytdl.guruapi.tech/api/${isVideo ? 'ytmp4' : 'ytmp3'}?url=${encodeURIComponent(video.url)}`,
-                parse: (data) => data.result?.download
-            }
-        ];
-
-        for (const api of downloadApis) {
-            if (mediaBuffer) break;
-            
-            try {
-                console.log(`Attempting ${api.name}...`);
-                const response = await axios.get(api.url, { 
-                    timeout: 15000,
-                    headers: { 'User-Agent': 'Mozilla/5.0' }
-                });
-                
-                if (response.data) {
-                    const downloadUrl = api.parse(response.data);
+            for (const api of videoApis) {
+                try {
+                    console.log(`Attempting ${api.name}...`);
+                    const response = await axios.get(api.url, { timeout: 15000 });
                     
+                    const downloadUrl = api.parse(response.data);
                     if (downloadUrl) {
-                        const mediaResponse = await axios.get(downloadUrl, {
+                        const videoResponse = await axios.get(downloadUrl, {
                             responseType: 'arraybuffer',
-                            timeout: 60000,
-                            headers: { 'User-Agent': 'Mozilla/5.0' }
+                            timeout: 60000
                         });
-                        mediaBuffer = Buffer.from(mediaResponse.data);
+                        mediaBuffer = Buffer.from(videoResponse.data);
                         downloadMethod = api.name;
                         console.log(`✅ ${api.name} success`);
                         break;
                     }
+                } catch (err) {
+                    errorLog.push(`${api.name}: ${err.message}`);
                 }
-            } catch (err) {
-                errorLog.push(`${api.name}: ${err.message}`);
             }
-        }
 
-        // METHOD 4: Try ytdl-core as last resort
-        if (!mediaBuffer) {
-            try {
-                console.log(`Attempting ytdl-core ${isVideo ? 'video' : 'audio'} download...`);
-                
-                const options = isVideo ? 
-                    { quality: 'lowest', filter: 'videoandaudio' } : 
-                    { filter: 'audioonly', quality: 'highestaudio' };
-                
-                // Get info first
-                const info = await ytdl.getInfo(video.url);
-                let format;
-                
-                if (isVideo) {
-                    // Try to find a format with both video and audio
-                    format = ytdl.chooseFormat(info.formats, { quality: '18' }); // 360p with audio
-                    if (!format) {
-                        format = ytdl.chooseFormat(info.formats, { quality: 'lowest' });
+            // Fallback to ytdl for video
+            if (!mediaBuffer) {
+                try {
+                    console.log("Attempting ytdl-core video download...");
+                    const info = await ytdl.getInfo(video.url);
+                    // Choose 360p format for WhatsApp compatibility
+                    const format = ytdl.chooseFormat(info.formats, { quality: '18' });
+                    
+                    if (format && format.url) {
+                        const response = await axios.get(format.url, {
+                            responseType: 'arraybuffer',
+                            timeout: 60000
+                        });
+                        mediaBuffer = Buffer.from(response.data);
+                        downloadMethod = 'ytdl-core';
                     }
-                } else {
-                    format = ytdl.chooseFormat(info.formats, { filter: 'audioonly' });
+                } catch (err) {
+                    errorLog.push(`ytdl-core video: ${err.message}`);
                 }
-                
-                if (format && format.url) {
-                    const response = await axios.get(format.url, {
-                        responseType: 'arraybuffer',
-                        timeout: 60000,
-                        headers: { 
-                            'User-Agent': 'Mozilla/5.0',
-                            'Range': 'bytes=0-'
-                        }
+            }
+        } else {
+            // AUDIO DOWNLOAD - WhatsApp compatible (MP3/Opus in audio/mpeg)
+            const audioApis = [
+                // API 1: Direct MP3
+                {
+                    name: 'MP3 API 1',
+                    url: `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(video.url)}`,
+                    parse: (data) => data.downloadUrl || data.url
+                },
+                // API 2: Alternative MP3
+                {
+                    name: 'MP3 API 2',
+                    url: `https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(video.url)}`,
+                    parse: (data) => data.data?.download
+                },
+                // API 3: Another source
+                {
+                    name: 'MP3 API 3',
+                    url: `https://api.ryzendesu.vip/api/downloader/yt?url=${encodeURIComponent(video.url)}&type=mp3`,
+                    parse: (data) => data.url || data.download
+                },
+                // API 4: Agatz
+                {
+                    name: 'MP3 API 4',
+                    url: `https://api.agatz.xyz/api/yt?url=${encodeURIComponent(video.url)}`,
+                    parse: (data) => data.audio
+                },
+                // API 5: Y2Mate
+                {
+                    name: 'Y2Mate',
+                    url: `https://y2mate.guru/api/convert?url=${encodeURIComponent(video.url)}&format=mp3`,
+                    parse: (data) => data.download_url
+                }
+            ];
+
+            for (const api of audioApis) {
+                try {
+                    console.log(`Attempting ${api.name}...`);
+                    const response = await axios.get(api.url, { 
+                        timeout: 15000,
+                        headers: { 'User-Agent': 'Mozilla/5.0' }
                     });
-                    mediaBuffer = Buffer.from(response.data);
-                    downloadMethod = 'ytdl-core';
-                    console.log(`✅ ytdl-core success: ${mediaBuffer.length} bytes`);
-                }
-            } catch (err) {
-                errorLog.push(`ytdl-core: ${err.message}`);
-            }
-        }
-
-        // METHOD 5: Try direct download from YouTube
-        if (!mediaBuffer) {
-            try {
-                console.log("Attempting direct download...");
-                const directApi = `https://youtube.com/watch?v=${video.videoId}`;
-                const response = await axios.get(directApi, { 
-                    responseType: 'arraybuffer',
-                    timeout: 30000,
-                    headers: { 
-                        'User-Agent': 'Mozilla/5.0',
-                        'Accept': 'video/mp4'
+                    
+                    const downloadUrl = api.parse(response.data);
+                    if (downloadUrl) {
+                        const audioResponse = await axios.get(downloadUrl, {
+                            responseType: 'arraybuffer',
+                            timeout: 60000,
+                            headers: { 
+                                'User-Agent': 'Mozilla/5.0',
+                                'Accept': 'audio/mpeg,audio/mp3,*/*'
+                            }
+                        });
+                        
+                        // Check if we got valid audio data
+                        const buffer = Buffer.from(audioResponse.data);
+                        
+                        // Sometimes APIs return HTML instead of audio
+                        if (buffer.length > 1024 && !buffer.toString().startsWith('<!')) {
+                            mediaBuffer = buffer;
+                            downloadMethod = api.name;
+                            console.log(`✅ ${api.name} success: ${buffer.length} bytes`);
+                            break;
+                        }
                     }
-                });
-                mediaBuffer = Buffer.from(response.data);
-                downloadMethod = 'Direct';
-            } catch (err) {
-                errorLog.push(`Direct: ${err.message}`);
+                } catch (err) {
+                    errorLog.push(`${api.name}: ${err.message}`);
+                }
+            }
+
+            // Fallback to ytdl-core with audio conversion
+            if (!mediaBuffer) {
+                try {
+                    console.log("Attempting ytdl-core audio download with conversion...");
+                    
+                    // Create temp file paths
+                    const tempInput = path.join(tempDir, `audio_${Date.now()}_input.mp4`);
+                    const tempOutput = path.join(tempDir, `audio_${Date.now()}_output.mp3`);
+                    
+                    // Download audio stream
+                    const audioStream = ytdl(video.url, {
+                        filter: 'audioonly',
+                        quality: 'highestaudio',
+                    });
+                    
+                    // Save to temp file
+                    const writeStream = fs.createWriteStream(tempInput);
+                    audioStream.pipe(writeStream);
+                    
+                    await new Promise((resolve, reject) => {
+                        writeStream.on('finish', resolve);
+                        writeStream.on('error', reject);
+                    });
+                    
+                    // Convert to WhatsApp-compatible MP3 using ffmpeg
+                    await new Promise((resolve, reject) => {
+                        ffmpeg(tempInput)
+                            .audioBitrate(128)
+                            .audioCodec('libmp3lame')
+                            .format('mp3')
+                            .on('end', resolve)
+                            .on('error', reject)
+                            .save(tempOutput);
+                    });
+                    
+                    // Read the converted file
+                    mediaBuffer = fs.readFileSync(tempOutput);
+                    downloadMethod = 'ytdl-core+ffmpeg';
+                    
+                    // Cleanup temp files
+                    try {
+                        fs.unlinkSync(tempInput);
+                        fs.unlinkSync(tempOutput);
+                    } catch (e) {}
+                    
+                    console.log(`✅ ytdl-core+ffmpeg success: ${mediaBuffer.length} bytes`);
+                    
+                } catch (err) {
+                    errorLog.push(`ytdl-core+ffmpeg: ${err.message}`);
+                }
             }
         }
 
@@ -241,14 +259,6 @@ cmd({
         if (!mediaBuffer) {
             console.log("All download methods failed:", errorLog);
             
-            // Generate alternative download links
-            const altLinks = [
-                `https://www.y2mate.com/youtube/${video.videoId}`,
-                `https://en.savefrom.net/${video.videoId}/`,
-                `https://loader.to/api/button/?url=${video.url}&f=${isVideo ? 'mp4' : 'mp3'}`,
-                `https://yt1s.com/en/youtube-to-${isVideo ? 'mp4' : 'mp3'}?q=${video.videoId}`
-            ];
-
             const errorMessage = `❌ *Download Failed*\n\n` +
                 `🎵 *Title:* ${videoInfo.title}\n` +
                 `👤 *Channel:* ${videoInfo.author}\n` +
@@ -256,13 +266,10 @@ cmd({
                 `👀 *Views:* ${videoInfo.views}\n\n` +
                 `⚠️ Could not download ${isVideo ? 'video' : 'audio'} at this time.\n\n` +
                 `🔗 *Watch on YouTube:*\n${videoInfo.url}\n\n` +
-                `📱 *Alternative Download Sites:*\n` +
-                altLinks.map((link, i) => `${i+1}. ${link}`).join('\n') + '\n\n' +
-                `💡 *Tips:*\n` +
-                `• Try .play audio ${searchQuery}\n` +
-                `• Try .play video ${searchQuery}\n` +
-                `• Use different keywords\n` +
-                `• Download manually from the links above`;
+                `📱 *Try these commands instead:*\n` +
+                `• .yt ${searchQuery} (quick audio)\n` +
+                `• .video ${searchQuery} (quick video)\n` +
+                `• Download manually from the link above`;
             
             return await conn.sendMessage(from, {
                 image: { url: videoInfo.thumbnail },
@@ -277,6 +284,11 @@ cmd({
                     }
                 }
             }, { quoted: mek });
+        }
+
+        // Verify buffer is valid for WhatsApp
+        if (mediaBuffer.length < 1024) {
+            throw new Error("Downloaded file is too small");
         }
 
         // Calculate stats
@@ -301,40 +313,22 @@ cmd({
                 video: mediaBuffer,
                 mimetype: 'video/mp4',
                 fileName: `${videoInfo.title.replace(/[^\w\s]/gi, '')}.mp4`,
-                caption: caption,
-                contextInfo: {
-                    externalAdReply: {
-                        title: videoInfo.title.substring(0, 30),
-                        body: `👤 ${videoInfo.author} • ⏱️ ${videoInfo.duration}`,
-                        thumbnailUrl: videoInfo.thumbnail,
-                        sourceUrl: videoInfo.url,
-                        mediaType: 2
-                    }
-                }
+                caption: caption
             }, { quoted: mek });
         } else {
+            // Send audio with proper WhatsApp audio format
             await conn.sendMessage(from, {
                 audio: mediaBuffer,
                 mimetype: 'audio/mpeg',
                 fileName: `${videoInfo.title.replace(/[^\w\s]/gi, '')}.mp3`,
-                caption: caption,
-                contextInfo: {
-                    externalAdReply: {
-                        title: videoInfo.title.substring(0, 30),
-                        body: `👤 ${videoInfo.author} • ⏱️ ${videoInfo.duration}`,
-                        thumbnailUrl: videoInfo.thumbnail,
-                        sourceUrl: videoInfo.url,
-                        mediaType: 2,
-                        renderLargerThumbnail: false
-                    }
-                }
+                caption: caption
             }, { quoted: mek });
         }
 
         // Send success reaction
         await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
 
-        // Send thumbnail as view once
+        // Send thumbnail
         await conn.sendMessage(from, {
             image: { url: videoInfo.thumbnail },
             caption: `🎵 *${isVideo ? 'Video' : 'Audio'} Ready:*\n> ${videoInfo.title}\n> ${videoInfo.author}\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`,
@@ -352,26 +346,20 @@ cmd({
             errorMsg += "Network error. Check your internet connection.";
         } else if (error.message.includes('timeout')) {
             errorMsg += "Request timeout. The service is slow, try again.";
+        } else if (error.message.includes('too small')) {
+            errorMsg += "Download failed - file too small. Try another song.";
         } else {
             errorMsg += error.message || "Unknown error";
         }
         
-        errorMsg += "\n\n🔄 Try using different keywords or .play video/audio command.";
+        errorMsg += "\n\n🔄 Try .play audio or .play video commands.";
         
         await reply(errorMsg);
         await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
     }
 });
 
-// Helper function to format views
-function formatNumber(num) {
-    if (!num) return '0';
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-}
-
-// Quick audio download command
+// Quick audio download command (simplified)
 cmd({
     pattern: "yt",
     alias: ["ytaudio", "ytmp3"],
@@ -391,38 +379,22 @@ cmd({
         
         const video = search.videos[0];
         
-        // Try direct API first
-        try {
-            const apiUrl = `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(video.url)}`;
-            const response = await axios.get(apiUrl, { timeout: 10000 });
+        // Use direct API
+        const apiUrl = `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(video.url)}`;
+        const response = await axios.get(apiUrl, { timeout: 10000 });
+        
+        if (response.data && response.data.downloadUrl) {
+            await conn.sendMessage(from, {
+                audio: { url: response.data.downloadUrl },
+                mimetype: 'audio/mpeg',
+                fileName: `${video.title}.mp3`,
+                caption: `🎵 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
+            }, { quoted: mek });
             
-            if (response.data && response.data.downloadUrl) {
-                await conn.sendMessage(from, {
-                    audio: { url: response.data.downloadUrl },
-                    mimetype: 'audio/mpeg',
-                    fileName: `${video.title}.mp3`,
-                    caption: `🎵 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
-                }, { quoted: mek });
-                
-                await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
-                return;
-            }
-        } catch (err) {
-            console.log("Quick API failed, trying ytdl...");
+            await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+        } else {
+            throw new Error("No download URL");
         }
-        
-        // Fallback to ytdl
-        const info = await ytdl.getInfo(video.url);
-        const format = ytdl.chooseFormat(info.formats, { filter: 'audioonly' });
-        
-        await conn.sendMessage(from, {
-            audio: { url: format.url },
-            mimetype: 'audio/mpeg',
-            fileName: `${video.title}.mp3`,
-            caption: `🎵 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
-        }, { quoted: mek });
-        
-        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
         
     } catch (error) {
         console.error("YT command error:", error);
@@ -431,7 +403,7 @@ cmd({
     }
 });
 
-// Video download command
+// Quick video download command
 cmd({
     pattern: "video",
     alias: ["ytvideo", "ytmp4"],
@@ -451,36 +423,21 @@ cmd({
         
         const video = search.videos[0];
         
-        // Try API first
-        try {
-            const apiUrl = `https://api.davidcyriltech.my.id/download/ytvideo?url=${encodeURIComponent(video.url)}`;
-            const response = await axios.get(apiUrl, { timeout: 10000 });
+        // Use direct API
+        const apiUrl = `https://api.davidcyriltech.my.id/download/ytvideo?url=${encodeURIComponent(video.url)}`;
+        const response = await axios.get(apiUrl, { timeout: 10000 });
+        
+        if (response.data && response.data.downloadUrl) {
+            await conn.sendMessage(from, {
+                video: { url: response.data.downloadUrl },
+                mimetype: 'video/mp4',
+                caption: `🎬 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
+            }, { quoted: mek });
             
-            if (response.data && response.data.downloadUrl) {
-                await conn.sendMessage(from, {
-                    video: { url: response.data.downloadUrl },
-                    mimetype: 'video/mp4',
-                    caption: `🎬 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
-                }, { quoted: mek });
-                
-                await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
-                return;
-            }
-        } catch (err) {
-            console.log("Video API failed, trying ytdl...");
+            await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+        } else {
+            throw new Error("No download URL");
         }
-        
-        // Fallback to ytdl
-        const info = await ytdl.getInfo(video.url);
-        const format = ytdl.chooseFormat(info.formats, { quality: '18' }); // 360p
-        
-        await conn.sendMessage(from, {
-            video: { url: format.url },
-            mimetype: 'video/mp4',
-            caption: `🎬 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}`
-        }, { quoted: mek });
-        
-        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
         
     } catch (error) {
         console.error("Video command error:", error);
@@ -489,44 +446,10 @@ cmd({
     }
 });
 
-// API status check
-cmd({
-    pattern: "apistatus",
-    alias: ["checkapi"],
-    desc: "Check YouTube download APIs status",
-    category: "tools",
-    react: "🔌",
-    filename: __filename
-}, async (conn, mek, m, { from, reply }) => {
-    const apis = [
-        { name: 'Y2Mate', url: 'https://y2mate.guru/api', type: 'remote' },
-        { name: 'David Cyril', url: 'https://api.davidcyriltech.my.id', type: 'remote' },
-        { name: 'Siputzx', url: 'https://api.siputzx.my.id', type: 'remote' },
-        { name: 'Ryzendesu', url: 'https://api.ryzendesu.vip', type: 'remote' },
-        { name: 'ytdl-core', url: null, type: 'local' }
-    ];
-    
-    let statusMsg = "🔌 *API Status Check*\n\n";
-    
-    for (const api of apis) {
-        if (api.type === 'local') {
-            statusMsg += `✅ ${api.name}: Available (Local)\n`;
-        } else {
-            try {
-                await axios.get(api.url, { timeout: 5000 });
-                statusMsg += `✅ ${api.name}: Online\n`;
-            } catch {
-                statusMsg += `❌ ${api.name}: Offline\n`;
-            }
-        }
-    }
-    
-    statusMsg += "\n> *Usage:*\n";
-    statusMsg += "• .play <song> - Audio\n";
-    statusMsg += "• .play video <song> - Video\n";
-    statusMsg += "• .yt <song> - Quick audio\n";
-    statusMsg += "• .video <song> - Quick video\n\n";
-    statusMsg += "> © GURU-TECH";
-    
-    await reply(statusMsg);
-});
+// Helper function to format views
+function formatNumber(num) {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+}
