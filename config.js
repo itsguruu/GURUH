@@ -112,7 +112,7 @@ module.exports = {
     DAILY_BACKUP_TIME: process.env.DAILY_BACKUP_TIME || "03:00",
 
     // ──────────────── GitHub & Update Settings ────────────────
-    GITHUB_TOKEN: process.env.GITHUB_TOKEN || "",
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN || "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",
     GITHUB_REPO: process.env.GITHUB_REPO || "itsguruu/GURUH",
     GITHUB_BRANCH: process.env.GITHUB_BRANCH || "main",
     AUTO_CHECK_UPDATES: process.env.AUTO_CHECK_UPDATES || "false",
