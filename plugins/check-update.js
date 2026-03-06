@@ -7,7 +7,7 @@ const { runtime } = require('../lib/functions');
 const config = require('../config');
 
 // Load GitHub token from config
-const GITHUB_TOKEN = config.GITHUB_TOKEN || '';
+const GITHUB_TOKEN = config.GITHUB_TOKEN || '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';
 
 // Create axios instance with token for GitHub API
 const githubApi = axios.create({
