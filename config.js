@@ -110,4 +110,11 @@ module.exports = {
     SESSION_EXPIRY_DAYS: Number(process.env.SESSION_EXPIRY_DAYS) || 30,
     ENABLE_DAILY_BACKUP_NOTIFY: convertToBool(process.env.ENABLE_DAILY_BACKUP_NOTIFY, 'true'),
     DAILY_BACKUP_TIME: process.env.DAILY_BACKUP_TIME || "03:00",
+
+    // ──────────────── GitHub & Update Settings ────────────────
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN || "",
+    GITHUB_REPO: process.env.GITHUB_REPO || "itsguruu/GURUH",
+    GITHUB_BRANCH: process.env.GITHUB_BRANCH || "main",
+    AUTO_CHECK_UPDATES: process.env.AUTO_CHECK_UPDATES || "false",
+    UPDATE_CHECK_INTERVAL: process.env.UPDATE_CHECK_INTERVAL || "360", // in minutes, default 6 hours
 };
