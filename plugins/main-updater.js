@@ -4,6 +4,22 @@ const fs = require('fs');
 const path = require("path");
 const AdmZip = require("adm-zip");
 const { setCommitHash, getCommitHash } = require('../data/updateDB');
+const config = require('../config');
+
+// Load GitHub settings from config
+const GITHUB_TOKEN = config.GITHUB_TOKEN || '';
+const REPO = config.GITHUB_REPO || 'itsguruu/GURUH';
+const BRANCH = config.GITHUB_BRANCH || 'main';
+
+// Create axios instance with default headers for GitHub API
+const githubApi = axios.create({
+    timeout: 15000,
+    headers: {
+        'User-Agent': 'GURU-MD-Bot/1.0',
+        'Accept': 'application/vnd.github.v3+json',
+        ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` })
+    }
+});
 
 cmd({
     pattern: "update",
@@ -18,14 +34,27 @@ cmd({
     try {
         const updateMsg = await reply("🔍 Checking for GURU-MD updates...");
 
-        // Fetch latest commit hash with proper headers & timeout
-        const commitRes = await axios.get("https://api.github.com/repos/itsguruu/GURUH/commits/main", {
-            timeout: 15000,
-            headers: { 
-                'User-Agent': 'GURU-MD-Bot/1.0',
-                'Accept': 'application/vnd.github.v3+json'
+        // Check rate limit first
+        try {
+            const rateLimit = await githubApi.get("https://api.github.com/rate_limit");
+            const remaining = rateLimit.data.resources.core.remaining;
+            const limit = rateLimit.data.resources.core.limit;
+            const resetTime = new Date(rateLimit.data.resources.core.reset * 1000);
+            
+            if (remaining < 10) {
+                return reply(`⚠️ GitHub API rate limit is low (${remaining}/${limit} remaining).\nResets at: ${resetTime.toLocaleString()}\n\nTo increase limits to 5000/hour, add your GitHub token to config.env:\nGITHUB_TOKEN=your_token_here`);
             }
-        });
+            
+            console.log(`GitHub API Rate Limit: ${remaining}/${limit} remaining`);
+        } catch (rateErr) {
+            console.log("Could not check rate limit:", rateErr.message);
+        }
+
+        // Fetch latest commit hash from configured repo/branch
+        const commitUrl = `https://api.github.com/repos/${REPO}/commits/${BRANCH}`;
+        console.log(`Fetching commit from: ${commitUrl}`);
+        
+        const commitRes = await githubApi.get(commitUrl);
 
         if (!commitRes.data || typeof commitRes.data !== 'object' || !commitRes.data.sha) {
             throw new Error("Invalid GitHub commit response - missing SHA");
@@ -40,7 +69,8 @@ cmd({
         const currentHash = await getCommitHash();
 
         // Fetch remote package.json
-        const remotePkgRes = await axios.get("https://raw.githubusercontent.com/itsguruu/GURUH/main/package.json", {
+        const packageUrl = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/package.json`;
+        const remotePkgRes = await axios.get(packageUrl, {
             timeout: 10000
         });
 
@@ -66,6 +96,8 @@ cmd({
 
         // Display update info
         let updateInfo = `📊 *Update Information*\n\n`;
+        updateInfo += `*Repository:* ${REPO}\n`;
+        updateInfo += `*Branch:* ${BRANCH}\n`;
         updateInfo += `*Current Version:* ${localVersion}\n`;
         updateInfo += `*Latest Version:* ${remoteVersion}\n`;
         updateInfo += `*Current Commit:* ${currentHash ? currentHash.substring(0, 7) : 'None'}\n`;
@@ -112,7 +144,7 @@ cmd({
                 "❌ Update cancelled.");
         }
 
-        await reply(`🚀 Starting update to version ${remoteVersion} from https://github.com/itsguruu/GURUH ...`);
+        await reply(`🚀 Starting update to version ${remoteVersion} from ${REPO} ...`);
 
         // Create temp directory if it doesn't exist
         const tempDir = path.join(__dirname, 'temp');
@@ -124,9 +156,10 @@ cmd({
         const zipPath = path.join(tempDir, "latest.zip");
         const writer = fs.createWriteStream(zipPath);
         
+        const zipUrl = `https://github.com/${REPO}/archive/${BRANCH}.zip`;
         const zipRes = await axios({
             method: 'get',
-            url: "https://github.com/itsguruu/GURUH/archive/main.zip",
+            url: zipUrl,
             responseType: 'stream',
             timeout: 60000,
             maxContentLength: 100 * 1024 * 1024 // 100MB max
@@ -167,11 +200,12 @@ cmd({
         const zip = new AdmZip(zipPath);
         zip.extractAllTo(extractPath, true);
 
-        // Find the extracted folder (it will be GURUH-main or similar)
+        // Find the extracted folder (it will be REPO_NAME-BRANCH or similar)
         const extractedItems = fs.readdirSync(extractPath);
+        const repoName = REPO.split('/')[1]; // Get the repo name from REPO
         const sourceFolder = extractedItems.find(item => 
             fs.statSync(path.join(extractPath, item)).isDirectory() && 
-            item.includes('GURUH')
+            (item.includes(repoName) || item.includes('GURUH'))
         );
 
         if (!sourceFolder) {
@@ -184,7 +218,7 @@ cmd({
         const backupDir = path.join(tempDir, 'backup_' + Date.now());
         fs.mkdirSync(backupDir, { recursive: true });
         
-        const filesToBackup = ['config.js', 'app.json', 'config.env'];
+        const filesToBackup = ['config.js', 'app.json', 'config.env', '.env'];
         for (const file of filesToBackup) {
             const filePath = path.join(__dirname, '..', file);
             if (fs.existsSync(filePath)) {
@@ -197,7 +231,7 @@ cmd({
         const destinationPath = path.join(__dirname, '..');
         
         // Copy all files except protected ones
-        const protectedFiles = ['config.js', 'app.json', 'config.env', 'session', 'auth_info'];
+        const protectedFiles = ['config.js', 'app.json', 'config.env', '.env', 'session', 'auth_info', 'node_modules'];
         copyFolderSync(sourcePath, destinationPath, protectedFiles);
 
         // Restore backed up files
@@ -232,13 +266,13 @@ cmd({
         if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
             solution += "• Check your internet connection\n• GitHub might be slow, try again later";
         } else if (error.response?.status === 403) {
-            solution += "• GitHub API rate limit exceeded. Try again in an hour\n• Use a GitHub token for higher limits";
+            solution += "• GitHub API rate limit exceeded. Try again in an hour\n• Add a GitHub token to config.env for higher limits (5000/hour)";
         } else if (error.response?.status === 404) {
-            solution += "• Repository not found. Check if the repo URL is correct";
+            solution += `• Repository not found. Check if ${REPO} exists and is correct`;
         } else if (error.message.includes('ENOSPC')) {
             solution += "• Not enough disk space. Free up some space and try again";
         } else {
-            solution += "• Try manual update with 'git pull' in Termux\n• Check your internet connection";
+            solution += "• Try manual update with 'git pull' in Termux\n• Check your internet connection\n• Verify the repository URL in config";
         }
         
         // Clean up temp directory if it exists
@@ -296,7 +330,7 @@ function copyFolderSync(source, target, protectedFiles = []) {
     }
 }
 
-// Add a helper function to check for updates without applying
+// Checkupdate command with rate limit info
 cmd({
     pattern: "checkupdate",
     alias: ["checkup", "versioncheck"],
@@ -308,10 +342,32 @@ cmd({
     if (!isOwner) return reply("This command is only for the bot owner.");
 
     try {
-        const commitRes = await axios.get("https://api.github.com/repos/itsguruu/GURUH/commits/main", {
-            timeout: 10000,
-            headers: { 'User-Agent': 'GURU-MD-Bot/1.0' }
-        });
+        // Check rate limit first
+        let rateInfo = "";
+        try {
+            const rateLimit = await githubApi.get("https://api.github.com/rate_limit");
+            const remaining = rateLimit.data.resources.core.remaining;
+            const limit = rateLimit.data.resources.core.limit;
+            const resetTime = new Date(rateLimit.data.resources.core.reset * 1000);
+            
+            rateInfo = `📊 *API Status:* ${remaining}/${limit} remaining\n⏰ *Resets:* ${resetTime.toLocaleString()}\n`;
+            
+            if (GITHUB_TOKEN) {
+                rateInfo += `🔑 *Using Token:* Yes (5000/hr limit)\n`;
+            } else {
+                rateInfo += `🔑 *Using Token:* No (60/hr limit)\n`;
+            }
+            rateInfo += `\n`;
+            
+            if (remaining < 10) {
+                return reply(`⚠️ GitHub API rate limit is low.\n${rateInfo}Please try again later or add a GITHUB_TOKEN to config.env.`);
+            }
+        } catch (rateErr) {
+            console.log("Rate limit check failed:", rateErr.message);
+        }
+
+        const commitUrl = `https://api.github.com/repos/${REPO}/commits/${BRANCH}`;
+        const commitRes = await githubApi.get(commitUrl);
 
         const latestCommitHash = commitRes.data.sha;
         const commitMessage = commitRes.data.commit?.message || "No commit message";
@@ -320,6 +376,9 @@ cmd({
         let status = latestCommitHash === currentHash ? "✅ Up to date" : "🔄 Update available";
         
         let info = `📊 *Update Status*\n\n`;
+        info += rateInfo;
+        info += `*Repository:* ${REPO}\n`;
+        info += `*Branch:* ${BRANCH}\n`;
         info += `*Status:* ${status}\n`;
         info += `*Current:* ${currentHash ? currentHash.substring(0, 7) : 'None'}\n`;
         info += `*Latest:* ${latestCommitHash.substring(0, 7)}\n`;
@@ -331,6 +390,11 @@ cmd({
 
         await reply(info);
     } catch (error) {
+        if (error.response?.status === 403) {
+            return reply(`❌ GitHub API rate limit exceeded.\n\nTry again in an hour or add a GitHub token to config.env for higher limits.\n\nGet a token at: https://github.com/settings/tokens`);
+        } else if (error.response?.status === 404) {
+            return reply(`❌ Repository not found: ${REPO}\n\nCheck your GITHUB_REPO setting in config.env`);
+        }
         return reply(`❌ Failed to check updates: ${error.message}`);
     }
 });
