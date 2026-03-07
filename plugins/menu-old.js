@@ -1,14 +1,15 @@
 /* ============================================
-   GURU MD - SLICK VERTICAL MENU
-   Style: Clean Line Design with Real Version
+   GURU MD - STYLISH VERTICAL MENU
+   Style: Premium Star-Studded Design
+   Features: All commands listed vertically
    Version: 30.0.0 | 2026 Edition
    ============================================ */
 
 const config = require('../config');
-const { cmd } = require('../command');
+const { cmd, commands } = require('../command');
 const fs = require('fs');
 const path = require('path');
-const { version } = require('../package.json'); // Get real version from package.json
+const { version } = require('../package.json');
 
 function runtime(seconds) {
     seconds = Number(seconds);
@@ -21,28 +22,48 @@ function runtime(seconds) {
 
 cmd({
     pattern: "menu",
-    react: "📋",
-    desc: "Show all bot commands",
+    react: "🌟",
+    desc: "Show premium vertical menu",
     category: "main",
     filename: __filename
 },
-async (conn, mek, m, { from, pushname, isOwner }) => {
+async (conn, mek, m, { from, pushname }) => {
     try {
         const p = config.PREFIX || ',';
         const uptime = runtime(process.uptime());
         const imageUrl = "https://files.catbox.moe/66h86e.jpg";
-        
-        // Get real version from package.json or use default
         const botVersion = version || "30.0.0";
         
-        // Get all plugins count
+        // Get plugin stats
         const pluginsDir = path.join(__dirname, '../plugins');
         const pluginFiles = fs.readdirSync(pluginsDir).filter(file => file.endsWith('.js'));
         
-        // Get all commands from the imported commands array
         const { commands } = require('../command');
         const allCommands = commands || [];
-        
+
+        // Comprehensive category mapping with emojis
+        const categoryData = {
+            'main': { emoji: '🏠', name: '𝐌𝐀𝐈𝐍', star: '⭐' },
+            'ai': { emoji: '🤖', name: '𝐀𝐈 & 𝐂𝐇𝐀𝐓', star: '✨' },
+            'downloader': { emoji: '📥', name: '𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑', star: '⚡' },
+            'group': { emoji: '👥', name: '𝐆𝐑𝐎𝐔𝐏', star: '👑' },
+            'games': { emoji: '🎮', name: '𝐆𝐀𝐌𝐄𝐒', star: '🎯' },
+            'fun': { emoji: '🎨', name: '𝐅𝐔𝐍', star: '🌈' },
+            'tools': { emoji: '🔧', name: '𝐓𝐎𝐎𝐋𝐒', star: '🛠️' },
+            'owner': { emoji: '👑', name: '𝐎𝐖𝐍𝐄𝐑', star: '💎' },
+            'admin': { emoji: '⚡', name: '𝐀𝐃𝐌𝐈𝐍', star: '🔰' },
+            'audio': { emoji: '🎵', name: '𝐀𝐔𝐃𝐈𝐎', star: '🎼' },
+            'anime': { emoji: '🌸', name: '𝐀𝐍𝐈𝐌𝐄', star: '✨' },
+            'info': { emoji: 'ℹ️', name: '𝐈𝐍𝐅𝐎', star: '📌' },
+            'search': { emoji: '🔍', name: '𝐒𝐄𝐀𝐑𝐂𝐇', star: '🎯' },
+            'sticker': { emoji: '🖼️', name: '𝐒𝐓𝐈𝐂𝐊𝐄𝐑', star: '🎨' },
+            'utility': { emoji: '🔧', name: '𝐔𝐓𝐈𝐋𝐈𝐓𝐘', star: '⚙️' },
+            'convert': { emoji: '🔄', name: '𝐂𝐎𝐍𝐕𝐄𝐑𝐓', star: '🔄' },
+            'media': { emoji: '🎬', name: '𝐌𝐄𝐃𝐈𝐀', star: '📹' },
+            'privacy': { emoji: '🔒', name: '𝐏𝐑𝐈𝐕𝐀𝐂𝐘', star: '🛡️' },
+            'misc': { emoji: '📌', name: '𝐌𝐈𝐒𝐂', star: '🔹' }
+        };
+
         // Group commands by category
         const categories = {};
         
@@ -52,55 +73,32 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
             if (!categories[category]) {
                 categories[category] = [];
             }
-            const commandName = cmd.pattern || 'unknown';
-            categories[category].push(commandName);
+            if (!categories[category].includes(cmd.pattern)) {
+                categories[category].push(cmd.pattern);
+            }
         });
-        
-        // Sort commands alphabetically in each category
+
+        // Sort commands in each category
         Object.keys(categories).forEach(key => {
-            categories[key].sort();
+            categories[key].sort((a, b) => a.localeCompare(b));
         });
-        
-        const totalVisibleCommands = allCommands.filter(cmd => !cmd.dontAddCommandList).length;
-        
-        // Clean header - removed box borders, cleaner design
-        let menuText = `
-╭── ❖ *ＧＵＲＵ ＭＤ* ❖ v${botVersion}
-│ 👋 𝐇𝐞𝐥𝐥𝐨, ${pushname || 'User'}
-│ 📊 𝐒𝐲𝐬𝐭𝐞𝐦 𝐒𝐭𝐚𝐭𝐬:
-│  │ 📁 𝐏𝐥𝐮𝐠𝐢𝐧𝐬: ${pluginFiles.length}
-│  │ 🔧 𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬: ${totalVisibleCommands}
-│  │ ⏱️ 𝐔𝐩𝐭𝐢𝐦𝐞: ${uptime}
-│  └ 🛡️ 𝐌𝐨𝐝𝐞: ${config.MODE || 'public'}
+
+        const totalCommands = allCommands.filter(cmd => !cmd.dontAddCommandList).length;
+
+        // PREMIUM STYLISH HEADER
+        let menuText = `🌟 *✨ ＧＵＲＵ ＭＤ ｖ${botVersion} ✨* 🌟
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌─「 👋 *𝐇𝐞𝐥𝐥𝐨, ${pushname || 'User'} 」
+│
+├─ 📊 *𝐒𝐲𝐬𝐭𝐞𝐦 𝐒𝐭𝐚𝐭𝐬*
+│  ├─ 📁 𝐏𝐥𝐮𝐠𝐢𝐧𝐬: ${pluginFiles.length}
+│  ├─ 🔧 𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬: ${totalCommands}
+│  ├─ ⏱️ 𝐔𝐩𝐭𝐢𝐦𝐞: ${uptime}
+│  └─ 🛡️ 𝐌𝐨𝐝𝐞: ${config.MODE || 'public'}
 │
 `;
 
-        // Category emojis mapping
-        const categoryEmojis = {
-            'main': '🏠',
-            'ai': '🤖',
-            'downloader': '📥',
-            'group': '👥',
-            'games': '🎮',
-            'fun': '🎉',
-            'tools': '🛠️',
-            'owner': '👑',
-            'admin': '⚡',
-            'audio': '🎵',
-            'anime': '🌸',
-            'info': 'ℹ️',
-            'search': '🔍',
-            'sticker': '🖼️',
-            'utility': '🔧',
-            'utilities': '🔧',
-            'convert': '🔄',
-            'media': '🎬',
-            'privacy': '🔒',
-            'wallpapers': '🖥️',
-            'misc': '📌'
-        };
-        
-        // Sort categories
+        // Add each category with ALL commands vertically
         const sortedCategories = Object.keys(categories).sort((a, b) => {
             if (a === 'owner') return 1;
             if (b === 'owner') return -1;
@@ -108,27 +106,33 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
             if (b === 'main') return 1;
             return a.localeCompare(b);
         });
-        
-        // Add each category with commands
+
         for (const category of sortedCategories) {
             const cmds = categories[category];
-            if (cmds.length > 0) {
-                const emoji = categoryEmojis[category.toLowerCase()] || '📌';
-                const categoryName = category.toUpperCase();
-                menuText += `╭── ${emoji} *${categoryName}* [${cmds.length}]\n`;
+            if (cmds && cmds.length > 0) {
+                const catInfo = categoryData[category] || { emoji: '📌', name: category.toUpperCase(), star: '✦' };
                 
+                menuText += `┌─「 ${catInfo.emoji} *${catInfo.name}* ${catInfo.star} (${cmds.length}) 」\n`;
+                
+                // List ALL commands vertically with arrows
                 cmds.forEach((cmdName, index) => {
                     const isLast = index === cmds.length - 1;
-                    const prefix = isLast ? '└──' : '├──';
-                    menuText += `│ ${prefix} ${p}${cmdName}\n`;
+                    const arrow = isLast ? '└─→' : '├─→';
+                    menuText += `│ ${arrow} ${p}${cmdName}\n`;
                 });
                 menuText += `│\n`;
             }
         }
 
-        // Simple channel line with the requested separator
-        menuText += `╰── 🧷 ──── ✦ ──── 🧷\n`;
-        menuText += `    *© 2026 GURU-TECH SYSTEMS*\n`;
+        // STYLISH FOOTER
+        menuText += `└─「 🧷 ✦ 🧷 」
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌟 *𝐓𝐨𝐭𝐚𝐥*: ${totalCommands} 𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬
+📁 *𝐏𝐥𝐮𝐠𝐢𝐧𝐬*: ${pluginFiles.length} 𝐋𝐨𝐚𝐝𝐞𝐝
+⚡ *𝐏𝐫𝐞𝐟𝐢𝐱*: ${p}
+💡 *𝐓𝐢𝐩*: ${p}help <command>
+
+✨ *© 2026 GURU-TECH SYSTEMS* ✨`;
 
         await conn.sendMessage(from, {
             image: { url: imageUrl },
@@ -139,14 +143,13 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
                     newsletterJid: '120363421164015033@newsletter',
-                    newsletterName: '𝐆𝐔𝐑𝐔 𝐌𝐃',
+                    newsletterName: '✨ GURU MD PREMIUM ✨',
                     serverMessageId: 143
                 },
                 externalAdReply: {
-                    title: `GURU MD v${botVersion}`,
-                    body: `${totalVisibleCommands} Commands • ${pluginFiles.length} Plugins`,
+                    title: `✨ GURU MD v${botVersion} ✨`,
+                    body: `🌟 ${totalCommands} Premium Commands`,
                     mediaType: 1,
-                    sourceUrl: `https://github.com/Gurulabstech/GURU-MD`,
                     thumbnailUrl: imageUrl,
                     renderLargerThumbnail: true
                 }
@@ -154,42 +157,125 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
         }, { quoted: mek });
 
     } catch (err) {
-        console.error('Menu Error:', err);
-        await conn.sendMessage(from, { 
-            text: "❌ Error loading menu. Please try again." 
-        }, { quoted: mek });
+        console.error(err);
     }
 });
 
-// Keep the check command for debugging
+// Category-specific menu with ALL commands
 cmd({
-    pattern: "check",
-    react: "🔍",
-    desc: "Check commands in system",
+    pattern: "list",
+    alias: ["all"],
+    desc: "List all commands in one place",
     category: "main",
+    react: "📋",
     filename: __filename
-},
-async (conn, mek, m, { from }) => {
+}, async (conn, mek, m, { from, p, reply }) => {
     try {
         const { commands } = require('../command');
-        const allCmds = commands || [];
+        const allCmds = commands.filter(cmd => !cmd.dontAddCommandList);
         
-        let response = `*📊 COMMANDS DEBUG*\n\n`;
-        response += `Total in array: ${allCmds.length}\n\n`;
+        let list = `📋 *𝐀𝐋𝐋 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒* 📋\n━━━━━━━━━━━━━━━━━━\n`;
         
-        if (allCmds.length > 0) {
-            response += `First 5 commands:\n`;
-            allCmds.slice(0, 5).forEach((cmd, i) => {
-                response += `${i+1}. Pattern: ${cmd.pattern} | Category: ${cmd.category}\n`;
-            });
-        } else {
-            response += `⚠️ No commands found in array!\n`;
-        }
+        allCmds.forEach((cmd, i) => {
+            const number = (i + 1).toString().padStart(2, '0');
+            list += `${number}. ${p}${cmd.pattern} ${cmd.emoji || ''}\n`;
+        });
         
-        await conn.sendMessage(from, { text: response }, { quoted: mek });
+        list += `━━━━━━━━━━━━━━━━━━\n🌟 *Total*: ${allCmds.length} Commands`;
+        
+        reply(list);
+        
     } catch (err) {
-        await conn.sendMessage(from, { text: `Error: ${err.message}` }, { quoted: mek });
+        reply("❌ Error: " + err.message);
     }
 });
 
-module.exports = { cmd };
+// Search commands
+cmd({
+    pattern: "find",
+    alias: ["searchcmd"],
+    desc: "Search for commands",
+    category: "main",
+    react: "🔍",
+    filename: __filename
+}, async (conn, mek, m, { from, q, p, reply }) => {
+    try {
+        if (!q) return reply("❌ What command are you looking for?");
+        
+        const { commands } = require('../command');
+        const results = commands.filter(cmd => 
+            !cmd.dontAddCommandList && 
+            (cmd.pattern.includes(q.toLowerCase()) || 
+             (cmd.desc && cmd.desc.toLowerCase().includes(q.toLowerCase())))
+        );
+        
+        if (results.length === 0) {
+            return reply(`❌ No commands found matching "${q}"`);
+        }
+        
+        let searchRes = `🔍 *𝐒𝐞𝐚𝐫𝐜𝐡 𝐑𝐞𝐬𝐮𝐥𝐭𝐬:* "${q}"\n━━━━━━━━━━━━━━━━━━\n`;
+        
+        results.slice(0, 20).forEach((cmd, i) => {
+            searchRes += `${i+1}. ${p}${cmd.pattern} ${cmd.emoji || ''}\n   📝 ${cmd.desc || 'No description'}\n`;
+        });
+        
+        if (results.length > 20) {
+            searchRes += `\n... and ${results.length - 20} more`;
+        }
+        
+        searchRes += `\n━━━━━━━━━━━━━━━━━━\n📊 Found: ${results.length} commands`;
+        
+        reply(searchRes);
+        
+    } catch (err) {
+        reply("❌ Error: " + err.message);
+    }
+});
+
+// Category viewer
+cmd({
+    pattern: "category",
+    alias: ["cat", "viewcat"],
+    desc: "View all commands in a category",
+    category: "main",
+    react: "📂",
+    filename: __filename
+}, async (conn, mek, m, { from, q, p, reply }) => {
+    try {
+        const { commands } = require('../command');
+        
+        // Get unique categories
+        const categories = [...new Set(commands.map(c => c.category).filter(Boolean))];
+        
+        if (!q) {
+            let catList = `📂 *𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐈𝐄𝐒*\n━━━━━━━━━━━━━━━━━━\n`;
+            categories.sort().forEach((cat, i) => {
+                const count = commands.filter(c => c.category === cat).length;
+                catList += `${i+1}. ${cat.toUpperCase()} (${count} commands)\n`;
+            });
+            catList += `━━━━━━━━━━━━━━━━━━\n💡 Use: .category [name]`;
+            return reply(catList);
+        }
+        
+        const catCommands = commands.filter(cmd => 
+            cmd.category === q.toLowerCase() && !cmd.dontAddCommandList
+        );
+        
+        if (catCommands.length === 0) {
+            return reply(`❌ Category "${q}" not found!`);
+        }
+        
+        let result = `📂 *${q.toUpperCase()}* [${catCommands.length}]\n━━━━━━━━━━━━━━━━━━\n`;
+        
+        catCommands.forEach((cmd, i) => {
+            result += `${i+1}. ${p}${cmd.pattern} ${cmd.emoji || ''}\n`;
+        });
+        
+        result += `━━━━━━━━━━━━━━━━━━\n📌 Total: ${catCommands.length} commands`;
+        
+        reply(result);
+        
+    } catch (err) {
+        reply("❌ Error: " + err.message);
+    }
+});
