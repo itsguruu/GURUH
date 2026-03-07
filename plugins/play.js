@@ -1,135 +1,257 @@
 /* ============================================
-   GURU MD - API TESTER
-   COMMAND: .testapi [youtube-url]
+   GURU MD - WORKING YOUTUBE PLAYER
+   COMMANDS: .play, .video, .yt
+   API: Agatz (The only working one!)
    ============================================ */
 
 const { cmd } = require('../command');
+const ytSearch = require('yt-search');
 const axios = require('axios');
 
+// Format numbers helper
+function formatNumber(num) {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+}
+
+// Get download links from Agatz API
+async function getAgatzLinks(url) {
+    try {
+        const apiUrl = `https://api.agatz.xyz/api/yt?url=${encodeURIComponent(url)}`;
+        const response = await axios.get(apiUrl, { 
+            timeout: 15000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        
+        if (response.data && response.data.data) {
+            const data = response.data.data;
+            return {
+                audio: data.audio || data.mp3,
+                video: data.video || data.mp4,
+                title: data.title,
+                duration: data.duration,
+                thumbnail: data.thumbnail
+            };
+        }
+        return null;
+    } catch (err) {
+        console.log("Agatz API error:", err.message);
+        return null;
+    }
+}
+
+// MAIN PLAY COMMAND (AUDIO)
 cmd({
-    pattern: "testapi",
-    desc: "Test individual YouTube download APIs",
-    category: "tools",
-    react: "🔍",
+    pattern: "play",
+    alias: ["song", "music", "ytmp3"],
+    desc: "Download YouTube audio",
+    category: "download",
+    react: "🎵",
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
     try {
-        if (!q) return reply("❌ Please provide a YouTube URL!\nExample: .testapi https://youtube.com/watch?v=xxx");
+        if (!q) return reply("❌ Please provide a song name!\n\n*Example:* .play Alan Walker Faded");
+
+        await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
+
+        // Search for video
+        const statusMsg = await reply(`🔍 *Searching:* ${q}`);
         
-        // Extract video ID or use full URL
-        let videoUrl = q;
-        if (!q.includes('youtube.com') && !q.includes('youtu.be')) {
-            videoUrl = `https://youtube.com/watch?v=${q}`;
+        const search = await ytSearch(q);
+        if (!search.videos.length) {
+            await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+            return reply("❌ No results found!");
         }
         
-        const apis = [
-            {
-                name: 'David Cyril MP3',
-                url: `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(videoUrl)}`,
-                type: 'audio'
-            },
-            {
-                name: 'David Cyril MP4',
-                url: `https://api.davidcyriltech.my.id/download/ytmp4?url=${encodeURIComponent(videoUrl)}`,
-                type: 'video'
-            },
-            {
-                name: 'Siputzx MP3',
-                url: `https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(videoUrl)}`,
-                type: 'audio'
-            },
-            {
-                name: 'Siputzx MP4',
-                url: `https://api.siputzx.my.id/api/d/ytmp4?url=${encodeURIComponent(videoUrl)}`,
-                type: 'video'
-            },
-            {
-                name: 'Ryzendesu MP3',
-                url: `https://api.ryzendesu.vip/api/downloader/yt?url=${encodeURIComponent(videoUrl)}&type=mp3`,
-                type: 'audio'
-            },
-            {
-                name: 'Ryzendesu MP4',
-                url: `https://api.ryzendesu.vip/api/downloader/yt?url=${encodeURIComponent(videoUrl)}&type=mp4`,
-                type: 'video'
-            },
-            {
-                name: 'Agatz',
-                url: `https://api.agatz.xyz/api/yt?url=${encodeURIComponent(videoUrl)}`,
-                type: 'both'
-            },
-            {
-                name: 'Pipedream Audio',
-                url: `https://pipedream.guruapi.tech/api/ytdl?url=${encodeURIComponent(videoUrl)}&type=audio`,
-                type: 'audio'
-            },
-            {
-                name: 'Pipedream Video',
-                url: `https://pipedream.guruapi.tech/api/ytdl?url=${encodeURIComponent(videoUrl)}&type=video`,
-                type: 'video'
-            },
-            {
-                name: 'Vihangayt MP3',
-                url: `https://vihangayt.me/download/ytmp3?url=${encodeURIComponent(videoUrl)}`,
-                type: 'audio'
-            },
-            {
-                name: 'Vihangayt MP4',
-                url: `https://vihangayt.me/download/ytmp4?url=${encodeURIComponent(videoUrl)}`,
-                type: 'video'
-            }
-        ];
+        const video = search.videos[0];
+        
+        await conn.sendMessage(from, {
+            text: `📥 *Found:* ${video.title}\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n\n🔄 Getting audio link...`,
+            edit: statusMsg.key
+        });
 
-        let result = `🔍 *API TEST RESULTS*\n\n`;
-        result += `URL: ${videoUrl}\n\n`;
+        // Get download links from Agatz
+        const links = await getAgatzLinks(video.url);
+        
+        if (!links || !links.audio) {
+            await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+            return reply(`❌ Could not get audio!\n\n🔗 Watch here: ${video.url}`);
+        }
 
-        for (const api of apis) {
-            try {
-                console.log(`Testing ${api.name}...`);
-                const start = Date.now();
-                const response = await axios.get(api.url, { 
-                    timeout: 8000,
-                    headers: { 'User-Agent': 'Mozilla/5.0' }
-                });
-                const time = Date.now() - start;
-                
-                if (response.data) {
-                    let downloadUrl = null;
-                    
-                    // Try to find download URL based on response structure
-                    if (response.data.downloadUrl) downloadUrl = response.data.downloadUrl;
-                    else if (response.data.download_url) downloadUrl = response.data.download_url;
-                    else if (response.data.url) downloadUrl = response.data.url;
-                    else if (response.data.link) downloadUrl = response.data.link;
-                    else if (response.data.data?.download) downloadUrl = response.data.data.download;
-                    else if (response.data.data?.download_link) downloadUrl = response.data.data.download_link;
-                    else if (response.data.audio) downloadUrl = response.data.audio;
-                    else if (response.data.video) downloadUrl = response.data.video;
-                    
-                    result += `✅ ${api.name}: ${time}ms\n`;
-                    if (downloadUrl) {
-                        result += `   📥 ${downloadUrl.substring(0, 50)}...\n`;
-                    }
-                } else {
-                    result += `❌ ${api.name}: No data\n`;
+        // Send audio
+        await conn.sendMessage(from, {
+            audio: { url: links.audio },
+            mimetype: 'audio/mpeg',
+            fileName: `${video.title.replace(/[^\w\s]/gi, '')}.mp3`,
+            ptt: false,
+            contextInfo: {
+                externalAdReply: {
+                    title: video.title.substring(0, 30),
+                    body: `${video.author.name} • ${video.timestamp}`,
+                    thumbnailUrl: video.thumbnail,
+                    sourceUrl: video.url,
+                    mediaType: 2
                 }
-            } catch (err) {
-                result += `❌ ${api.name}: ${err.message}\n`;
             }
-        }
+        }, { quoted: mek });
 
-        result += `\n> Test completed. Working APIs will show ✅`;
+        // Send thumbnail as view once
+        await conn.sendMessage(from, {
+            image: { url: video.thumbnail },
+            caption: `🎵 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n👀 ${formatNumber(video.views)} views`,
+            viewOnce: true
+        }, { quoted: mek });
+
+        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+
+    } catch (error) {
+        console.error(error);
+        await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+        reply("❌ Error: " + error.message);
+    }
+});
+
+// VIDEO COMMAND
+cmd({
+    pattern: "video",
+    alias: ["ytvideo", "ytmp4"],
+    desc: "Download YouTube video",
+    category: "download",
+    react: "🎬",
+    filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+    try {
+        if (!q) return reply("❌ Please provide a video name!\n\n*Example:* .video Alan Walker Faded");
+
+        await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
+
+        const statusMsg = await reply(`🔍 *Searching:* ${q}`);
         
-        // Split long message if needed
-        if (result.length > 4000) {
-            const parts = result.match(/[\s\S]{1,4000}/g) || [];
-            for (const part of parts) {
-                await reply(part);
-            }
-        } else {
-            await reply(result);
+        const search = await ytSearch(q);
+        if (!search.videos.length) {
+            await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+            return reply("❌ No results found!");
+        }
+        
+        const video = search.videos[0];
+        
+        await conn.sendMessage(from, {
+            text: `📥 *Found:* ${video.title}\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n\n🔄 Getting video link...`,
+            edit: statusMsg.key
+        });
+
+        // Get download links from Agatz
+        const links = await getAgatzLinks(video.url);
+        
+        if (!links || !links.video) {
+            await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+            return reply(`❌ Could not get video!\n\n🔗 Watch here: ${video.url}`);
         }
 
+        // Send video
+        await conn.sendMessage(from, {
+            video: { url: links.video },
+            mimetype: 'video/mp4',
+            caption: `🎬 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n👀 ${formatNumber(video.views)} views`,
+            contextInfo: {
+                externalAdReply: {
+                    title: video.title.substring(0, 30),
+                    body: video.author.name,
+                    thumbnailUrl: video.thumbnail,
+                    sourceUrl: video.url,
+                    mediaType: 1
+                }
+            }
+        }, { quoted: mek });
+
+        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+
+    } catch (error) {
+        console.error(error);
+        await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+        reply("❌ Error: " + error.message);
+    }
+});
+
+// QUICK AUDIO COMMAND
+cmd({
+    pattern: "yt",
+    alias: ["ytaudio"],
+    desc: "Quick YouTube audio",
+    category: "download",
+    react: "🎧",
+    filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+    try {
+        if (!q) return reply("❌ Provide a song name!");
+        
+        await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
+        
+        const search = await ytSearch(q);
+        if (!search.videos.length) {
+            await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+            return reply("❌ No results!");
+        }
+        
+        const video = search.videos[0];
+        
+        // Get audio link
+        const links = await getAgatzLinks(video.url);
+        
+        if (!links || !links.audio) {
+            await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+            return reply(`❌ Failed!\n🔗 ${video.url}`);
+        }
+
+        // Send audio
+        await conn.sendMessage(from, {
+            audio: { url: links.audio },
+            mimetype: 'audio/mpeg',
+            fileName: `${video.title}.mp3`,
+            ptt: false,
+            caption: `🎵 *${video.title}*\n👤 ${video.author.name}`
+        }, { quoted: mek });
+
+        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+
+    } catch (error) {
+        console.error(error);
+        await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+        reply("❌ Error: " + error.message);
+    }
+});
+
+// TEST AGATZ API COMMAND
+cmd({
+    pattern: "testagatz",
+    desc: "Test Agatz API with any URL",
+    category: "tools",
+    react: "🔧",
+    filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+    try {
+        if (!q) return reply("❌ Provide a YouTube URL!\nExample: .testagatz https://youtube.com/watch?v=xxx");
+        
+        const links = await getAgatzLinks(q);
+        
+        if (!links) {
+            return reply("❌ Agatz API failed!");
+        }
+        
+        let result = `✅ *AGATZ API WORKING!*\n\n`;
+        result += `📌 *Title:* ${links.title}\n`;
+        result += `⏱️ *Duration:* ${links.duration}\n`;
+        result += `🎵 *Audio:* ${links.audio ? '✅ Available' : '❌ No'}\n`;
+        result += `🎬 *Video:* ${links.video ? '✅ Available' : '❌ No'}\n`;
+        result += `🖼️ *Thumbnail:* ${links.thumbnail ? '✅' : '❌'}\n\n`;
+        
+        if (links.audio) result += `🔊 Audio URL: ${links.audio}\n`;
+        if (links.video) result += `📹 Video URL: ${links.video}\n`;
+        
+        await reply(result);
+        
     } catch (error) {
         reply("❌ Error: " + error.message);
     }
