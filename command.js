@@ -1,198 +1,164 @@
-/* ============================================
-   GURU MD - PREFIX CHANGER PLUGIN
-   COMMAND: .setprefix, .prefix
-   ============================================ */
+// Make cmd globally available so old plugins can use it
+global.cmd = function(info, func) {
+    var data = info;
+    data.function = func;
+    if (!data.dontAddCommandList) data.dontAddCommandList = false;
+    if (!info.desc) info.desc = '';
+    if (!data.fromMe) data.fromMe = false;
+    if (!info.category) data.category = 'misc';
+    if (!info.filename) data.filename = "Not Provided";
+    commands.push(data);
+    return data;
+};
 
-const { cmd } = require('../command');
+var commands = [];
 
-cmd({
-    pattern: "setprefix",
-    alias: ["changeprefix", "newprefix"],
-    desc: "Change bot prefix for this chat",
-    category: "admin",
-    react: "🔧",
-    filename: __filename
-}, async (conn, mek, m, { from, q, isGroup, isOwner, sender, reply }) => {
+// ──────────────── PREFIX MANAGER ────────────────
+const fs = require('fs');
+const path = require('path');
+
+// Store custom prefixes per chat
+let customPrefixes = {};
+
+// Load saved prefixes
+const prefixFile = path.join(__dirname, 'prefixes.json');
+if (fs.existsSync(prefixFile)) {
     try {
-        const chatId = from;
-        
-        // Check permissions
-        if (isGroup) {
-            const groupMetadata = await conn.groupMetadata(from);
-            const isAdmin = groupMetadata.participants.some(p => p.id === sender && (p.admin === 'admin' || p.admin === 'superadmin'));
-            if (!isAdmin && !isOwner) {
-                return reply("❌ Only group admins can change prefix!");
-            }
-        } else {
-            if (!isOwner) {
-                return reply("❌ Only bot owner can change prefix in private chat!");
-            }
-        }
-
-        if (!q) {
-            const currentPrefix = global.getPrefix(chatId);
-            const defaultPrefix = global.config?.PREFIX || ',';
-            
-            const menu = `
-╔══════════════════════════════════════╗
-║     🔧 *𝐏𝐑𝐄𝐅𝐈𝐗 𝐂𝐇𝐀𝐍𝐆𝐄𝐑*           ║
-╠══════════════════════════════════════╣
-║ 📍 *Current Settings*                ║
-║ ├─ Chat: ${isGroup ? 'Group' : 'Private'}
-║ ├─ Current Prefix: ${currentPrefix}
-║ └─ Default Prefix: ${defaultPrefix}
-╠══════════════════════════════════════╣
-║ *Commands:*                          ║
-║                                      ║
-║ 🔹 .setprefix [new]  - Change prefix ║
-║ 🔹 .setprefix reset  - Reset to default ║
-║ 🔹 .prefix          - View prefix    ║
-╠══════════════════════════════════════╣
-║ 📌 *Example:* .setprefix !           ║
-╚══════════════════════════════════════╝
-            `;
-            return reply(menu);
-        }
-
-        // Handle reset
-        if (q.toLowerCase() === 'reset') {
-            global.setPrefix(chatId, 'reset');
-            return reply(`✅ *Prefix reset to default!*\n\nDefault prefix: ${global.config?.PREFIX || ','}`);
-        }
-
-        // Validate new prefix
-        if (q.length > 3) {
-            return reply("❌ Prefix must be 1-3 characters long!");
-        }
-
-        if (q.match(/[<>{}[\]\/\\]/)) {
-            return reply("❌ Prefix cannot contain special characters: < > { } [ ] / \\");
-        }
-
-        // Save new prefix
-        global.setPrefix(chatId, q);
-
-        const successMsg = `
-╔══════════════════════════════════════╗
-║     ✅ *𝐏𝐑𝐄𝐅𝐈𝐗 𝐔𝐏𝐃𝐀𝐓𝐄𝐃*           ║
-╠══════════════════════════════════════╣
-║ 📍 *Chat:* ${isGroup ? 'Group' : 'Private'}
-║ ✨ *New Prefix:* ${q}
-║ 🔧 *Old Prefix:* ${global.getPrefix(chatId)}
-╠══════════════════════════════════════╣
-║ 📌 *Now use:* ${q}menu              ║
-║ 📌 *Reset:* ${q}setprefix reset      ║
-╚══════════════════════════════════════╝
-        `;
-
-        reply(successMsg);
-
-    } catch (err) {
-        console.error(err);
-        reply("❌ Error: " + err.message);
+        customPrefixes = JSON.parse(fs.readFileSync(prefixFile));
+        console.log(`[PREFIX] Loaded ${Object.keys(customPrefixes).length} custom prefixes`);
+    } catch (e) {
+        console.log('[PREFIX] Error loading prefixes:', e.message);
     }
-});
+}
 
-// View current prefix
-cmd({
-    pattern: "prefix",
-    alias: ["getprefix"],
-    desc: "View current prefix for this chat",
-    category: "main",
-    react: "🔍",
-    filename: __filename
-}, async (conn, mek, m, { from, isGroup, reply }) => {
-    try {
-        const currentPrefix = global.getPrefix(from);
-        const defaultPrefix = global.config?.PREFIX || ',';
-        
-        const prefixInfo = `
-╔══════════════════════════════════════╗
-║     🔍 *𝐏𝐑𝐄𝐅𝐈𝐗 𝐈𝐍𝐅𝐎𝐑𝐌𝐀𝐓𝐈𝐎𝐍*        ║
-╠══════════════════════════════════════╣
-║ 📍 *Chat:* ${isGroup ? 'Group' : 'Private'}
-║ ✨ *Current Prefix:* ${currentPrefix}
-║ 🔧 *Default Prefix:* ${defaultPrefix}
-╠══════════════════════════════════════╣
-║ 📌 *Example:* ${currentPrefix}menu   ║
-║ 📌 *Change:* ${currentPrefix}setprefix  ║
-╚══════════════════════════════════════╝
-        `;
-        
-        reply(prefixInfo);
-        
-    } catch (err) {
-        reply("❌ Error: " + err.message);
+// Save prefixes periodically
+setInterval(() => {
+    fs.writeFileSync(prefixFile, JSON.stringify(customPrefixes, null, 2));
+}, 60000);
+
+// Function to get prefix for a chat
+global.getPrefix = function(chatId) {
+    return customPrefixes[chatId] || global.config?.PREFIX || ',';
+};
+
+// Function to set prefix for a chat
+global.setPrefix = function(chatId, newPrefix) {
+    if (newPrefix === 'reset') {
+        delete customPrefixes[chatId];
+    } else {
+        customPrefixes[chatId] = newPrefix;
     }
-});
+    fs.writeFileSync(prefixFile, JSON.stringify(customPrefixes, null, 2));
+    return true;
+};
 
-// Owner command to list all prefixes
-cmd({
-    pattern: "listprefixes",
-    alias: ["allprefixes"],
-    desc: "List all chats with custom prefixes",
-    category: "owner",
-    react: "📋",
-    filename: __filename
-}, async (conn, mek, m, { from, isOwner, reply }) => {
+// Function to get all custom prefixes
+global.getAllPrefixes = function() {
+    return { ...customPrefixes };
+};
+
+// ──────────────── MESSAGE HANDLER WITH PREFIX SUPPORT ────────────────
+global.handleMessage = async (conn, mek, m, config) => {
     try {
-        if (!isOwner) return reply("❌ Owner only!");
+        const from = m.key.remoteJid;
+        const body = m.message?.conversation || 
+                     m.message?.extendedTextMessage?.text || 
+                     m.message?.imageMessage?.caption || 
+                     m.message?.videoMessage?.caption || '';
         
-        const prefixes = global.getAllPrefixes();
-        const entries = Object.entries(prefixes);
+        if (!body) return;
         
-        if (entries.length === 0) {
-            return reply("📋 No custom prefixes set!");
-        }
+        // Get prefix for this chat
+        const prefix = global.getPrefix(from);
         
-        let list = `
-╔══════════════════════════════════════╗
-║     📋 *𝐂𝐔𝐒𝐓𝐎𝐌 𝐏𝐑𝐄𝐅𝐈𝐗𝐄𝐒*          ║
-╠══════════════════════════════════════╣
-`;
+        // Check if message starts with prefix
+        if (!body.startsWith(prefix)) return;
         
-        entries.slice(0, 15).forEach(([chatId, prefix], i) => {
-            const type = chatId.includes('@g.us') ? '👥 Group' : '👤 Private';
-            list += `║ ${i+1}. ${type}\n║    Prefix: ${prefix}\n║\n`;
+        // Extract command and args
+        const args = body.slice(prefix.length).trim().split(/ +/);
+        const commandName = args.shift().toLowerCase();
+        
+        // Find command
+        const command = commands.find(cmd => {
+            if (cmd.pattern === commandName) return true;
+            if (cmd.alias && cmd.alias.includes(commandName)) return true;
+            return false;
         });
         
-        if (entries.length > 15) {
-            list += `║ ... and ${entries.length - 15} more\n`;
-        }
+        if (!command) return;
         
-        list += `╚══════════════════════════════════════╝`;
+        console.log(`[COMMAND] Executing: ${commandName} in ${from} with prefix: ${prefix}`);
         
-        reply(list);
-        
-    } catch (err) {
-        reply("❌ Error: " + err.message);
-    }
-});
-
-// Owner command to reset all prefixes
-cmd({
-    pattern: "resetallprefix",
-    alias: ["resetprefixes"],
-    desc: "Reset all custom prefixes",
-    category: "owner",
-    react: "⚠️",
-    filename: __filename
-}, async (conn, mek, m, { from, isOwner, reply }) => {
-    try {
-        if (!isOwner) return reply("❌ Owner only!");
-        
-        // Reset by setting empty object
-        const prefixFile = path.join(__dirname, '../prefixes.json');
-        fs.writeFileSync(prefixFile, JSON.stringify({}, null, 2));
-        
-        // Clear in-memory cache
-        Object.keys(global.getAllPrefixes()).forEach(key => {
-            global.setPrefix(key, 'reset');
+        // Execute command
+        await command.function(conn, mek, m, {
+            from,
+            args,
+            q: args.join(' '),
+            isGroup: from.endsWith('@g.us'),
+            sender: m.key.participant || m.key.remoteJid,
+            reply: (text) => conn.sendMessage(from, { text }, { quoted: mek }),
+            isOwner: global.config?.OWNER_NUMBER?.includes(m.key.participant?.split('@')[0]) || false
         });
         
-        reply(`✅ *All custom prefixes reset!*\n\nDefault prefix: ${global.config?.PREFIX || ','}`);
-        
     } catch (err) {
-        reply("❌ Error: " + err.message);
+        console.error('[HANDLER] Error:', err);
     }
-});
+};
+
+// ──────────────── EXPORTS ────────────────
+module.exports = {
+    cmd: global.cmd,
+    AddCommand: global.cmd,
+    Function: global.cmd,
+    Module: global.cmd,
+    commands,
+    getPrefix: global.getPrefix,
+    setPrefix: global.setPrefix,
+    getAllPrefixes: global.getAllPrefixes,
+    handleMessage: global.handleMessage
+};
+
+// ──────────────── AUTO-LOAD PLUGINS ────────────────
+function loadPlugins() {
+    const pluginsDir = path.join(__dirname, 'plugins');
+
+    if (!fs.existsSync(pluginsDir)) {
+        console.log('[COMMAND] Plugins folder not found!');
+        return;
+    }
+
+    fs.readdirSync(pluginsDir).forEach(file => {
+        if (path.extname(file).toLowerCase() === '.js') {
+            try {
+                const pluginPath = path.join(pluginsDir, file);
+                require(pluginPath);  // This executes the plugin file → calls cmd() if old style
+
+                // After require(), check if it exported a new-style plugin
+                const plugin = require(pluginPath);
+                if (plugin.pattern && typeof plugin.function === 'function') {
+                    // Convert to internal format
+                    global.cmd({
+                        pattern: plugin.pattern,
+                        alias: plugin.alias || [],
+                        desc: plugin.desc || '',
+                        category: plugin.category || 'misc',
+                        react: plugin.react || '',
+                        filename: file,
+                        fromMe: plugin.fromMe || false,
+                        dontAddCommandList: plugin.dontAddCommandList || false
+                    }, plugin.function);
+
+                    console.log(`[COMMAND] Loaded new-style: ${file} → ${plugin.pattern}`);
+                }
+
+            } catch (err) {
+                console.error(`[COMMAND] Failed to load ${file}: ${err.message}`);
+            }
+        }
+    });
+
+    console.log(`[COMMAND] Total commands loaded: ${commands.length}`);
+}
+
+// Run loader
+loadPlugins();
