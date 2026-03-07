@@ -1,6 +1,6 @@
 /* ============================================
-   GURU MD - ULTIMATE YOUTUBE DOWNLOADER
-   COMMANDS: .play, .video, .yt, .dl
+   GURU MD - ULTIMATE YOUTUBE DOWNLOADER (FIXED)
+   COMMANDS: .play, .video, .yt
    METHODS: 5 different download strategies
    ============================================ */
 
@@ -24,7 +24,6 @@ async function methodAgatz(url) {
         const response = await axios.get(apiUrl, { timeout: 8000 });
         
         if (response.data) {
-            // Try different response structures
             const data = response.data.data || response.data;
             if (Array.isArray(data)) {
                 for (const item of data) {
@@ -44,14 +43,13 @@ async function methodAgatz(url) {
     }
 }
 
-// METHOD 2: Direct ytdl-core (works for most videos)
+// METHOD 2: Direct ytdl-core
 async function methodYtdl(url, isVideo = false) {
     try {
         const info = await ytdl.getInfo(url);
         let format;
         
         if (isVideo) {
-            // Try to get 360p video with audio
             format = ytdl.chooseFormat(info.formats, { 
                 quality: '18',
                 filter: 'audioandvideo' 
@@ -76,33 +74,29 @@ async function methodYtdl(url, isVideo = false) {
     }
 }
 
-// METHOD 3: SaveFrom.net helper
-async function methodSaveFrom(url) {
+// METHOD 3: oembed API (alternative)
+async function methodOembed(url) {
     try {
-        const videoId = url.split('v=')[1]?.split('&')[0] || url.split('/').pop();
-        const apiUrl = `https://en.savefrom.net/api/convert.php?url=https://youtube.com/watch?v=${videoId}`;
-        
-        const response = await axios.get(apiUrl, { timeout: 8000 });
-        
-        if (response.data && response.data.url) {
-            return { url: response.data.url, method: 'SaveFrom' };
-        }
-        return null;
+        const apiUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+        const response = await axios.get(apiUrl, { timeout: 5000 });
+        return { url: url, method: 'oembed', title: response.data.title };
     } catch {
         return null;
     }
 }
 
-// METHOD 4: YouTube to MP3 direct
-async function methodYtmp3(url) {
+// METHOD 4: Direct download attempt
+async function methodDirect(url, isVideo = false) {
     try {
         const videoId = url.split('v=')[1]?.split('&')[0] || url.split('/').pop();
-        const apiUrl = `https://ytmp3.ch/api/v1?videoId=${videoId}`;
+        const apiUrl = isVideo 
+            ? `https://ytmp4.cc/api/v1?videoId=${videoId}`
+            : `https://ytmp3.ch/api/v1?videoId=${videoId}`;
         
         const response = await axios.get(apiUrl, { timeout: 8000 });
         
         if (response.data && response.data.link) {
-            return { url: response.data.link, method: 'YTMP3' };
+            return { url: response.data.link, method: isVideo ? 'YTMP4' : 'YTMP3' };
         }
         return null;
     } catch {
@@ -110,37 +104,26 @@ async function methodYtmp3(url) {
     }
 }
 
-// METHOD 5: YouTube to MP4 direct
-async function methodYtmp4(url) {
-    try {
-        const videoId = url.split('v=')[1]?.split('&')[0] || url.split('/').pop();
-        const apiUrl = `https://ytmp4.cc/api/v1?videoId=${videoId}`;
-        
-        const response = await axios.get(apiUrl, { timeout: 8000 });
-        
-        if (response.data && response.data.link) {
-            return { url: response.data.link, method: 'YTMP4' };
-        }
-        return null;
-    } catch {
-        return null;
-    }
-}
-
-// Main download function - tries all methods
+// Main download function
 async function downloadVideo(url, isVideo = false) {
+    // Try all methods
     const methods = [
-        () => methodAgatz(url),
-        () => methodYtdl(url, isVideo),
-        () => methodSaveFrom(url),
-        () => isVideo ? methodYtmp4(url) : methodYtmp3(url)
+        () => methodYtdl(url, isVideo),      // ytdl-core first (most reliable)
+        () => methodAgatz(url),               // Agatz API second
+        () => methodDirect(url, isVideo),     // Direct converters
+        () => methodOembed(url)                // oembed fallback
     ];
     
     for (const method of methods) {
-        const result = await method();
-        if (result && result.url) {
-            console.log(`✅ Success with: ${result.method}`);
-            return result;
+        try {
+            const result = await method();
+            if (result && result.url && typeof result.url === 'string') {
+                console.log(`✅ Success with: ${result.method}`);
+                return result;
+            }
+        } catch (err) {
+            console.log(`Method failed: ${err.message}`);
+            continue;
         }
     }
     
@@ -157,7 +140,7 @@ cmd({
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
     try {
-        if (!q) return reply("❌ Please provide a song name!");
+        if (!q) return reply("❌ Please provide a song name!\n\n*Example:* .play Alan Walker Faded");
 
         await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
 
@@ -172,7 +155,7 @@ cmd({
         const video = search.videos[0];
         
         await conn.sendMessage(from, {
-            text: `📥 *Found:* ${video.title}\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n\n🔄 Trying multiple download methods...`,
+            text: `📥 *Found:* ${video.title}\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n\n🔄 Getting audio link...`,
             edit: statusMsg.key
         });
 
@@ -181,18 +164,15 @@ cmd({
         if (!result || !result.url) {
             await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
             return reply(
-                `❌ All download methods failed!\n\n` +
+                `❌ Could not download!\n\n` +
                 `🎵 *${video.title}*\n` +
                 `👤 ${video.author.name}\n` +
                 `⏱️ ${video.timestamp}\n\n` +
-                `🔗 *Watch on YouTube:*\n${video.url}\n\n` +
-                `💡 *Tips:*\n` +
-                `• Try with different keywords\n` +
-                `• Use .yt for quick attempt\n` +
-                `• Download manually from YouTube`
+                `🔗 *Watch on YouTube:*\n${video.url}`
             );
         }
 
+        // Send the audio
         await conn.sendMessage(from, {
             audio: { url: result.url },
             mimetype: 'audio/mpeg',
@@ -209,6 +189,7 @@ cmd({
             }
         }, { quoted: mek });
 
+        // Send thumbnail
         await conn.sendMessage(from, {
             image: { url: video.thumbnail },
             caption: `🎵 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n👀 ${formatNumber(video.views)} views\n⚡ Method: ${result.method}`,
@@ -234,7 +215,7 @@ cmd({
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
     try {
-        if (!q) return reply("❌ Please provide a video name!");
+        if (!q) return reply("❌ Please provide a video name!\n\n*Example:* .video Alan Walker Faded");
 
         await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
 
@@ -249,7 +230,7 @@ cmd({
         const video = search.videos[0];
         
         await conn.sendMessage(from, {
-            text: `📥 *Found:* ${video.title}\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n\n🔄 Trying multiple download methods...`,
+            text: `📥 *Found:* ${video.title}\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n\n🔄 Getting video link...`,
             edit: statusMsg.key
         });
 
@@ -258,7 +239,7 @@ cmd({
         if (!result || !result.url) {
             await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
             return reply(
-                `❌ All download methods failed!\n\n` +
+                `❌ Could not download!\n\n` +
                 `🎬 *${video.title}*\n` +
                 `👤 ${video.author.name}\n` +
                 `⏱️ ${video.timestamp}\n\n` +
@@ -290,7 +271,7 @@ cmd({
     }
 });
 
-// QUICK COMMAND
+// QUICK AUDIO COMMAND
 cmd({
     pattern: "yt",
     alias: ["ytaudio"],
@@ -332,6 +313,54 @@ cmd({
     } catch (error) {
         console.error(error);
         await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
+        reply("❌ Error: " + error.message);
+    }
+});
+
+// TEST COMMAND
+cmd({
+    pattern: "testdl",
+    desc: "Test which download method works",
+    category: "tools",
+    react: "🔧",
+    filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+    try {
+        if (!q) return reply("❌ Provide a YouTube URL!");
+        
+        const statusMsg = await reply(`🔍 Testing download methods...`);
+        
+        const results = [];
+        
+        // Test ytdl method
+        try {
+            const ytdlResult = await methodYtdl(q, false);
+            results.push(`🎵 ytdl-core: ${ytdlResult ? '✅ Working' : '❌ Failed'}`);
+        } catch { results.push(`🎵 ytdl-core: ❌ Error`); }
+        
+        // Test Agatz method
+        try {
+            const agatzResult = await methodAgatz(q);
+            results.push(`🌐 Agatz API: ${agatzResult ? '✅ Working' : '❌ Failed'}`);
+        } catch { results.push(`🌐 Agatz API: ❌ Error`); }
+        
+        // Test direct method
+        try {
+            const directResult = await methodDirect(q, false);
+            results.push(`⚡ Direct: ${directResult ? '✅ Working' : '❌ Failed'}`);
+        } catch { results.push(`⚡ Direct: ❌ Error`); }
+        
+        const resultText = `📊 *DOWNLOAD TEST RESULTS*\n\n` +
+            `🔗 URL: ${q}\n\n` +
+            results.join('\n') + `\n\n` +
+            `> Try .play or .video now!`;
+        
+        await conn.sendMessage(from, { 
+            text: resultText,
+            edit: statusMsg.key 
+        });
+        
+    } catch (error) {
         reply("❌ Error: " + error.message);
     }
 });
