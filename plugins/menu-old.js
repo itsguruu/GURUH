@@ -1,13 +1,16 @@
 /* ============================================
-   GURU MD - DYNAMIC VERTICAL MENU
+   GURU MD - DYNAMIC VERTICAL MENU (FIXED)
    Style: All Commands Line-by-Line with Categories
    Version: 30.0.0 | 2026 Edition
    ============================================ */
 
 const config = require('../config');
-const { cmd, commands } = require('../command');
+const { cmd } = require('../command');
 const fs = require('fs');
 const path = require('path');
+
+// IMPORTANT: Import commands from command.js
+const { commands } = require('../command');
 
 function runtime(seconds) {
     seconds = Number(seconds);
@@ -27,7 +30,7 @@ cmd({
 },
 async (conn, mek, m, { from, pushname, isOwner }) => {
     try {
-        const p = config.PREFIX || '.';
+        const p = config.PREFIX || ',';
         const uptime = runtime(process.uptime());
         const imageUrl = "https://files.catbox.moe/66h86e.jpg";
         
@@ -35,8 +38,10 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
         const pluginsDir = path.join(__dirname, '../plugins');
         const pluginFiles = fs.readdirSync(pluginsDir).filter(file => file.endsWith('.js'));
         
-        // Get all commands from the global commands array
-        const allCommands = global.commands || [];
+        // Get all commands from the imported commands array
+        const allCommands = commands || [];
+        
+        console.log('Total commands found:', allCommands.length); // Debug log
         
         // Group commands by category
         const categories = {};
@@ -49,7 +54,9 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
             if (!categories[category]) {
                 categories[category] = [];
             }
-            categories[category].push(cmd.pattern);
+            // Use pattern or if pattern doesn't exist, try to get from the command
+            const commandName = cmd.pattern || (cmd.pattern ? cmd.pattern.toString() : 'unknown');
+            categories[category].push(commandName);
         });
         
         // Sort commands alphabetically in each category
@@ -65,12 +72,12 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃      𝗚𝗨𝗥𝗨-𝗠𝗗 𝗩𝟯𝟬.𝟬.𝟬       ┃
 ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-┃ 👋 *Hello,* ${pushname}
+┃ 👋 *Hello,* ${pushname || 'User'}
 ┃ 📊 *System Stats:*
 ┃ ├─ 📁 Plugins: ${pluginFiles.length}
 ┃ ├─ 🔧 Commands: ${totalVisibleCommands}
 ┃ ├─ ⏱️ Uptime: ${uptime}
-┃ └─ 🛡️ Mode: ${config.MODE}
+┃ └─ 🛡️ Mode: ${config.MODE || 'public'}
 ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
 `;
 
@@ -87,28 +94,37 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
             'misc': '📌'
         };
         
-        // Sort categories (owner last, main first)
-        const sortedCategories = Object.keys(categories).sort((a, b) => {
-            if (a === 'owner') return 1;
-            if (b === 'owner') return -1;
-            if (a === 'main') return -1;
-            if (b === 'main') return 1;
-            return a.localeCompare(b);
-        });
-        
-        for (const category of sortedCategories) {
-            const cmds = categories[category];
-            if (cmds.length > 0) {
-                const emoji = categoryEmojis[category.toLowerCase()] || '📌';
-                const categoryName = category.toUpperCase();
-                menuText += `┃ ${emoji} *${categoryName}* (${cmds.length})\n`;
-                
-                // Add each command on its own line with vertical tree
-                cmds.forEach((cmdName, index) => {
-                    const isLast = index === cmds.length - 1;
-                    menuText += `┃ ${isLast ? '└─' : '├─'} ${p}${cmdName}\n`;
-                });
-                menuText += `┃\n`;
+        // Check if we have any categories with commands
+        if (Object.keys(categories).length === 0) {
+            menuText += `┃ ⚠️ *No commands found in categories*\n`;
+            menuText += `┃ └─ Check if plugins are loading correctly\n`;
+            menuText += `┃\n`;
+        } else {
+            // Sort categories (owner last, main first)
+            const sortedCategories = Object.keys(categories).sort((a, b) => {
+                if (a === 'owner') return 1;
+                if (b === 'owner') return -1;
+                if (a === 'main') return -1;
+                if (b === 'main') return 1;
+                return a.localeCompare(b);
+            });
+            
+            for (const category of sortedCategories) {
+                const cmds = categories[category];
+                if (cmds.length > 0) {
+                    const emoji = categoryEmojis[category.toLowerCase()] || '📌';
+                    const categoryName = category.toUpperCase();
+                    menuText += `┃ ${emoji} *${categoryName}* (${cmds.length})\n`;
+                    
+                    // Add each command on its own line with vertical tree
+                    cmds.forEach((cmdName, index) => {
+                        const isLast = index === cmds.length - 1;
+                        // Clean up command name (remove any special characters if needed)
+                        const cleanCmd = cmdName.toString().replace(/\s+/g, ' ');
+                        menuText += `┃ ${isLast ? '└─' : '├─'} ${p}${cleanCmd}\n`;
+                    });
+                    menuText += `┃\n`;
+                }
             }
         }
 
@@ -123,6 +139,8 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
 ┃ *© 2026 GURU-TECH SYSTEMS*
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 `;
+
+        console.log('Menu text length:', menuText.length); // Debug log
 
         // Send the menu with image
         await conn.sendMessage(from, {
@@ -151,47 +169,40 @@ async (conn, mek, m, { from, pushname, isOwner }) => {
     } catch (err) {
         console.error('Menu Error:', err);
         await conn.sendMessage(from, { 
-            text: "❌ Error loading menu. Please try again." 
+            text: "❌ Error loading menu: " + err.message 
         }, { quoted: mek });
     }
 });
 
-// Add a command to list all plugins
+// Add a debug command to check commands
 cmd({
-    pattern: "plugins",
-    react: "📁",
-    desc: "List all installed plugins",
+    pattern: "check",
+    react: "🔍",
+    desc: "Check commands in system",
     category: "main",
     filename: __filename
 },
 async (conn, mek, m, { from }) => {
     try {
-        const pluginsDir = path.join(__dirname, '../plugins');
-        const pluginFiles = fs.readdirSync(pluginsDir).filter(file => file.endsWith('.js'));
+        const { commands } = require('../command');
+        const allCmds = commands || [];
         
-        let pluginList = `┏━━━━━━━━━━━━━━━━━━━━━━┓
-┃   𝗜𝗡𝗦𝗧𝗔𝗟𝗟𝗘𝗗 𝗣𝗟𝗨𝗚𝗜𝗡𝗦   ┃
-┣━━━━━━━━━━━━━━━━━━━━━━┫\n`;
+        let response = `*📊 COMMANDS DEBUG*\n\n`;
+        response += `Total in array: ${allCmds.length}\n\n`;
         
-        pluginFiles.forEach((file, index) => {
-            const isLast = index === pluginFiles.length - 1;
-            pluginList += `┃ ${isLast ? '└─' : '├─'} 📌 ${file}\n`;
-        });
+        if (allCmds.length > 0) {
+            response += `First 5 commands:\n`;
+            allCmds.slice(0, 5).forEach((cmd, i) => {
+                response += `${i+1}. Pattern: ${cmd.pattern} | Category: ${cmd.category}\n`;
+            });
+        } else {
+            response += `⚠️ No commands found in array!\n`;
+            response += `Check if plugins are loading properly.`;
+        }
         
-        pluginList += `┗━━━━━━━━━━━━━━━━━━━━━━┛\n`;
-        pluginList += `\n📊 *Total:* ${pluginFiles.length} plugins`;
-        
-        await conn.sendMessage(from, {
-            text: pluginList,
-            contextInfo: {
-                mentionedJid: [m.sender],
-                forwardingScore: 1,
-                isForwarded: true
-            }
-        }, { quoted: mek });
-        
+        await conn.sendMessage(from, { text: response }, { quoted: mek });
     } catch (err) {
-        console.error('Plugins List Error:', err);
+        await conn.sendMessage(from, { text: `Error: ${err.message}` }, { quoted: mek });
     }
 });
 
