@@ -1,7 +1,7 @@
 /* ============================================
-   GURU MD - WORKING YOUTUBE PLAYER V2
+   GURU MD - AGATZ YOUTUBE DOWNLOADER
    COMMANDS: .play, .video, .yt
-   API: Vihangayt API (Confirmed Working)
+   API: Agatz (Confirmed Working)
    ============================================ */
 
 const { cmd } = require('../command');
@@ -16,115 +16,72 @@ function formatNumber(num) {
     return num.toString();
 }
 
-// Get download links from Vihangayt API
-async function getVihangaytLinks(url, type = 'mp3') {
+// Get download links from Agatz API
+async function getAgatzLinks(url) {
     try {
-        const apiUrl = `https://vihangayt.me/download/yt${type}?url=${encodeURIComponent(url)}`;
+        console.log(`Fetching Agatz API for: ${url}`);
+        
+        const apiUrl = `https://api.agatz.xyz/api/yt?url=${encodeURIComponent(url)}`;
         
         const response = await axios.get(apiUrl, {
             timeout: 15000,
             headers: {
-                'User-Agent': 'Mozilla/5.0',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json'
             }
         });
 
-        if (response.data && response.data.data) {
-            return {
-                downloadUrl: response.data.data.download_link,
-                title: response.data.data.title,
-                duration: response.data.data.duration,
-                thumbnail: response.data.data.thumbnail
-            };
-        }
-        return null;
-    } catch (err) {
-        console.log("Vihangayt API error:", err.message);
-        return null;
-    }
-}
-
-// Alternative: SaveMP3 API
-async function getSaveMP3Links(url) {
-    try {
-        const apiUrl = `https://www.savemp3.cc/api/v1?url=${encodeURIComponent(url)}&format=mp3`;
+        console.log('Agatz Response Status:', response.status);
         
-        const response = await axios.get(apiUrl, {
-            timeout: 15000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': 'application/json'
+        if (response.data) {
+            // Log the structure to see what we get
+            console.log('Response keys:', Object.keys(response.data));
+            
+            // The response might be an array or object
+            const data = response.data.data || response.data;
+            
+            // Try to extract audio and video URLs
+            let audioUrl = null;
+            let videoUrl = null;
+            let title = null;
+            let thumbnail = null;
+            
+            if (Array.isArray(data)) {
+                // If it's an array, look for audio/video in each item
+                for (const item of data) {
+                    if (item.audio) audioUrl = item.audio;
+                    if (item.video) videoUrl = item.video;
+                    if (item.mp3) audioUrl = item.mp3;
+                    if (item.mp4) videoUrl = item.mp4;
+                    if (item.title) title = item.title;
+                    if (item.thumbnail) thumbnail = item.thumbnail;
+                }
+            } else {
+                // If it's an object
+                audioUrl = data.audio || data.mp3;
+                videoUrl = data.video || data.mp4;
+                title = data.title;
+                thumbnail = data.thumbnail;
             }
-        });
-
-        if (response.data && response.data.link) {
+            
             return {
-                downloadUrl: response.data.link,
-                title: response.data.title || 'Audio',
-                duration: response.data.duration || 'Unknown',
-                thumbnail: response.data.thumbnail || ''
+                audio: audioUrl,
+                video: videoUrl,
+                title: title,
+                thumbnail: thumbnail
             };
         }
         return null;
     } catch (err) {
-        console.log("SaveMP3 API error:", err.message);
+        console.error('Agatz API error:', err.message);
         return null;
     }
-}
-
-// Alternative: Y2Mate API
-async function getY2MateLinks(url, type = 'mp3') {
-    try {
-        const apiUrl = `https://y2mate.guru/api/convert?url=${encodeURIComponent(url)}&format=${type}`;
-        
-        const response = await axios.get(apiUrl, {
-            timeout: 15000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': 'application/json'
-            }
-        });
-
-        if (response.data && response.data.download_url) {
-            return {
-                downloadUrl: response.data.download_url,
-                title: response.data.title || 'Video',
-                duration: response.data.duration || 'Unknown',
-                thumbnail: response.data.thumbnail || ''
-            };
-        }
-        return null;
-    } catch (err) {
-        console.log("Y2Mate API error:", err.message);
-        return null;
-    }
-}
-
-// Try multiple APIs until one works
-async function getWorkingDownload(url, isVideo = false) {
-    const type = isVideo ? 'mp4' : 'mp3';
-    
-    // Try Vihangayt first
-    let result = await getVihangaytLinks(url, type);
-    if (result && result.downloadUrl) return result;
-    
-    // Try SaveMP3 for audio only
-    if (!isVideo) {
-        result = await getSaveMP3Links(url);
-        if (result && result.downloadUrl) return result;
-    }
-    
-    // Try Y2Mate as last resort
-    result = await getY2MateLinks(url, type);
-    if (result && result.downloadUrl) return result;
-    
-    return null;
 }
 
 // MAIN PLAY COMMAND
 cmd({
     pattern: "play",
-    alias: ["song", "music", "ytmp3"],
+    alias: ["song", "music"],
     desc: "Download YouTube audio",
     category: "download",
     react: "🎵",
@@ -150,15 +107,17 @@ cmd({
             edit: statusMsg.key
         });
 
-        const result = await getWorkingDownload(video.url, false);
+        const links = await getAgatzLinks(video.url);
         
-        if (!result || !result.downloadUrl) {
+        if (!links || !links.audio) {
             await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
-            return reply(`❌ Could not get audio!\n\n🔗 Watch here: ${video.url}\n🎵 Try: .yt ${q}`);
+            
+            // Try alternative: direct YouTube URL
+            return reply(`❌ Could not get audio!\n\n🔗 *Watch on YouTube:*\n${video.url}\n\n🎵 *Try:* .yt ${q}`);
         }
 
         await conn.sendMessage(from, {
-            audio: { url: result.downloadUrl },
+            audio: { url: links.audio },
             mimetype: 'audio/mpeg',
             fileName: `${video.title.replace(/[^\w\s]/gi, '')}.mp3`,
             ptt: false,
@@ -191,7 +150,7 @@ cmd({
 // VIDEO COMMAND
 cmd({
     pattern: "video",
-    alias: ["ytvideo", "ytmp4"],
+    alias: ["ytvideo"],
     desc: "Download YouTube video",
     category: "download",
     react: "🎬",
@@ -217,15 +176,15 @@ cmd({
             edit: statusMsg.key
         });
 
-        const result = await getWorkingDownload(video.url, true);
+        const links = await getAgatzLinks(video.url);
         
-        if (!result || !result.downloadUrl) {
+        if (!links || !links.video) {
             await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
             return reply(`❌ Could not get video!\n\n🔗 Watch here: ${video.url}`);
         }
 
         await conn.sendMessage(from, {
-            video: { url: result.downloadUrl },
+            video: { url: links.video },
             mimetype: 'video/mp4',
             caption: `🎬 *${video.title}*\n👤 ${video.author.name}\n⏱️ ${video.timestamp}\n👀 ${formatNumber(video.views)} views`,
             contextInfo: {
@@ -270,15 +229,15 @@ cmd({
         
         const video = search.videos[0];
         
-        const result = await getWorkingDownload(video.url, false);
+        const links = await getAgatzLinks(video.url);
         
-        if (!result || !result.downloadUrl) {
+        if (!links || !links.audio) {
             await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
             return reply(`❌ Failed!\n🔗 ${video.url}`);
         }
 
         await conn.sendMessage(from, {
-            audio: { url: result.downloadUrl },
+            audio: { url: links.audio },
             mimetype: 'audio/mpeg',
             fileName: `${video.title}.mp3`,
             ptt: false,
@@ -294,10 +253,10 @@ cmd({
     }
 });
 
-// TEST NEW APIs
+// DEBUG COMMAND
 cmd({
-    pattern: "testnewapi",
-    desc: "Test new download APIs",
+    pattern: "agatz",
+    desc: "Test Agatz API response",
     category: "tools",
     react: "🔧",
     filename: __filename
@@ -305,41 +264,22 @@ cmd({
     try {
         if (!q) return reply("❌ Provide a YouTube URL!");
         
-        await reply(`🔍 Testing APIs with URL: ${q}\n\n⏳ Please wait...`);
+        const links = await getAgatzLinks(q);
         
-        let result = `📦 *API TEST RESULTS*\n\n`;
+        let result = `📦 *AGATZ API RESPONSE*\n\n`;
         result += `🔗 URL: ${q}\n\n`;
         
-        // Test Vihangayt MP3
-        result += `🎵 *Vihangayt MP3:* `;
-        try {
-            const vh = await getVihangaytLinks(q, 'mp3');
-            result += vh?.downloadUrl ? '✅ Working\n' : '❌ Failed\n';
-            if (vh?.downloadUrl) result += `   📥 ${vh.downloadUrl.substring(0, 50)}...\n`;
-        } catch { result += '❌ Error\n'; }
-        
-        // Test Vihangayt MP4
-        result += `🎬 *Vihangayt MP4:* `;
-        try {
-            const vh = await getVihangaytLinks(q, 'mp4');
-            result += vh?.downloadUrl ? '✅ Working\n' : '❌ Failed\n';
-        } catch { result += '❌ Error\n'; }
-        
-        // Test SaveMP3
-        result += `🎵 *SaveMP3:* `;
-        try {
-            const sm = await getSaveMP3Links(q);
-            result += sm?.downloadUrl ? '✅ Working\n' : '❌ Failed\n';
-        } catch { result += '❌ Error\n'; }
-        
-        // Test Y2Mate MP3
-        result += `🎵 *Y2Mate MP3:* `;
-        try {
-            const ym = await getY2MateLinks(q, 'mp3');
-            result += ym?.downloadUrl ? '✅ Working\n' : '❌ Failed\n';
-        } catch { result += '❌ Error\n'; }
-        
-        result += `\n> Try .play or .video now!`;
+        if (links) {
+            result += `🎵 Audio: ${links.audio ? '✅ Available' : '❌ Not found'}\n`;
+            result += `🎬 Video: ${links.video ? '✅ Available' : '❌ Not found'}\n`;
+            result += `📌 Title: ${links.title || 'N/A'}\n`;
+            result += `🖼️ Thumbnail: ${links.thumbnail ? '✅' : '❌'}\n\n`;
+            
+            if (links.audio) result += `🔊 Audio URL: ${links.audio}\n`;
+            if (links.video) result += `📹 Video URL: ${links.video}\n`;
+        } else {
+            result += `❌ Failed to get any data from Agatz API\n`;
+        }
         
         await reply(result);
         
