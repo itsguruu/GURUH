@@ -1,370 +1,307 @@
 /* ============================================
-   GURU MD - UPDATE SYSTEM
+   GURU MD - UPDATE MANAGER
    COMMAND: .update
-   UPDATES: Bot from GitHub repository
+   FIXES: 401 Authentication Error
    STYLE: Clean & Organized
    ============================================ */
 
-const { cmd } = require("../command");
-const axios = require('axios');
+const { cmd } = require('../command');
+const { exec } = require('child_process');
 const fs = require('fs');
-const path = require("path");
-const AdmZip = require("adm-zip");
-const { setCommitHash, getCommitHash } = require('../data/updateDB');
-const config = require('../config');
+const path = require('path');
 
-// Load GitHub settings from config
-const GITHUB_TOKEN = config.GITHUB_TOKEN || '';
-const REPO = config.GITHUB_REPO || 'itsguruu/GURUH';
-const BRANCH = config.GITHUB_BRANCH || 'main';
+// Configuration
+const BOT_NAME = 'ɢᴜʀᴜ ᴍᴅ';
+const OWNER_NAME = 'ᴍʀꜱ ɢᴜʀᴜ';
+const REPO_URL = 'https://github.com/Gurulabstech/GURU-MD'; // Change this to your actual repo
 
-// Create axios instance with default headers for GitHub API
-const githubApi = axios.create({
-    timeout: 15000,
-    headers: {
-        'User-Agent': 'GURU-MD-Bot/1.0',
-        'Accept': 'application/vnd.github.v3+json',
-        ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` })
-    }
-});
-
-// Helper function to format numbers
-function formatNumber(num) {
-    if (!num) return '0';
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
+// Helper to run shell commands
+function runCommand(command) {
+    return new Promise((resolve, reject) => {
+        exec(command, { cwd: __dirname }, (error, stdout, stderr) => {
+            if (error) {
+                reject({ error, stderr });
+            } else {
+                resolve(stdout);
+            }
+        });
+    });
 }
 
-// Helper function to copy folder with protected files
-function copyFolderSync(source, target, protectedFiles = []) {
-    if (!fs.existsSync(target)) {
-        fs.mkdirSync(target, { recursive: true });
+// Check if git is installed
+async function checkGit() {
+    try {
+        await runCommand('git --version');
+        return true;
+    } catch {
+        return false;
     }
+}
 
-    const items = fs.readdirSync(source);
-    
-    for (const item of items) {
-        const srcPath = path.join(source, item);
-        const destPath = path.join(target, item);
+// Check current git remote URL
+async function getRemoteUrl() {
+    try {
+        const url = await runCommand('git config --get remote.origin.url');
+        return url.trim();
+    } catch {
+        return null;
+    }
+}
 
-        if (protectedFiles.includes(item) || protectedFiles.includes(item.toLowerCase())) {
-            console.log(`⏭️ Skipping protected: ${item}`);
-            continue;
-        }
-
-        if (item === 'node_modules') {
-            console.log("⏭️ Skipping node_modules");
-            continue;
-        }
-
-        try {
-            if (fs.lstatSync(srcPath).isDirectory()) {
-                copyFolderSync(srcPath, destPath, protectedFiles);
-            } else {
-                if (!fs.existsSync(destPath) || 
-                    fs.statSync(srcPath).mtime > fs.statSync(destPath).mtime) {
-                    fs.copyFileSync(srcPath, destPath);
-                    console.log(`✅ Updated: ${item}`);
-                }
-            }
-        } catch (err) {
-            console.error(`⚠️ Error copying ${item}:`, err.message);
-        }
+// Fix git remote URL (remove authentication)
+async function fixGitRemote() {
+    try {
+        // Remove any existing credentials and set correct URL
+        await runCommand('git remote set-url origin ' + REPO_URL);
+        return true;
+    } catch {
+        return false;
     }
 }
 
 // Main update command
 cmd({
     pattern: "update",
-    alias: ["upgrade", "sync"],
-    react: '🆙',
-    desc: "Update the bot to the latest version from your repo",
+    alias: ["gitpull", "upgrade"],
+    desc: "Update bot from GitHub",
     category: "owner",
+    react: "🔄",
     filename: __filename
-}, async (client, message, args, { reply, isOwner }) => {
-    if (!isOwner) return reply("❌ This command is only for the bot owner.");
-
+},
+async (conn, mek, m, { from, reply, isOwner }) => {
     try {
-        await reply("🔍 *Checking for updates...*");
+        // Check if user is owner
+        if (!isOwner) {
+            return reply("❌ *Owner only command*");
+        }
 
-        // Check rate limit
+        await conn.sendMessage(from, {
+            react: {
+                text: "🔄",
+                key: mek.key
+            }
+        });
+
+        // Initial status
+        await reply(`🔄 *Checking update status...*`);
+
+        // Check if git is installed
+        const gitInstalled = await checkGit();
+        if (!gitInstalled) {
+            const gitFix = `
+❌ *Git not found*
+
+*Install git first:*
+\`\`\`
+apt update && apt install git -y
+\`\`\`
+
+Then try update again.`;
+            return await reply(gitFix);
+        }
+
+        // Check current remote URL
+        const currentUrl = await getRemoteUrl();
+        
+        if (currentUrl && currentUrl.includes('https://') && !currentUrl.includes('github.com')) {
+            // Fix remote URL
+            await reply(`🔧 *Fixing repository URL...*`);
+            await fixGitRemote();
+        }
+
+        // Try to pull updates
         try {
-            const rateLimit = await githubApi.get("https://api.github.com/rate_limit");
-            const remaining = rateLimit.data.resources.core.remaining;
+            const pullResult = await runCommand('git pull');
             
-            if (remaining < 10) {
-                return reply(`⚠️ *Low API Limit*\n\nRemaining: ${remaining}/60\nPlease add GitHub token to increase limit to 5000/hr`);
+            if (pullResult.includes('Already up to date')) {
+                const upToDateMsg = `✅ *Bot is up to date*
+
+*Current version:* Latest
+*No updates available*`;
+                
+                await reply(upToDateMsg);
+                
+                // Show recent commits
+                const logResult = await runCommand('git log --oneline -5');
+                await conn.sendMessage(from, {
+                    text: `📋 *Recent commits:*\n\n${logResult}`
+                }, { quoted: mek });
+                
+            } else {
+                const updateSuccess = `✅ *Update successful!*
+
+*Changes pulled:* 
+${pullResult.substring(0, 500)}${pullResult.length > 500 ? '...' : ''}
+
+*Restart bot to apply changes*`;
+
+                await reply(updateSuccess);
             }
-        } catch (rateErr) {
-            console.log("Rate limit check failed:", rateErr.message);
-        }
 
-        // Fetch latest commit
-        const commitUrl = `https://api.github.com/repos/${REPO}/commits/${BRANCH}`;
-        const commitRes = await githubApi.get(commitUrl);
-
-        if (!commitRes.data?.sha) {
-            throw new Error("Invalid GitHub response");
-        }
-
-        const latestCommitHash = commitRes.data.sha;
-        const commitMessage = commitRes.data.commit?.message || "No commit message";
-        const commitAuthor = commitRes.data.commit?.author?.name || "Unknown";
-        const commitDate = commitRes.data.commit?.author?.date ? 
-            new Date(commitRes.data.commit.author.date).toLocaleString() : "Unknown";
-
-        const currentHash = await getCommitHash();
-
-        // Fetch versions
-        const packageUrl = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/package.json`;
-        const remotePkgRes = await axios.get(packageUrl, { timeout: 10000 });
-        const remoteVersion = JSON.parse(remotePkgRes.data).version || "unknown";
-
-        let localVersion = "unknown";
-        const localPkgPath = path.join(__dirname, '..', 'package.json');
-        if (fs.existsSync(localPkgPath)) {
-            try {
-                localVersion = JSON.parse(fs.readFileSync(localPkgPath, 'utf8')).version || "unknown";
-            } catch (e) {}
-        }
-
-        // If already up to date
-        if (latestCommitHash === currentHash) {
-            return reply(`✅ *Bot is Up to Date*\n\n*Repository:* ${REPO}\n*Branch:* ${BRANCH}\n*Version:* ${localVersion}\n*Commit:* ${currentHash.substring(0, 7)}\n\nNo updates available.`);
-        }
-
-        // Show update info and ask for confirmation
-        const updateInfo = `🔄 *Update Available*\n\n` +
-            `*Repository:* ${REPO}\n` +
-            `*Branch:* ${BRANCH}\n` +
-            `*Current Version:* ${localVersion}\n` +
-            `*Latest Version:* ${remoteVersion}\n` +
-            `*Current Commit:* ${currentHash ? currentHash.substring(0, 7) : 'None'}\n` +
-            `*Latest Commit:* ${latestCommitHash.substring(0, 7)}\n` +
-            `*Changes:* ${commitMessage}\n` +
-            `*Author:* ${commitAuthor}\n` +
-            `*Date:* ${commitDate}\n\n` +
-            `Reply with *YES* to update or *NO* to cancel. (30s timeout)`;
-
-        await reply(updateInfo);
-
-        // Wait for confirmation
-        const confirmation = await new Promise((resolve) => {
-            const listener = (responseMsg) => {
-                if (responseMsg.key?.participant === message.key?.participant && 
-                    responseMsg.message?.conversation) {
-                    const userResponse = responseMsg.message.conversation.trim().toUpperCase();
-                    if (userResponse === 'YES' || userResponse === 'NO') {
-                        client.ev.off('messages.upsert', listener);
-                        resolve(userResponse);
-                    }
-                }
-            };
+        } catch (pullError) {
+            // Handle specific git errors
+            const errorMsg = pullError.stderr || pullError.error?.message || 'Unknown error';
             
-            client.ev.on('messages.upsert', listener);
-            setTimeout(() => {
-                client.ev.off('messages.upsert', listener);
-                resolve('TIMEOUT');
-            }, 30000);
-        });
+            if (errorMsg.includes('401') || errorMsg.includes('Authentication')) {
+                // 401 Authentication error
+                const fix401 = `
+❌ *Update failed: Authentication Error (401)*
 
-        if (confirmation !== 'YES') {
-            return reply(confirmation === 'TIMEOUT' ? 
-                "⏰ *Update cancelled* (timeout)" : 
-                "❌ *Update cancelled*");
-        }
+*Solution 1: Use HTTPS URL*
+\`\`\`
+git remote set-url origin ${REPO_URL}
+git pull
+\`\`\`
 
-        await reply("🚀 *Starting update...*");
+*Solution 2: Manual update*
+\`\`\`
+cd ~/guru-md
+rm -rf .git
+git init
+git remote add origin ${REPO_URL}
+git fetch --all
+git reset --hard origin/main
+\`\`\`
 
-        // Create temp directory
-        const tempDir = path.join(__dirname, '..', 'temp');
-        if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true });
-        }
+*Solution 3: Download ZIP*
+1. Go to: ${REPO_URL}
+2. Click "Code" → "Download ZIP"
+3. Extract and replace files
 
-        // Download ZIP
-        const zipPath = path.join(tempDir, "latest.zip");
-        const writer = fs.createWriteStream(zipPath);
-        
-        const zipUrl = `https://github.com/${REPO}/archive/${BRANCH}.zip`;
-        const zipRes = await axios({
-            method: 'get',
-            url: zipUrl,
-            responseType: 'stream',
-            timeout: 60000
-        });
+*Then restart your bot*`;
+                
+                await reply(fix401);
+                
+            } else if (errorMsg.includes('merge') || errorMsg.includes('conflict')) {
+                // Merge conflicts
+                const mergeFix = `
+❌ *Merge conflicts detected*
 
-        const totalLength = zipRes.headers['content-length'];
-        let downloadedLength = 0;
-        let lastProgress = 0;
+*Force update (will overwrite local changes):*
+\`\`\`
+git fetch --all
+git reset --hard origin/main
+\`\`\`
 
-        zipRes.data.on('data', (chunk) => {
-            downloadedLength += chunk.length;
-            if (totalLength) {
-                const progress = Math.round((downloadedLength / totalLength) * 100);
-                if (progress - lastProgress >= 10) {
-                    lastProgress = progress;
-                    reply(`📥 Downloading: ${progress}%`).catch(() => {});
-                }
-            }
-        });
+*Or backup your changes first:*
+\`\`\`
+git stash
+git pull
+git stash pop
+\`\`\``;
+                
+                await reply(mergeFix);
+                
+            } else {
+                // Other errors
+                const otherError = `
+❌ *Update failed*
 
-        zipRes.data.pipe(writer);
-        await new Promise((resolve, reject) => {
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-        });
+Error: ${errorMsg}
 
-        // Extract
-        await reply("📦 Extracting files...");
-        const extractPath = path.join(tempDir, 'extracted');
-        const zip = new AdmZip(zipPath);
-        zip.extractAllTo(extractPath, true);
+*Manual update steps:*
+1. \`cd ~/guru-md\`
+2. \`git pull\` (if that fails, try below)
+3. \`git fetch --all\`
+4. \`git reset --hard origin/main\`
 
-        // Find source folder
-        const extractedItems = fs.readdirSync(extractPath);
-        const repoName = REPO.split('/')[1];
-        const sourceFolder = extractedItems.find(item => 
-            fs.statSync(path.join(extractPath, item)).isDirectory() && 
-            (item.includes(repoName) || item.includes('GURUH'))
-        );
-
-        if (!sourceFolder) {
-            throw new Error("Source folder not found");
-        }
-
-        const sourcePath = path.join(extractPath, sourceFolder);
-        
-        // Backup important files
-        const backupDir = path.join(tempDir, 'backup_' + Date.now());
-        fs.mkdirSync(backupDir, { recursive: true });
-        
-        const filesToBackup = ['config.js', 'config.env', '.env', 'app.json'];
-        for (const file of filesToBackup) {
-            const filePath = path.join(__dirname, '..', file);
-            if (fs.existsSync(filePath)) {
-                fs.copyFileSync(filePath, path.join(backupDir, file));
+*Alternative:*
+• Download from: ${REPO_URL}
+• Extract and replace files
+• Restart bot`;
+                
+                await reply(otherError);
             }
         }
 
-        // Copy files
-        await reply("🔄 Applying updates...");
-        const destinationPath = path.join(__dirname, '..');
-        const protectedFiles = ['config.js', 'config.env', '.env', 'app.json', 'session', 'auth_info', 'node_modules'];
-        copyFolderSync(sourcePath, destinationPath, protectedFiles);
-
-        // Restore backups
-        for (const file of filesToBackup) {
-            const backupFile = path.join(backupDir, file);
-            const destFile = path.join(destinationPath, file);
-            if (fs.existsSync(backupFile)) {
-                fs.copyFileSync(backupFile, destFile);
+        await conn.sendMessage(from, {
+            react: {
+                text: "✅",
+                key: mek.key
             }
-        }
+        });
 
-        // Save new hash
-        await setCommitHash(latestCommitHash);
+    } catch (err) {
+        console.error('[UPDATE] Error:', err);
+        
+        const fatalError = `
+❌ *Critical Error*
 
-        // Cleanup
-        fs.rmSync(tempDir, { recursive: true, force: true });
+${err.message}
 
-        await reply(`✅ *Update Complete!*\n\nVersion: ${remoteVersion}\nCommit: ${latestCommitHash.substring(0, 7)}\n\n♻️ Restarting in 3 seconds...`);
-        
-        setTimeout(() => process.exit(0), 3000);
+*Complete manual reinstall:*
+\`\`\`
+cd ~
+rm -rf guru-md
+git clone ${REPO_URL}
+cd guru-md
+npm install
+npm start
+\`\`\``;
 
-    } catch (error) {
-        console.error("Update error:", error);
+        await reply(fatalError);
         
-        let errMsg = error.message;
-        let solution = "\n\n*Solutions:*\n";
-        
-        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-            solution += "• Check internet connection\n• Try again later";
-        } else if (error.response?.status === 403) {
-            solution += "• GitHub API limit exceeded. Add token to config.env";
-        } else if (error.response?.status === 404) {
-            solution += `• Repository not found: ${REPO}`;
-        } else {
-            solution += "• Try manual update with 'git pull'\n• Check config settings";
-        }
-        
-        // Cleanup temp
-        const tempDir = path.join(__dirname, '..', 'temp');
-        if (fs.existsSync(tempDir)) {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-        }
-        
-        return reply(`❌ *Update Failed*\n\nError: ${errMsg}${solution}`);
+        await conn.sendMessage(from, {
+            react: {
+                text: "❌",
+                key: mek.key
+            }
+        });
     }
 });
 
-// Check update command
+// Force update command (for emergencies)
 cmd({
-    pattern: "checkupdate",
-    alias: ["checkup", "version"],
-    react: '🔍',
-    desc: "Check for available updates",
+    pattern: "forceupdate",
+    alias: ["hardupdate", "resetupdate"],
+    desc: "Force update (overwrites local changes)",
     category: "owner",
+    react: "⚠️",
     filename: __filename
-}, async (client, message, args, { reply, isOwner }) => {
-    if (!isOwner) return reply("❌ This command is only for the bot owner.");
+},
+async (conn, mek, m, { from, reply, isOwner }) => {
+    if (!isOwner) return reply("❌ *Owner only command*");
 
     try {
-        await reply("🔍 *Checking for updates...*");
+        await reply("⚠️ *Force updating... This will overwrite local changes*");
 
-        // Get rate limit info
-        let rateInfo = "";
-        try {
-            const rateLimit = await githubApi.get("https://api.github.com/rate_limit");
-            const remaining = rateLimit.data.resources.core.remaining;
-            const limit = rateLimit.data.resources.core.limit;
-            const resetTime = new Date(rateLimit.data.resources.core.reset * 1000);
-            
-            rateInfo = `*API:* ${remaining}/${limit} remaining\n`;
-            rateInfo += `*Token:* ${GITHUB_TOKEN ? '✅' : '❌'} (${GITHUB_TOKEN ? '5000/hr' : '60/hr'})\n`;
-            rateInfo += `*Resets:* ${resetTime.toLocaleTimeString()}\n\n`;
-        } catch (e) {}
+        const commands = [
+            'git fetch --all',
+            'git reset --hard origin/main',
+            'git clean -fd'
+        ];
 
-        // Get latest commit
-        const commitUrl = `https://api.github.com/repos/${REPO}/commits/${BRANCH}`;
-        const commitRes = await githubApi.get(commitUrl);
-
-        const latestCommitHash = commitRes.data.sha;
-        const commitMessage = commitRes.data.commit?.message || "No message";
-        const currentHash = await getCommitHash();
-
-        // Get versions
-        let remoteVersion = "unknown", localVersion = "unknown";
-        try {
-            const pkgRes = await axios.get(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/package.json`);
-            remoteVersion = JSON.parse(pkgRes.data).version || "unknown";
-            
-            const localPkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-            localVersion = localPkg.version || "unknown";
-        } catch (e) {}
-
-        const status = latestCommitHash === currentHash ? "✅ Up to date" : "🔄 Update available";
-        
-        const info = `📊 *Update Status*\n\n` +
-            `${rateInfo}` +
-            `*Repository:* ${REPO}\n` +
-            `*Branch:* ${BRANCH}\n` +
-            `*Status:* ${status}\n` +
-            `*Version:* ${localVersion} → ${remoteVersion}\n` +
-            `*Current:* ${currentHash ? currentHash.substring(0, 7) : 'None'}\n` +
-            `*Latest:* ${latestCommitHash.substring(0, 7)}\n` +
-            `*Changes:* ${commitMessage.substring(0, 50)}${commitMessage.length > 50 ? '...' : ''}\n\n` +
-            `Use *${args[0] || ''}update* to apply update.`;
-
-        await reply(info);
-
-    } catch (error) {
-        if (error.response?.status === 403) {
-            return reply(`❌ *API Limit Exceeded*\n\nAdd GitHub token to config.env for 5000 requests/hour`);
-        } else if (error.response?.status === 404) {
-            return reply(`❌ *Repository Not Found*\n\nCheck GITHUB_REPO in config.env`);
+        for (const cmd of commands) {
+            await runCommand(cmd);
         }
-        return reply(`❌ *Error*\n\n${error.message}`);
+
+        await reply("✅ *Force update complete!*\n\n*Restart bot now*");
+
+    } catch (err) {
+        reply(`❌ *Force update failed*\n\n${err.message}`);
+    }
+});
+
+// Fix git remote command
+cmd({
+    pattern: "fixgit",
+    alias: ["fixremote"],
+    desc: "Fix git remote URL",
+    category: "owner",
+    react: "🔧",
+    filename: __filename
+},
+async (conn, mek, m, { from, reply, isOwner }) => {
+    if (!isOwner) return reply("❌ *Owner only command*");
+
+    try {
+        const fixed = await fixGitRemote();
+        if (fixed) {
+            await reply(`✅ *Git remote fixed*\n\nNow try: .update`);
+        } else {
+            await reply(`❌ *Failed to fix remote*\n\nManual fix:\ngit remote set-url origin ${REPO_URL}`);
+        }
+    } catch (err) {
+        reply(`Error: ${err.message}`);
     }
 });
