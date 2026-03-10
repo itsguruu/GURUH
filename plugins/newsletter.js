@@ -1,125 +1,89 @@
 /* ============================================
-   GURU MD - NEWSLETTER CODE GENERATOR
+   GURU MD - NEWSLETTER JID GENERATOR
    COMMAND: .newsletter [channel link]
-   CONVERTS: Channel link → Newsletter code
+   CONVERTS: Channel link → newsletter@jid format
    STYLE: Retro-Wave / Synthwave Design
    ============================================ */
 
 const { cmd } = require('../command');
-const axios = require('axios');
 
 // Configuration
-const BOT_NAME = 'GURU MD';
-const BOT_FOOTER = '∞ ｓｙｎｔｈｗａｖｅ ｅｄｉｔｉｏｎ ∞';
-const OWNER_NAME = 'ＭＲＳ ＧＵＲＵ';
-const BOT_VERSION = '𝟯𝟬.𝟬.𝟬';
+const BOT_NAME = 'ɢᴜʀᴜ ᴍᴅ';
+const BOT_FOOTER = '∞ ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ᴊɪᴅ ɢᴇɴᴇʀᴀᴛᴏʀ ∞';
+const OWNER_NAME = 'ᴍʀꜱ ɢᴜʀᴜ';
 
-// Helper function to extract channel info from link
-function extractChannelInfo(link) {
-    // WhatsApp channel link formats:
-    // https://whatsapp.com/channel/123456789
-    // https://wa.me/channel/123456789
-    // https://chat.whatsapp.com/channel/123456789
+// Helper to extract ID from channel link
+function extractIdFromLink(link) {
+    // Match various channel link formats
+    const patterns = [
+        /whatsapp\.com\/channel\/(\d+)/i,
+        /wa\.me\/channel\/(\d+)/i,
+        /chat\.whatsapp\.com\/channel\/(\d+)/i,
+        /channel\/(\d+)/i,
+        /id=(\d+)/i
+    ];
     
-    let channelId = '';
-    
-    if (link.includes('channel/')) {
-        channelId = link.split('channel/')[1].split(/[?#&]/)[0].trim();
-    } else if (link.includes('wa.me/')) {
-        channelId = link.split('wa.me/')[1].split(/[?#&]/)[0].trim();
+    for (const pattern of patterns) {
+        const match = link.match(pattern);
+        if (match) return match[1];
     }
     
-    return {
-        fullLink: link,
-        channelId: channelId,
-        newsletterCode: channelId ? `L${channelId}` : null
-    };
+    // Try to extract any number that looks like a channel ID (15+ digits)
+    const numbers = link.match(/\d{15,}/g);
+    return numbers ? numbers[0] : null;
 }
 
-// Helper to validate WhatsApp channel link
-function isValidChannelLink(link) {
-    const patterns = [
-        /whatsapp\.com\/channel\/\d+/i,
-        /wa\.me\/channel\/\d+/i,
-        /chat\.whatsapp\.com\/channel\/\d+/i
-    ];
-    return patterns.some(pattern => pattern.test(link));
+// Validate if it's a channel link
+function isChannelLink(link) {
+    return link.includes('channel') || /whatsapp\.com|wa\.me|chat\.whatsapp/i.test(link);
 }
 
-// Retro-Wave Design (New Style)
-function getRetroWaveStyle(channelInfo) {
+// Retro-Wave Design
+function getRetroStyle(id, jid, originalLink) {
     return `
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 
-     📢 ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ᴄᴏᴅᴇ    
-     ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+     📢 ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ᴊɪᴅ    
+     ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
      🔗 [ɪɴᴘᴜᴛ ʟɪɴᴋ]
      ~~~~~~~~~~~~~~~~
-     ${channelInfo.fullLink.substring(0, 35)}
+     ${originalLink.substring(0, 40)}...
 
-     🆔 [ᴄʜᴀɴɴᴇʟ ɪᴅ]
+     🆔 [ᴇxᴛʀᴀᴄᴛᴇᴅ ɪᴅ]
      ~~~~~~~~~~~~~~~~
-     ${channelInfo.channelId}
+     ${id}
 
-     🔑 [ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ᴄᴏᴅᴇ]
+     🔑 [ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ᴊɪᴅ]
      ~~~~~~~~~~~~~~~~
-     ${channelInfo.newsletterCode}
+     \`${jid}\`
 
-     ⚡ [ʜᴏᴡ ᴛᴏ ᴜꜱᴇ]
+     📋 [ᴄᴏᴘʏ ᴛʜɪꜱ]
      ~~~~~~~~~~~~~~~~
-     ☍ ᴏᴘᴇɴ ᴡʜᴀᴛꜱᴀᴘᴘ
-     ☍ ɢᴏ ᴛᴏ ᴜᴘᴅᴀᴛᴇꜱ ᴛᴀʙ
-     ☍ ᴛᴀᴘ "ꜰɪɴᴅ ᴄʜᴀɴɴᴇʟꜱ"
-     ☍ ᴘᴀꜱᴛᴇ ᴛʜɪꜱ ᴄᴏᴅᴇ
-     ☍ ᴊᴏɪɴ ʏᴏᴜʀ ᴄʜᴀɴɴᴇʟ
+     ${jid}
 
-     ▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀
+     💡 [ᴜꜱᴇ ɪɴ ʙᴏᴛ ᴄᴏᴅᴇ]
+     ~~~~~~~~~~~~~~~~
+     forwardedNewsletterMessageInfo: {
+         newsletterJid: '${jid}',
+         newsletterName: 'ʏᴏᴜʀ_ɴᴀᴍᴇ',
+         serverMessageId: 143
+     }
 
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-`;
-}
-
-// Alternative Neon Style
-function getNeonStyle(channelInfo) {
-    return `
-╔═══✧❁✧═══╗
-  📢 ＮＥＷＳＬＥＴＴＥＲ  
-  ＣＯＤＥ ＧＥＮＥＲＡＴＯＲ
-╚═══✧❁✧═══╝
-
-┏━━━━━━━━━━━━━━━━━━━━┓
-┃  🔗 ＬＩＮＫ          ┃
-┃  ${channelInfo.fullLink.substring(0, 25)}...  
-┃━━━━━━━━━━━━━━━━━━━━┃
-┃  🆔 ＣＨＡＮＮＥＬ ＩＤ   ┃
-┃  ${channelInfo.channelId}                    
-┃━━━━━━━━━━━━━━━━━━━━┃
-┃  🔑 ＣＯＤＥ          ┃
-┃  ${channelInfo.newsletterCode}                
-┃━━━━━━━━━━━━━━━━━━━━┃
-┃  📱 ＨＯＷ ＴＯ ＵＳＥ   ┃
-┃  ✦ Ｏｐｅｎ ＷｈａｔｓＡｐｐ ┃
-┃  ✦ Ｕｐｄａｔｅｓ ｔａｂ    ┃
-┃  ✦ Ｆｉｎｄ ｃｈａｎｎｅｌｓ ┃
-┃  ✦ Ｓｅａｒｃｈ ｃｏｄｅ   ┃
-┃  ✦ Ｊｏｉｎ ｃｈａｎｎｅｌ ┃
-┗━━━━━━━━━━━━━━━━━━━━┛
-
-     ✦ ＧＵＲＵ ＭＤ ✦
 `;
 }
 
 // Main command
 cmd({
     pattern: "newsletter",
-    alias: ["ncode", "channelcode", "newslettercode"],
-    desc: "Convert WhatsApp channel link to newsletter code",
+    alias: ["nid", "jid", "channeltojid"],
+    desc: "Convert channel link to newsletter JID",
     category: "tools",
     react: "📢",
     filename: __filename
 },
-async (conn, mek, m, { from, q, reply, sender, pushname }) => {
+async (conn, mek, m, { from, q, reply, sender }) => {
     try {
         // Initial reaction
         await conn.sendMessage(from, {
@@ -135,31 +99,34 @@ async (conn, mek, m, { from, q, reply, sender, pushname }) => {
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 
         📢 ʜᴇʟᴘ ᴍᴇɴᴜ     
-        ▄▄▄▄▄▄▄▄▄▄▄▄
+        ▄▄▄▄▄▄▄▄▄▄▄▄▄
 
-     ᴜꜱᴀɢᴇ: .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ [ʟɪɴᴋ]
+     ᴜꜱᴀɢᴇ: .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ [ᴄʜᴀɴɴᴇʟ ʟɪɴᴋ]
 
      ᴇxᴀᴍᴘʟᴇꜱ:
-     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/123456789
-     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴡᴀ.ᴍᴇ/ᴄʜᴀɴɴᴇʟ/123456789
+     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/120363421164015033
+     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴡᴀ.ᴍᴇ/ᴄʜᴀɴɴᴇʟ/120363421164015033
+     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴄʜᴀᴛ.ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/120363421164015033
+
+     ɢᴇɴᴇʀᴀᴛᴇꜱ:
+     ☍ 120363421164015033@ɴᴇᴡꜱʟᴇᴛᴛᴇʀ
 
      ʜᴏᴡ ᴛᴏ ɢᴇᴛ ʟɪɴᴋ:
-     ☍ ᴏᴘᴇɴ ʏᴏᴜʀ ᴄʜᴀɴɴᴇʟ
+     ☍ ᴏᴘᴇɴ ᴄʜᴀɴɴᴇʟ
      ☍ ᴛᴀᴘ ᴄʜᴀɴɴᴇʟ ɴᴀᴍᴇ
      ☍ ꜱʜᴀʀᴇ → ᴄᴏᴘʏ ʟɪɴᴋ
 
      ᴏᴡɴᴇʀ: ${OWNER_NAME}
-     ᴠᴇʀꜱɪᴏɴ: ${BOT_VERSION}
 
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 `;
             return await reply(helpMsg);
         }
 
-        console.log('[NEWSLETTER] Processing link:', q);
+        const link = q.trim();
 
-        // Validate the link
-        if (!isValidChannelLink(q)) {
+        // Check if it's a valid channel link
+        if (!isChannelLink(link)) {
             const errorMsg = `
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 
@@ -174,19 +141,21 @@ async (conn, mek, m, { from, q, reply, sender, pushname }) => {
      ☍ ʜᴛᴛᴘꜱ://ᴡᴀ.ᴍᴇ/ᴄʜᴀɴɴᴇʟ/...
      ☍ ʜᴛᴛᴘꜱ://ᴄʜᴀᴛ.ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/...
 
-     ᴇxᴀᴍᴘʟᴇ:
-     ʜᴛᴛᴘꜱ://ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/123456789
+     ʜᴏᴡ ᴛᴏ ɢᴇᴛ:
+     ☍ ᴏᴘᴇɴ ʏᴏᴜʀ ᴄʜᴀɴɴᴇʟ
+     ☍ ᴛᴀᴘ ᴄʜᴀɴɴᴇʟ ɴᴀᴍᴇ
+     ☍ ꜱʜᴀʀᴇ → ᴄᴏᴘʏ ʟɪɴᴋ
 
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 `;
             return await reply(errorMsg);
         }
 
-        // Extract channel information
-        const channelInfo = extractChannelInfo(q);
+        // Extract ID from link
+        const channelId = extractIdFromLink(link);
         
-        if (!channelInfo.channelId) {
-            return await reply(`
+        if (!channelId) {
+            const errorMsg = `
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 
         ❌ ᴇxᴛʀᴀᴄᴛɪᴏɴ ꜰᴀɪʟᴇᴅ     
@@ -195,24 +164,27 @@ async (conn, mek, m, { from, q, reply, sender, pushname }) => {
      ᴄᴏᴜʟᴅ ɴᴏᴛ ᴇxᴛʀᴀᴄᴛ ᴄʜᴀɴɴᴇʟ ɪᴅ
      ꜰʀᴏᴍ ᴛʜᴇ ᴘʀᴏᴠɪᴅᴇᴅ ʟɪɴᴋ.
 
-     ᴘʟᴇᴀꜱᴇ ᴍᴀᴋᴇ ꜱᴜʀᴇ ʏᴏᴜ'ʀᴇ
-     ᴜꜱɪɴɢ ᴛʜᴇ ᴄᴏʀʀᴇᴄᴛ ꜰᴏʀᴍᴀᴛ.
+     ᴍᴀᴋᴇ ꜱᴜʀᴇ ʏᴏᴜ'ʀᴇ ᴜꜱɪɴɢ
+     ᴀ ᴅɪʀᴇᴄᴛ ᴄʜᴀɴɴᴇʟ ꜱʜᴀʀᴇ ʟɪɴᴋ.
 
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-`);
+`;
+            return await reply(errorMsg);
         }
 
-        // Choose which style to use (you can switch between them)
-        const responseMessage = getRetroWaveStyle(channelInfo);
-        // const responseMessage = getNeonStyle(channelInfo); // Alternative style
+        // Generate JID
+        const newsletterJid = `${channelId}@newsletter`;
 
-        // Send the result with the channel link as a button for easy copying
+        // Send the result with retro style
+        const responseMsg = getRetroStyle(channelId, newsletterJid, link);
+        
+        // Send with button for easy copying
         const buttonMessage = {
-            text: responseMessage,
+            text: responseMsg,
             footer: BOT_FOOTER,
             buttons: [
                 {
-                    buttonId: `.newsletter ${q}`,
+                    buttonId: `.newsletter ${link}`,
                     buttonText: { displayText: '🔄 ɢᴇɴᴇʀᴀᴛᴇ ᴀɢᴀɪɴ' },
                     type: 1
                 }
@@ -222,9 +194,9 @@ async (conn, mek, m, { from, q, reply, sender, pushname }) => {
 
         await conn.sendMessage(from, buttonMessage, { quoted: mek });
 
-        // Also send the code separately for easy copying
+        // Send the JID separately for easy copying
         await conn.sendMessage(from, {
-            text: `🔑 *NEWSLETTER CODE:*\n\`\`\`${channelInfo.newsletterCode}\`\`\`\n\n📌 *Copy and paste this in WhatsApp Updates → Find channels*`
+            text: `📢 *NEWSLETTER JID*\n\n\`\`\`${newsletterJid}\`\`\`\n\n📌 Copy this and use in your bot code:\n\nforwardedNewsletterMessageInfo: {\n    newsletterJid: '${newsletterJid}',\n    newsletterName: 'your_name',\n    serverMessageId: 143\n}`
         }, { quoted: mek });
 
         // Success reaction
@@ -236,18 +208,18 @@ async (conn, mek, m, { from, q, reply, sender, pushname }) => {
         });
 
     } catch (err) {
-        console.error('[NEWSLETTER] Error:', err);
+        console.error('[NEWSLETTER] Error:', err.message);
         
         const errorMsg = `
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 
         ❌ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ     
-        ▄▄▄▄▄▄▄▄▄▄▄▄▄
+        ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
 
      ${err.message.substring(0, 40)}
 
-     ᴘʟᴇᴀꜱᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ
-     ᴏʀ ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ.
+     ᴘʟᴇᴀꜱᴇ ᴛʀʏ ᴀɢᴀɪɴ
+     ᴏʀ ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ
 
 ░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 `;
