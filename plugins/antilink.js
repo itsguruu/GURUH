@@ -1,8 +1,7 @@
 /* ============================================
    GURU MD - ANTI-LINK SYSTEM
    COMMAND: .antilink [on/off]
-   FEATURES: Blocks group links, auto-remove
-   NOTE: Checks if USER is admin, bot doesn't need to be admin
+   FIXED: Admin detection for group creator and admins
    STYLE: Clean & Organized
    ============================================ */
 
@@ -49,6 +48,33 @@ function containsGroupLink(text) {
     return linkPatterns.some(pattern => pattern.test(text));
 }
 
+// Function to check if user is admin (more reliable)
+async function isUserAdmin(conn, groupId, userId) {
+    try {
+        const groupMetadata = await conn.groupMetadata(groupId);
+        const participants = groupMetadata.participants;
+        
+        // Clean user ID (remove any extra characters)
+        const cleanUserId = userId.split('@')[0] + '@s.whatsapp.net';
+        
+        // Find the participant
+        const participant = participants.find(p => 
+            p.id === cleanUserId || 
+            p.id === userId || 
+            p.id.split('@')[0] === userId.split('@')[0]
+        );
+        
+        if (!participant) return false;
+        
+        // Check if admin or superadmin
+        return participant.admin === 'admin' || participant.admin === 'superadmin';
+        
+    } catch (err) {
+        console.error('[ANTILINK] Error checking admin status:', err);
+        return false;
+    }
+}
+
 // Main command to toggle anti-link
 cmd({
     pattern: "antilink",
@@ -58,7 +84,7 @@ cmd({
     react: "🔗",
     filename: __filename
 },
-async (conn, mek, m, { from, q, reply, isGroup, isAdmins, sender, pushname }) => {
+async (conn, mek, m, { from, q, reply, isGroup, sender, pushname }) => {
     try {
         // Initial reaction
         await conn.sendMessage(from, {
@@ -73,21 +99,29 @@ async (conn, mek, m, { from, q, reply, isGroup, isAdmins, sender, pushname }) =>
             return reply("❌ This command can only be used in groups!");
         }
 
-        // Check if the USER is admin (this is the key part)
-        if (!isAdmins) {
-            return reply("❌ *You are not an admin!*\n\nOnly group admins can change anti-link settings.");
+        // Manually check if user is admin
+        const isAdmin = await isUserAdmin(conn, from, sender);
+        
+        if (!isAdmin) {
+            return reply("❌ *You are not an admin!*\n\nOnly group admins can change anti-link settings.\n\nIf you are an admin, please try again or promote the bot to admin temporarily.");
         }
 
         // Check query
         if (!q) {
-            const status = antiLinkSettings[from] ? 'ON' : 'OFF';
-            const statusMsg = `🔗 *Anti-Link Settings*
+            const status = antiLinkSettings[from]?.enabled ? 'ON' : 'OFF';
+            const setting = antiLinkSettings[from];
+            
+            let statusMsg = `🔗 *Anti-Link Settings*
 
 • *Group:* ${m.groupName || 'Unknown'}
-• *Status:* ${status === 'ON' ? '✅ Enabled' : '❌ Disabled'}
-• *Changed by:* ${pushname || sender.split('@')[0]}
+• *Status:* ${status === 'ON' ? '✅ Enabled' : '❌ Disabled'}`;
 
-*Usage:* 
+            if (setting?.enabled) {
+                statusMsg += `\n• *Enabled by:* ${setting.setName || 'Admin'}
+• *Enabled on:* ${new Date(setting.time).toLocaleString()}`;
+            }
+
+            statusMsg += `\n\n*Usage:* 
 • .antilink on  - Enable anti-link
 • .antilink off - Disable anti-link
 
@@ -101,16 +135,16 @@ async (conn, mek, m, { from, q, reply, isGroup, isAdmins, sender, pushname }) =>
             antiLinkSettings[from] = {
                 enabled: true,
                 setBy: sender,
-                setName: pushname || 'Unknown',
+                setName: pushname || 'Admin',
                 time: new Date().toISOString()
             };
             saveSettings();
             
-            const onMsg = `✅ *Anti-Link Enabled by Admin*
+            const onMsg = `✅ *Anti-Link Enabled*
 
-• *Admin:* ${pushname || sender.split('@')[0]}
+• *Enabled by:* ${pushname || 'Admin'}
 • *Status:* Links will be monitored
-• *Warning:* Non-admins will be warned
+• *Action:* Non-admins will be warned
 
 ⚠️ *Note:* For automatic deletion, please make the bot a group admin.`;
 
@@ -120,7 +154,7 @@ async (conn, mek, m, { from, q, reply, isGroup, isAdmins, sender, pushname }) =>
             delete antiLinkSettings[from];
             saveSettings();
             
-            await reply(`❌ *Anti-Link Disabled by Admin*\n\n• *Admin:* ${pushname || sender.split('@')[0]}\n• Members can now share links freely.`);
+            await reply(`❌ *Anti-Link Disabled*\n\n• *Disabled by:* ${pushname || 'Admin'}\n• Members can now share links freely.`);
         } else {
             return reply("❌ Invalid option! Use: .antilink on  or  .antilink off");
         }
@@ -144,7 +178,7 @@ cmd({
     dontAddCommandList: true,
     filename: __filename
 },
-async (conn, mek, m, { from, isGroup, isAdmins, sender, reply }) => {
+async (conn, mek, m, { from, isGroup, sender, reply }) => {
     try {
         // Only work in groups where anti-link is enabled
         if (!isGroup || !antiLinkSettings[from]?.enabled) return;
@@ -160,7 +194,9 @@ async (conn, mek, m, { from, isGroup, isAdmins, sender, reply }) => {
             console.log('[ANTILINK] Link detected in:', from);
 
             // Check if sender is admin
-            if (isAdmins) {
+            const isAdmin = await isUserAdmin(conn, from, sender);
+            
+            if (isAdmin) {
                 // Allow admins to share links
                 return;
             }
@@ -172,7 +208,7 @@ async (conn, mek, m, { from, isGroup, isAdmins, sender, reply }) => {
             // Warn the user
             const warnMsg = `⚠️ *Anti-Link System*
 
-@${m.key.participant?.split('@')[0] || sender.split('@')[0]}, WhatsApp group/channel links are not allowed in this group!
+@${sender.split('@')[0]}, WhatsApp group/channel links are not allowed in this group!
 
 • *Enabled by:* ${adminName}
 • *Action:* Please avoid sharing links
@@ -181,14 +217,15 @@ _If you're an admin, use .antilink off to disable_`;
 
             await conn.sendMessage(from, {
                 text: warnMsg,
-                mentions: [m.key.participant || sender]
+                mentions: [sender]
             }, { quoted: m });
 
             // Try to delete if bot is admin (optional)
             try {
                 const groupMetadata = await conn.groupMetadata(from);
                 const botNumber = conn.user.id.split(':')[0] + '@s.whatsapp.net';
-                const isBotAdmin = groupMetadata.participants.find(p => p.id === botNumber)?.admin === 'admin';
+                const isBotAdmin = groupMetadata.participants.find(p => p.id === botNumber)?.admin === 'admin' || 
+                                  groupMetadata.participants.find(p => p.id === botNumber)?.admin === 'superadmin';
                 
                 if (isBotAdmin) {
                     await conn.sendMessage(from, {
@@ -214,17 +251,18 @@ cmd({
     react: "📊",
     filename: __filename
 },
-async (conn, mek, m, { from, reply, isGroup, isAdmins }) => {
+async (conn, mek, m, { from, reply, isGroup, sender }) => {
     if (!isGroup) return reply("❌ This command can only be used in groups!");
     
     const setting = antiLinkSettings[from];
     const status = setting?.enabled ? '✅ Enabled' : '❌ Disabled';
+    const isAdmin = await isUserAdmin(conn, from, sender);
     
     let msg = `📊 *Anti-Link Status*
 
 • *Group:* ${m.groupName || 'Unknown'}
 • *Status:* ${status}
-• *Your Role:* ${isAdmins ? '👑 Admin' : '👤 Member'}`;
+• *Your Role:* ${isAdmin ? '👑 Admin' : '👤 Member'}`;
 
     if (setting?.enabled) {
         msg += `\n• *Enabled by:* ${setting.setName || 'Admin'}
@@ -234,4 +272,25 @@ async (conn, mek, m, { from, reply, isGroup, isAdmins }) => {
     msg += `\n\n${setting?.enabled ? '⚠️ Links from non-admins are monitored.' : '💡 Use .antilink on to enable protection (admin only).'}`;
 
     await reply(msg);
+});
+
+// Debug command to check admin status
+cmd({
+    pattern: "checkadmin",
+    alias: ["amidadmin", "admincheck"],
+    desc: "Check if you are admin",
+    category: "group",
+    react: "👑",
+    filename: __filename
+},
+async (conn, mek, m, { from, reply, isGroup, sender, pushname }) => {
+    if (!isGroup) return reply("❌ This command can only be used in groups!");
+    
+    const isAdmin = await isUserAdmin(conn, from, sender);
+    
+    if (isAdmin) {
+        reply(`✅ *${pushname || 'You'} are an admin!*\n\nYou have full access to admin commands.`);
+    } else {
+        reply(`❌ *${pushname || 'You'} are NOT an admin!*\n\nYou cannot use admin commands.`);
+    }
 });
