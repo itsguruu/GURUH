@@ -2,7 +2,7 @@
    GURU MD - NEWSLETTER JID GENERATOR
    COMMAND: .newsletter [channel link]
    CONVERTS: Channel link → newsletter@jid format
-   STYLE: Retro-Wave / Synthwave Design
+   STYLE: Clean & Organized
    ============================================ */
 
 const { cmd } = require('../command');
@@ -14,7 +14,6 @@ const OWNER_NAME = 'ᴍʀꜱ ɢᴜʀᴜ';
 
 // Helper to extract ID from channel link
 function extractIdFromLink(link) {
-    // Match various channel link formats
     const patterns = [
         /whatsapp\.com\/channel\/(\d+)/i,
         /wa\.me\/channel\/(\d+)/i,
@@ -28,50 +27,12 @@ function extractIdFromLink(link) {
         if (match) return match[1];
     }
     
-    // Try to extract any number that looks like a channel ID (15+ digits)
     const numbers = link.match(/\d{15,}/g);
     return numbers ? numbers[0] : null;
 }
 
-// Validate if it's a channel link
 function isChannelLink(link) {
     return link.includes('channel') || /whatsapp\.com|wa\.me|chat\.whatsapp/i.test(link);
-}
-
-// Retro-Wave Design
-function getRetroStyle(id, jid, originalLink) {
-    return `
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-
-     📢 ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ᴊɪᴅ    
-     ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-
-     🔗 [ɪɴᴘᴜᴛ ʟɪɴᴋ]
-     ~~~~~~~~~~~~~~~~
-     ${originalLink.substring(0, 40)}...
-
-     🆔 [ᴇxᴛʀᴀᴄᴛᴇᴅ ɪᴅ]
-     ~~~~~~~~~~~~~~~~
-     ${id}
-
-     🔑 [ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ᴊɪᴅ]
-     ~~~~~~~~~~~~~~~~
-     \`${jid}\`
-
-     📋 [ᴄᴏᴘʏ ᴛʜɪꜱ]
-     ~~~~~~~~~~~~~~~~
-     ${jid}
-
-     💡 [ᴜꜱᴇ ɪɴ ʙᴏᴛ ᴄᴏᴅᴇ]
-     ~~~~~~~~~~~~~~~~
-     forwardedNewsletterMessageInfo: {
-         newsletterJid: '${jid}',
-         newsletterName: 'ʏᴏᴜʀ_ɴᴀᴍᴇ',
-         serverMessageId: 143
-     }
-
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-`;
 }
 
 // Main command
@@ -85,7 +46,6 @@ cmd({
 },
 async (conn, mek, m, { from, q, reply, sender }) => {
     try {
-        // Initial reaction
         await conn.sendMessage(from, {
             react: {
                 text: "📢",
@@ -93,113 +53,95 @@ async (conn, mek, m, { from, q, reply, sender }) => {
             }
         });
 
-        // Check if link is provided
         if (!q) {
-            const helpMsg = `
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+            const helpMsg = `📢 *NEWSLETTER JID GENERATOR*
 
-        📢 ʜᴇʟᴘ ᴍᴇɴᴜ     
-        ▄▄▄▄▄▄▄▄▄▄▄▄▄
+*Usage:* .newsletter [channel link]
 
-     ᴜꜱᴀɢᴇ: .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ [ᴄʜᴀɴɴᴇʟ ʟɪɴᴋ]
+*Examples:*
+• .newsletter https://whatsapp.com/channel/120363421164015033
+• .newsletter https://wa.me/channel/120363421164015033
+• .newsletter https://chat.whatsapp.com/channel/120363421164015033
 
-     ᴇxᴀᴍᴘʟᴇꜱ:
-     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/120363421164015033
-     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴡᴀ.ᴍᴇ/ᴄʜᴀɴɴᴇʟ/120363421164015033
-     ☍ .ɴᴇᴡꜱʟᴇᴛᴛᴇʀ ʜᴛᴛᴘꜱ://ᴄʜᴀᴛ.ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/120363421164015033
+*How to get link:*
+1. Open your WhatsApp channel
+2. Tap channel name
+3. Share → Copy link
 
-     ɢᴇɴᴇʀᴀᴛᴇꜱ:
-     ☍ 120363421164015033@ɴᴇᴡꜱʟᴇᴛᴛᴇʀ
-
-     ʜᴏᴡ ᴛᴏ ɢᴇᴛ ʟɪɴᴋ:
-     ☍ ᴏᴘᴇɴ ᴄʜᴀɴɴᴇʟ
-     ☍ ᴛᴀᴘ ᴄʜᴀɴɴᴇʟ ɴᴀᴍᴇ
-     ☍ ꜱʜᴀʀᴇ → ᴄᴏᴘʏ ʟɪɴᴋ
-
-     ᴏᴡɴᴇʀ: ${OWNER_NAME}
-
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-`;
+*Owner:* ${OWNER_NAME}`;
             return await reply(helpMsg);
         }
 
         const link = q.trim();
 
-        // Check if it's a valid channel link
         if (!isChannelLink(link)) {
-            const errorMsg = `
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+            const errorMsg = `❌ *Invalid Link*
 
-        ❌ ɪɴᴠᴀʟɪᴅ ʟɪɴᴋ     
-        ▄▄▄▄▄▄▄▄▄▄▄▄▄
+Please provide a valid WhatsApp channel link.
 
-     ᴘʟᴇᴀꜱᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴠᴀʟɪᴅ
-     ᴡʜᴀᴛꜱᴀᴘᴘ ᴄʜᴀɴɴᴇʟ ʟɪɴᴋ.
-
-     ᴠᴀʟɪᴅ ꜰᴏʀᴍᴀᴛꜱ:
-     ☍ ʜᴛᴛᴘꜱ://ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/...
-     ☍ ʜᴛᴛᴘꜱ://ᴡᴀ.ᴍᴇ/ᴄʜᴀɴɴᴇʟ/...
-     ☍ ʜᴛᴛᴘꜱ://ᴄʜᴀᴛ.ᴡʜᴀᴛꜱᴀᴘᴘ.ᴄᴏᴍ/ᴄʜᴀɴɴᴇʟ/...
-
-     ʜᴏᴡ ᴛᴏ ɢᴇᴛ:
-     ☍ ᴏᴘᴇɴ ʏᴏᴜʀ ᴄʜᴀɴɴᴇʟ
-     ☍ ᴛᴀᴘ ᴄʜᴀɴɴᴇʟ ɴᴀᴍᴇ
-     ☍ ꜱʜᴀʀᴇ → ᴄᴏᴘʏ ʟɪɴᴋ
-
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-`;
+*Valid formats:*
+• https://whatsapp.com/channel/...
+• https://wa.me/channel/...
+• https://chat.whatsapp.com/channel/...`;
             return await reply(errorMsg);
         }
 
-        // Extract ID from link
         const channelId = extractIdFromLink(link);
         
         if (!channelId) {
-            const errorMsg = `
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+            const errorMsg = `❌ *Extraction Failed*
 
-        ❌ ᴇxᴛʀᴀᴄᴛɪᴏɴ ꜰᴀɪʟᴇᴅ     
-        ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+Could not extract channel ID from the provided link.
 
-     ᴄᴏᴜʟᴅ ɴᴏᴛ ᴇxᴛʀᴀᴄᴛ ᴄʜᴀɴɴᴇʟ ɪᴅ
-     ꜰʀᴏᴍ ᴛʜᴇ ᴘʀᴏᴠɪᴅᴇᴅ ʟɪɴᴋ.
-
-     ᴍᴀᴋᴇ ꜱᴜʀᴇ ʏᴏᴜ'ʀᴇ ᴜꜱɪɴɢ
-     ᴀ ᴅɪʀᴇᴄᴛ ᴄʜᴀɴɴᴇʟ ꜱʜᴀʀᴇ ʟɪɴᴋ.
-
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-`;
+Make sure you're using a direct channel share link.`;
             return await reply(errorMsg);
         }
 
-        // Generate JID
         const newsletterJid = `${channelId}@newsletter`;
 
-        // Send the result with retro style
-        const responseMsg = getRetroStyle(channelId, newsletterJid, link);
-        
-        // Send with button for easy copying
-        const buttonMessage = {
+        // Clean organized response
+        const responseMsg = `📢 *NEWSLETTER JID GENERATED*
+
+*Channel Link:* 
+${link}
+
+*Channel ID:* 
+\`${channelId}\`
+
+*Newsletter JID:* 
+\`${newsletterJid}\`
+
+*Usage in Bot Code:*
+\`\`\`
+forwardedNewsletterMessageInfo: {
+    newsletterJid: '${newsletterJid}',
+    newsletterName: 'YOUR_NAME',
+    serverMessageId: 143
+}
+\`\`\`
+
+*Search in WhatsApp:* 
+\`L${channelId}\``;
+
+        // Send main response
+        await conn.sendMessage(from, {
             text: responseMsg,
             footer: BOT_FOOTER,
             buttons: [
                 {
                     buttonId: `.newsletter ${link}`,
-                    buttonText: { displayText: '🔄 ɢᴇɴᴇʀᴀᴛᴇ ᴀɢᴀɪɴ' },
+                    buttonText: { displayText: '🔄 Generate Again' },
                     type: 1
                 }
             ],
             headerType: 1
-        };
-
-        await conn.sendMessage(from, buttonMessage, { quoted: mek });
-
-        // Send the JID separately for easy copying
-        await conn.sendMessage(from, {
-            text: `📢 *NEWSLETTER JID*\n\n\`\`\`${newsletterJid}\`\`\`\n\n📌 Copy this and use in your bot code:\n\nforwardedNewsletterMessageInfo: {\n    newsletterJid: '${newsletterJid}',\n    newsletterName: 'your_name',\n    serverMessageId: 143\n}`
         }, { quoted: mek });
 
-        // Success reaction
+        // Send just the JID for easy copying
+        await conn.sendMessage(from, {
+            text: `📢 *NEWSLETTER JID*\n\n\`${newsletterJid}\``
+        }, { quoted: mek });
+
         await conn.sendMessage(from, {
             react: {
                 text: "✅",
@@ -210,19 +152,7 @@ async (conn, mek, m, { from, q, reply, sender }) => {
     } catch (err) {
         console.error('[NEWSLETTER] Error:', err.message);
         
-        const errorMsg = `
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-
-        ❌ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ     
-        ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-
-     ${err.message.substring(0, 40)}
-
-     ᴘʟᴇᴀꜱᴇ ᴛʀʏ ᴀɢᴀɪɴ
-     ᴏʀ ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ
-
-░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
-`;
+        const errorMsg = `❌ *Error*\n\n${err.message.substring(0, 40)}\n\nPlease try again or contact owner.`;
 
         await reply(errorMsg);
         
