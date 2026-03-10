@@ -1,232 +1,237 @@
 /* ============================================
-   GURU MD - ANTI LINK SYSTEM
-   COMMAND: .antilink (on/off/set)
-   FEATURES: Block WhatsApp group links and custom URLs
+   GURU MD - ANTI-LINK SYSTEM
+   COMMAND: .antilink [on/off]
+   FEATURES: Blocks group links, auto-remove
+   NOTE: Checks if USER is admin, bot doesn't need to be admin
+   STYLE: Clean & Organized
    ============================================ */
 
 const { cmd } = require('../command');
+const fs = require('fs');
+const path = require('path');
 
 // Store anti-link settings per group
-const antilinkSettings = {};
+let antiLinkSettings = {};
 
-// Common link patterns to block
-const defaultPatterns = [
-    'chat.whatsapp.com',
-    'whatsapp.com/channel',
-    'youtube.com',
-    'youtu.be',
-    'instagram.com',
-    'facebook.com',
-    't.me',
-    'telegram.me',
-    'twitter.com',
-    'x.com',
-    'tiktok.com'
-];
+// Load settings
+const settingsFile = path.join(__dirname, '../antilink.json');
+try {
+    if (fs.existsSync(settingsFile)) {
+        antiLinkSettings = JSON.parse(fs.readFileSync(settingsFile));
+        console.log('[ANTILINK] Settings loaded');
+    }
+} catch (e) {
+    console.log('[ANTILINK] Error loading settings:', e);
+}
 
+// Save settings
+function saveSettings() {
+    try {
+        fs.writeFileSync(settingsFile, JSON.stringify(antiLinkSettings, null, 2));
+    } catch (e) {
+        console.log('[ANTILINK] Error saving settings:', e);
+    }
+}
+
+// Check if message contains group link
+function containsGroupLink(text) {
+    if (!text) return false;
+    
+    const linkPatterns = [
+        /chat\.whatsapp\.com\/[A-Za-z0-9]+/i,
+        /whatsapp\.com\/channel\/[A-Za-z0-9]+/i,
+        /wa\.me\/[A-Za-z0-9]+/i,
+        /invite\.whatsapp\.com\/[A-Za-z0-9]+/i,
+        /chat\.whatsapp\.com\/[A-Za-z0-9]+/i,
+        /https?:\/\/\S+\.whatsapp\.com\S+/i
+    ];
+    
+    return linkPatterns.some(pattern => pattern.test(text));
+}
+
+// Main command to toggle anti-link
 cmd({
     pattern: "antilink",
-    alias: ["blocklink", "nourl"],
-    desc: "Block unwanted links in groups",
+    alias: ["antilink", "antigroup", "antigrouplink"],
+    desc: "Enable/disable anti-link in group",
     category: "group",
     react: "🔗",
     filename: __filename
-}, async (conn, mek, m, { from, args, q, isGroup, isAdmin, isBotAdmin, reply, sender }) => {
+},
+async (conn, mek, m, { from, q, reply, isGroup, isAdmins, sender, pushname }) => {
     try {
-        if (!isGroup) return reply("❌ This command only works in groups!");
-        if (!isAdmin && !isBotAdmin) return reply("❌ Group admin required!");
-        
-        const groupId = from;
-        
+        // Initial reaction
+        await conn.sendMessage(from, {
+            react: {
+                text: "🔗",
+                key: mek.key
+            }
+        });
+
+        // Check if in group
+        if (!isGroup) {
+            return reply("❌ This command can only be used in groups!");
+        }
+
+        // Check if the USER is admin (this is the key part)
+        if (!isAdmins) {
+            return reply("❌ *You are not an admin!*\n\nOnly group admins can change anti-link settings.");
+        }
+
+        // Check query
         if (!q) {
-            const settings = antilinkSettings[groupId] || { 
-                enabled: false, 
-                action: 'delete', // delete, warn, kick
-                patterns: [...defaultPatterns],
-                warnings: {}
+            const status = antiLinkSettings[from] ? 'ON' : 'OFF';
+            const statusMsg = `🔗 *Anti-Link Settings*
+
+• *Group:* ${m.groupName || 'Unknown'}
+• *Status:* ${status === 'ON' ? '✅ Enabled' : '❌ Disabled'}
+• *Changed by:* ${pushname || sender.split('@')[0]}
+
+*Usage:* 
+• .antilink on  - Enable anti-link
+• .antilink off - Disable anti-link
+
+*Note:* When enabled, the bot will warn about links. For auto-delete, bot needs to be admin.`;
+            
+            return reply(statusMsg);
+        }
+
+        // Handle on/off
+        if (q.toLowerCase() === 'on') {
+            antiLinkSettings[from] = {
+                enabled: true,
+                setBy: sender,
+                setName: pushname || 'Unknown',
+                time: new Date().toISOString()
             };
+            saveSettings();
             
-            const status = settings.enabled ? '🟢 ENABLED' : '🔴 DISABLED';
-            const actionEmoji = settings.action === 'delete' ? '🗑️' : settings.action === 'warn' ? '⚠️' : '👢';
+            const onMsg = `✅ *Anti-Link Enabled by Admin*
+
+• *Admin:* ${pushname || sender.split('@')[0]}
+• *Status:* Links will be monitored
+• *Warning:* Non-admins will be warned
+
+⚠️ *Note:* For automatic deletion, please make the bot a group admin.`;
+
+            await reply(onMsg);
             
-            let patternsList = settings.patterns.slice(0, 5).map(p => `├─ ${p}`).join('\n');
-            if (settings.patterns.length > 5) {
-                patternsList += `\n└─ ... and ${settings.patterns.length - 5} more`;
+        } else if (q.toLowerCase() === 'off') {
+            delete antiLinkSettings[from];
+            saveSettings();
+            
+            await reply(`❌ *Anti-Link Disabled by Admin*\n\n• *Admin:* ${pushname || sender.split('@')[0]}\n• Members can now share links freely.`);
+        } else {
+            return reply("❌ Invalid option! Use: .antilink on  or  .antilink off");
+        }
+
+        await conn.sendMessage(from, {
+            react: {
+                text: "✅",
+                key: mek.key
             }
-            
-            const menu = `
-╔══════════════════════════════════════╗
-║     🔗 *ANTI LINK SYSTEM*            ║
-╠══════════════════════════════════════╣
-║ 📌 *Group:* ${mek?.chat?.name || 'Unknown'}
-║ ⚙️ *Status:* ${status}
-║ ${actionEmoji} *Action:* ${settings.action}
-╠══════════════════════════════════════╣
-║ *Commands:*                          ║
-║ ├─ .antilink on        - Enable      ║
-║ ├─ .antilink off       - Disable     ║
-║ ├─ .antilink action delete/warn/kick ║
-║ ├─ .antilink add [url] - Add pattern ║
-║ ├─ .antilink remove [url] - Remove   ║
-║ └─ .antilink list      - Show all    ║
-╠══════════════════════════════════════╣
-║ *Blocked Patterns:*                  ║
-${patternsList}
-╚══════════════════════════════════════╝
-            `;
-            return reply(menu);
-        }
-        
-        const parts = q.split(' ');
-        const command = parts[0].toLowerCase();
-        
-        if (!antilinkSettings[groupId]) {
-            antilinkSettings[groupId] = {
-                enabled: false,
-                action: 'delete',
-                patterns: [...defaultPatterns],
-                warnings: {}
-            };
-        }
-        
-        const settings = antilinkSettings[groupId];
-        
-        if (command === 'on') {
-            settings.enabled = true;
-            return reply("✅ *Anti-link enabled!*\n\nAll blocked links will be removed.");
-        }
-        
-        if (command === 'off') {
-            settings.enabled = false;
-            return reply("❌ *Anti-link disabled!*");
-        }
-        
-        if (command === 'action') {
-            const action = parts[1];
-            if (!action || !['delete', 'warn', 'kick'].includes(action)) {
-                return reply("❌ Please specify: delete, warn, or kick");
-            }
-            settings.action = action;
-            return reply(`✅ *Action set to ${action}!*`);
-        }
-        
-        if (command === 'add') {
-            const pattern = parts.slice(1).join(' ');
-            if (!pattern) return reply("❌ Please provide a URL pattern to block!");
-            
-            if (!settings.patterns.includes(pattern)) {
-                settings.patterns.push(pattern);
-                return reply(`✅ *Added pattern:* ${pattern}`);
-            } else {
-                return reply(`⚠️ Pattern already exists!`);
-            }
-        }
-        
-        if (command === 'remove') {
-            const pattern = parts.slice(1).join(' ');
-            if (!pattern) return reply("❌ Please provide a URL pattern to remove!");
-            
-            const index = settings.patterns.indexOf(pattern);
-            if (index > -1) {
-                settings.patterns.splice(index, 1);
-                return reply(`✅ *Removed pattern:* ${pattern}`);
-            } else {
-                return reply(`❌ Pattern not found!`);
-            }
-        }
-        
-        if (command === 'list') {
-            let list = `
-╔══════════════════════════════════════╗
-║     📋 *BLOCKED LINK PATTERNS*       ║
-╠══════════════════════════════════════╣
-`;
-            settings.patterns.forEach((pattern, i) => {
-                list += `║ ${i+1}. ${pattern}\n`;
-            });
-            list += `╠══════════════════════════════════════╣
-║ Total: ${settings.patterns.length} patterns        ║
-╚══════════════════════════════════════╝`;
-            return reply(list);
-        }
-        
+        });
+
     } catch (err) {
-        console.error(err);
-        reply("❌ Error: " + err.message);
+        console.error('[ANTILINK] Error:', err);
+        reply(`❌ Error: ${err.message}`);
     }
 });
 
-// Message handler to detect and block links
+// Link detector (runs automatically)
 cmd({
-    pattern: "antilinkhandler",
-    desc: "Handle link detection",
-    category: "system",
+    pattern: "linkdetector",
+    dontAddCommandList: true,
     filename: __filename
-}, async (conn, mek, m, { from, isGroup, sender, reply }) => {
+},
+async (conn, mek, m, { from, isGroup, isAdmins, sender, reply }) => {
     try {
-        if (!isGroup) return;
-        
-        const groupId = from;
-        const settings = antilinkSettings[groupId];
-        
-        if (!settings || !settings.enabled) return;
-        
-        const messageText = m.text || m.message?.conversation || 
-                           m.message?.extendedTextMessage?.text || '';
-        
-        if (!messageText) return;
-        
-        // Check for blocked patterns
-        for (const pattern of settings.patterns) {
-            if (messageText.includes(pattern)) {
-                // Found blocked link
+        // Only work in groups where anti-link is enabled
+        if (!isGroup || !antiLinkSettings[from]?.enabled) return;
+
+        // Get message text
+        const body = m.message?.conversation || 
+                     m.message?.extendedTextMessage?.text || 
+                     m.message?.imageMessage?.caption || 
+                     m.message?.videoMessage?.caption || '';
+
+        // Check if contains link
+        if (containsGroupLink(body)) {
+            console.log('[ANTILINK] Link detected in:', from);
+
+            // Check if sender is admin
+            if (isAdmins) {
+                // Allow admins to share links
+                return;
+            }
+
+            // Get the admin who enabled it
+            const setting = antiLinkSettings[from];
+            const adminName = setting?.setName || 'Admin';
+
+            // Warn the user
+            const warnMsg = `⚠️ *Anti-Link System*
+
+@${m.key.participant?.split('@')[0] || sender.split('@')[0]}, WhatsApp group/channel links are not allowed in this group!
+
+• *Enabled by:* ${adminName}
+• *Action:* Please avoid sharing links
+
+_If you're an admin, use .antilink off to disable_`;
+
+            await conn.sendMessage(from, {
+                text: warnMsg,
+                mentions: [m.key.participant || sender]
+            }, { quoted: m });
+
+            // Try to delete if bot is admin (optional)
+            try {
+                const groupMetadata = await conn.groupMetadata(from);
+                const botNumber = conn.user.id.split(':')[0] + '@s.whatsapp.net';
+                const isBotAdmin = groupMetadata.participants.find(p => p.id === botNumber)?.admin === 'admin';
                 
-                // Delete the message
-                await conn.sendMessage(from, {
-                    delete: m.key
-                });
-                
-                // Take action based on settings
-                if (settings.action === 'delete') {
+                if (isBotAdmin) {
                     await conn.sendMessage(from, {
-                        text: `⚠️ @${sender.split('@')[0]} links are not allowed in this group!`,
-                        mentions: [sender]
+                        delete: m.key
                     });
                 }
-                
-                if (settings.action === 'warn') {
-                    if (!settings.warnings[sender]) {
-                        settings.warnings[sender] = 1;
-                    } else {
-                        settings.warnings[sender]++;
-                    }
-                    
-                    const warningCount = settings.warnings[sender];
-                    
-                    await conn.sendMessage(from, {
-                        text: `⚠️ @${sender.split('@')[0]} links are not allowed!\nWarning: ${warningCount}/3`,
-                        mentions: [sender]
-                    });
-                    
-                    if (warningCount >= 3) {
-                        await conn.groupParticipantsUpdate(from, [sender], 'remove');
-                        delete settings.warnings[sender];
-                    }
-                }
-                
-                if (settings.action === 'kick') {
-                    await conn.sendMessage(from, {
-                        text: `👢 @${sender.split('@')[0]} kicked for sending links!`,
-                        mentions: [sender]
-                    });
-                    await conn.groupParticipantsUpdate(from, [sender], 'remove');
-                }
-                
-                break;
+            } catch (e) {
+                // Bot not admin, can't delete
+                console.log('[ANTILINK] Bot not admin, skipping delete');
             }
         }
-        
     } catch (err) {
-        console.error("Anti-link handler error:", err);
+        console.error('[ANTILINK] Detector error:', err);
     }
+});
+
+// Status check command
+cmd({
+    pattern: "antilinkstatus",
+    alias: ["antistatus"],
+    desc: "Check anti-link status in group",
+    category: "group",
+    react: "📊",
+    filename: __filename
+},
+async (conn, mek, m, { from, reply, isGroup, isAdmins }) => {
+    if (!isGroup) return reply("❌ This command can only be used in groups!");
+    
+    const setting = antiLinkSettings[from];
+    const status = setting?.enabled ? '✅ Enabled' : '❌ Disabled';
+    
+    let msg = `📊 *Anti-Link Status*
+
+• *Group:* ${m.groupName || 'Unknown'}
+• *Status:* ${status}
+• *Your Role:* ${isAdmins ? '👑 Admin' : '👤 Member'}`;
+
+    if (setting?.enabled) {
+        msg += `\n• *Enabled by:* ${setting.setName || 'Admin'}
+• *Enabled on:* ${new Date(setting.time).toLocaleString()}`;
+    }
+
+    msg += `\n\n${setting?.enabled ? '⚠️ Links from non-admins are monitored.' : '💡 Use .antilink on to enable protection (admin only).'}`;
+
+    await reply(msg);
 });
