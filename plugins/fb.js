@@ -1,89 +1,260 @@
+/* ============================================
+   GURU MD - FACEBOOK DOWNLOADER
+   COMMAND: .fb [facebook link]
+   DOWNLOAD: Videos & Photos from Facebook
+   STYLE: Retro-Wave / Synthwave Design
+   ============================================ */
+
 const { cmd } = require('../command');
 const axios = require('axios');
 
+// Configuration
+const BOT_NAME = 'ɢᴜʀᴜ ᴍᴅ';
+const BOT_FOOTER = '∞ ꜰᴀᴄᴇʙᴏᴏᴋ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ ∞';
+const OWNER_NAME = 'ᴍʀꜱ ɢᴜʀᴜ';
+const NEWSLETTER_JID = '120363421164015033@newsletter';
+const NEWSLETTER_NAME = 'GURU MD';
+
+// Helper function to format numbers
+function formatNumber(num) {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+}
+
+// Retro-Wave Design for response
+function getRetroStyle(data, url) {
+    return `
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+
+     📥 ꜰᴀᴄᴇʙᴏᴏᴋ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ    
+     ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+     📹 [ᴠɪᴅᴇᴏ ɪɴꜰᴏ]
+     ~~~~~~~~~~~~~~~~
+     📌 ᴛɪᴛʟᴇ: ${(data.title || 'Untitled').substring(0, 30)}${data.title?.length > 30 ? '...' : ''}
+     ⏱️ ᴅᴜʀᴀᴛɪᴏɴ: ${data.duration || 'N/A'}
+     👁️ ᴠɪᴇᴡꜱ: ${formatNumber(data.views) || 'N/A'}
+     ❤️ ʟɪᴋᴇꜱ: ${formatNumber(data.likes) || 'N/A'}
+     📅 ᴘᴏꜱᴛᴇᴅ: ${data.uploaded || 'N/A'}
+
+     📥 [ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋꜱ]
+     ~~~~~~~~~~~~~~~~
+     ${data.video?.hd ? '🎬 ʜᴅ: ᴀᴠᴀɪʟᴀʙʟᴇ' : ''}
+     ${data.video?.sd ? '🎬 ꜱᴅ: ᴀᴠᴀɪʟᴀʙʟᴇ' : ''}
+     ${data.photo ? '🖼️ ɪᴍᴀɢᴇ: ᴀᴠᴀɪʟᴀʙʟᴇ' : ''}
+
+     ⚡ ꜱᴇɴᴅɪɴɢ ᴍᴇᴅɪᴀ...
+     ~~~~~~~~~~~~~~~~
+
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+`;
+}
+
+// Main command
 cmd({
-    pattern: "fb|facebook",
+    pattern: "fb",
+    alias: ["facebook", "fbdl", "facebookdl"],
     desc: "Download Facebook video or photo",
-    category: "download",
+    category: "downloader",
     react: "📥",
     filename: __filename
-}, async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+},
+async (conn, mek, m, { from, q, reply, sender }) => {
     try {
-        const url = q || (quoted && quoted.url) || null;
+        // Initial reaction
+        await conn.sendMessage(from, {
+            react: {
+                text: "📥",
+                key: mek.key
+            }
+        });
 
-        if (!url || !url.includes('facebook.com') && !url.includes('fb.watch')) {
-            return reply(`*Example:* ${config.PREFIX || '.'}fb https://www.facebook.com/reel/402579285704851`);
+        // Check if URL is provided
+        if (!q) {
+            const helpMsg = `
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+
+        📥 ʜᴇʟᴘ ᴍᴇɴᴜ     
+        ▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+     ᴜꜱᴀɢᴇ: .ꜰʙ [ꜰᴀᴄᴇʙᴏᴏᴋ ʟɪɴᴋ]
+
+     ᴇxᴀᴍᴘʟᴇꜱ:
+     ☍ .ꜰʙ ʜᴛᴛᴘꜱ://ᴡᴡᴡ.ꜰᴀᴄᴇʙᴏᴏᴋ.ᴄᴏᴍ/ʀᴇᴇʟ/123456789
+     ☍ .ꜰʙ ʜᴛᴛᴘꜱ://ꜰʙ.ᴡᴀᴛᴄʜ/123456789
+     ☍ .ꜰʙ ʜᴛᴛᴘꜱ://ᴡᴡᴡ.ꜰᴀᴄᴇʙᴏᴏᴋ.ᴄᴏᴍ/ᴡᴀᴛᴄʜ/?ᴠ=123456789
+
+     ꜱᴜᴘᴘᴏʀᴛᴇᴅ:
+     ☍ ᴠɪᴅᴇᴏꜱ
+     ☍ ʀᴇᴇʟꜱ
+     ☍ ᴘʜᴏᴛᴏꜱ
+
+     ᴏᴡɴᴇʀ: ${OWNER_NAME}
+
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+`;
+            return await reply(helpMsg);
+        }
+
+        // Validate URL
+        const url = q.trim();
+        if (!url.includes('facebook.com') && !url.includes('fb.watch')) {
+            const errorMsg = `
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+
+        ❌ ɪɴᴠᴀʟɪᴅ ʟɪɴᴋ     
+        ▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+     ᴘʟᴇᴀꜱᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴠᴀʟɪᴅ
+     ꜰᴀᴄᴇʙᴏᴏᴋ ʟɪɴᴋ.
+
+     ᴠᴀʟɪᴅ ꜰᴏʀᴍᴀᴛꜱ:
+     ☍ ʜᴛᴛᴘꜱ://ᴡᴡᴡ.ꜰᴀᴄᴇʙᴏᴏᴋ.ᴄᴏᴍ/...
+     ☍ ʜᴛᴛᴘꜱ://ꜰʙ.ᴡᴀᴛᴄʜ/...
+
+     ᴇxᴀᴍᴘʟᴇ:
+     ʜᴛᴛᴘꜱ://ᴡᴡᴡ.ꜰᴀᴄᴇʙᴏᴏᴋ.ᴄᴏᴍ/ʀᴇᴇʟ/402579285704851
+
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+`;
+            return await reply(errorMsg);
         }
 
         // Show processing message
-        await reply("📥 *Downloading from Facebook...* Please wait...");
+        const processingMsg = `
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
 
-        // Use your new API
+        📥 ᴘʀᴏᴄᴇꜱꜱɪɴɢ     
+        ▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+     ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰʀᴏᴍ:
+     ${url.substring(0, 40)}...
+
+     ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ...
+
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+`;
+        await reply(processingMsg);
+
+        // Use the API
         const apiUrl = `https://api-rebix.zone.id/api/facebook?url=${encodeURIComponent(url)}`;
+        console.log('[FB] Fetching from:', apiUrl);
 
-        const res = await axios.get(apiUrl);
+        const res = await axios.get(apiUrl, { timeout: 30000 });
 
+        // Check API response
         if (!res.data || !res.data.status) {
-            return reply(`*Error:* ${res.data?.msg || 'Failed to fetch Facebook media. Try another link.'}`);
+            const errorMsg = `
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+
+        ❌ ᴀᴘɪ ᴇʀʀᴏʀ     
+        ▄▄▄▄▄▄▄▄▄▄▄
+
+     ${res.data?.msg || 'ꜰᴀɪʟᴇᴅ ᴛᴏ ꜰᴇᴛᴄʜ ᴍᴇᴅɪᴀ'}
+
+     ᴛʀʏ ᴀɴᴏᴛʜᴇʀ ʟɪɴᴋ
+     ᴏʀ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ
+
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+`;
+            return await reply(errorMsg);
         }
 
         const data = res.data.result || {};
+        
+        // Show download info
+        const infoMsg = getRetroStyle(data, url);
+        await reply(infoMsg);
 
-        // Prepare caption with available info
-        let caption = `*Facebook Download*\n\n` +
-                      `*Title:* ${data.title || 'Untitled'}\n` +
-                      `*Duration:* ${data.duration || 'N/A'}\n` +
-                      `*Views:* ${data.views || 'N/A'}\n` +
-                      `*Likes:* ${data.likes || 'N/A'}\n` +
-                      `*Posted:* ${data.uploaded || 'N/A'}\n\n` +
-                      `Powered by *GURU MD* 💢`;
+        // Prepare caption with newsletter context
+        const caption = `📥 *Downloaded via GURU MD*\n\n📌 ${data.title || 'Facebook Video'}\n⏱️ ${data.duration || 'N/A'} • 👁️ ${formatNumber(data.views) || 'N/A'} • ❤️ ${formatNumber(data.likes) || 'N/A'}`;
+
+        // Common contextInfo
+        const contextInfo = {
+            mentionedJid: [sender],
+            forwardingScore: 999,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: NEWSLETTER_JID,
+                newsletterName: NEWSLETTER_NAME,
+                serverMessageId: Math.floor(Math.random() * 1000)
+            }
+        };
 
         // Video download (prefer HD)
-        if (data.video?.hd || data.video?.sd) {
+        if (data.video && (data.video.hd || data.video.sd)) {
             const videoUrl = data.video.hd || data.video.sd;
+            
             await conn.sendMessage(from, {
                 video: { url: videoUrl },
                 caption: caption,
                 mimetype: 'video/mp4',
-                contextInfo: {
-                    mentionedJid: [sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363421164015033@newsletter',
-                        newsletterName: 'GURU MD',
-                        serverMessageId: 143
-                    }
-                }
+                contextInfo: contextInfo
             }, { quoted: mek });
         }
-
         // Photo download (if it's an image post)
-        else if (data.photo || data.images?.length > 0) {
+        else if (data.photo || (data.images && data.images.length > 0)) {
             const photoUrl = data.photo || data.images[0];
+            
             await conn.sendMessage(from, {
                 image: { url: photoUrl },
                 caption: caption,
-                contextInfo: {
-                    mentionedJid: [sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363421164015033@newsletter',
-                        newsletterName: 'GURU MD',
-                        serverMessageId: 143
-                    }
-                }
+                contextInfo: contextInfo
             }, { quoted: mek });
         }
-
         // Fallback if no media found
         else {
-            await reply(`*No downloadable media found.*\nTry a direct Facebook video/photo link.`);
+            const noMediaMsg = `
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+
+        ❌ ɴᴏ ᴍᴇᴅɪᴀ ꜰᴏᴜɴᴅ     
+        ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+     ɴᴏ ᴅᴏᴡɴʟᴏᴀᴅᴀʙʟᴇ ᴍᴇᴅɪᴀ
+     ꜰᴏᴜɴᴅ ɪɴ ᴛʜɪꜱ ʟɪɴᴋ.
+
+     ᴛʀʏ ᴀ ᴅɪʀᴇᴄᴛ ᴠɪᴅᴇᴏ/
+     ᴘʜᴏᴛᴏ ʟɪɴᴋ ꜰʀᴏᴍ ꜰᴀᴄᴇʙᴏᴏᴋ.
+
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+`;
+            await reply(noMediaMsg);
         }
 
+        // Success reaction
+        await conn.sendMessage(from, {
+            react: {
+                text: "✅",
+                key: mek.key
+            }
+        });
+
     } catch (err) {
-        console.error('[fb command] Error:', err.message);
-        await reply(`*Error:* Failed to download from Facebook.\n${err.message.includes('timeout') ? 'API timeout' : 'Check link or try later'}`);
+        console.error('[FB] Error:', err.message);
+        
+        const errorMsg = `
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+
+        ❌ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ     
+        ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+     ${err.message.includes('timeout') ? 'ᴀᴘɪ ᴛɪᴍᴇᴏᴜᴛ' : err.message.substring(0, 40)}
+
+     ᴄʜᴇᴄᴋ ʏᴏᴜʀ ʟɪɴᴋ
+     ᴏʀ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ
+
+░▒▓█ █▓▒░ ░▒▓█ █▓▒░ ░▒▓█ █▓▒░
+`;
+
+        await reply(errorMsg);
+        
+        await conn.sendMessage(from, {
+            react: {
+                text: "❌",
+                key: mek.key
+            }
+        });
     }
 });
