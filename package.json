@@ -17,7 +17,7 @@
     "@mrnima/facebook-downloader": "1.0.0",
     "@mrnima/tiktok-downloader": "1.0.0",
     "@vitalets/google-translate-api": "^9.2.0",
-    "@arceos/baileys": "^6.7.3",
+    "@arceos/baileys": "latest",
     "adm-zip": "^0.5.16",
     "api-dylux": "1.8.5",
     "axios": "^1.2.5",
@@ -77,8 +77,8 @@
     "jimp": "1.6.0"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": "20.x",
+    "npm": "10.x"
   },
   "author": "GuruTech",
   "license": "ISC"
