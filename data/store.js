@@ -1,4 +1,4 @@
-const { isJidBroadcast, isJidGroup, isJidNewsletter } = require('@arceos/baileys');
+const { isJidBroadcast, isJidGroup, isJidNewsletter } = require('gifted-baileys');
 const fs = require('fs/promises')
 const path = require('path')
 const { DataTypes } = require('sequelize');
