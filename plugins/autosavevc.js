@@ -1,5 +1,5 @@
 const { cmd } = require('../command');
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('gifted-baileys');
 const fs = require('fs');
 const path = require('path');
 
