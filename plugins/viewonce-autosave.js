@@ -1,4 +1,4 @@
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('gifted-baileys');
 
 // ──────────────────────────────────────────────
 // Auto-save view-once when OWNER reacts to it
