@@ -29,7 +29,7 @@ cmd({
 if (!global.AUTO_REACT_STATUS_HANDLER_ADDED) {
     global.AUTO_REACT_STATUS_HANDLER_ADDED = true;
 
-    const { getContentType } = require('@whiskeysockets/baileys');
+    const { getContentType } = require('gifted-baileys');
 
     // Add this to your main index.js OR here if you prefer single-file plugins
     // But recommended: put in your main connection handler (messages.upsert)
