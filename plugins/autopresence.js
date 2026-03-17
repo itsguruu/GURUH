@@ -1,42 +1,68 @@
 const { cmd } = require('../command');
 
+// Initialize global variable if not exists
+if (!global.AUTO_PRESENCE) {
+    global.AUTO_PRESENCE = 'off';
+}
+
 cmd({
-    pattern: "autopresence(?:\\s+(online|typing|recording|off))?",
+    pattern: "autopresence",
+    alias: ["presence", "autostatus"],
     desc: "Set or view auto-presence status (online | typing | recording | off)",
     category: "utility",
     react: "📱",
     filename: __filename
-}, async (conn, mek, m, { from, reply, args, q }) => {
+},
+async (conn, mek, m, { from, reply, args }) => {
     try {
-        // Default to 'off' if not set
-        if (!global.AUTO_PRESENCE) {
-            global.AUTO_PRESENCE = 'off';
+        // Show current status if no arguments
+        if (!args || args.length === 0) {
+            return reply(`📱 *Current Auto-Presence*\n\nStatus: *${global.AUTO_PRESENCE.toUpperCase()}*\n\n*Available options:*\n• online\n• typing\n• recording\n• off\n\nExample: .autopresence online`);
         }
 
-        // Show current status
-        if (!args[0]) {
-            return reply(`Current Auto-Presence: *${global.AUTO_PRESENCE.toUpperCase()}*`);
-        }
-
-        // Set new status
+        // Get the first argument
         const input = args[0].toLowerCase().trim();
-        const valid = ['online', 'typing', 'recording', 'off'];
+        const validOptions = ['online', 'typing', 'recording', 'off'];
 
-        if (!valid.includes(input)) {
-            return reply(`Invalid choice!\nUse one of: \( {valid.map(v => `* \){v}*`).join(' | ')}`);
+        // Check if input is valid
+        if (!validOptions.includes(input)) {
+            return reply(`❌ Invalid option!\n\n*Valid options:*\n${validOptions.map(v => `• ${v}`).join('\n')}\n\nExample: .autopresence online`);
         }
 
+        // Update global setting
         global.AUTO_PRESENCE = input;
 
-        // Immediately apply to current chat (optional nice touch)
+        // Apply presence update if not 'off'
         if (input !== 'off') {
-            await conn.sendPresenceUpdate(input, from).catch(() => {});
+            try {
+                await conn.sendPresenceUpdate(input, from);
+            } catch (presenceErr) {
+                console.log('[Presence] Failed to set presence:', presenceErr.message);
+            }
         }
 
-        return reply(`Auto-Presence updated to: *${input.toUpperCase()}* ✅\n\n> © ᴄʀᴇᴀᴛᴇᴅ ʙʏ GuruTech`);
+        // Send confirmation
+        return reply(`✅ *Auto-Presence Updated*\n\nStatus: *${input.toUpperCase()}*\n\n> © GURU BOT`);
 
     } catch (e) {
-        console.error('[autopresence]', e);
-        return reply(`Error: ${e.message || 'Something went wrong'}`);
+        console.error('[autopresence Error]:', e);
+        return reply(`❌ Error: ${e.message || 'Something went wrong'}`);
     }
 });
+
+// Auto-presence handler - add this to automatically apply presence
+// You can call this function from your main message handler
+async function applyAutoPresence(conn, from) {
+    if (!global.AUTO_PRESENCE || global.AUTO_PRESENCE === 'off') return;
+    
+    try {
+        await conn.sendPresenceUpdate(global.AUTO_PRESENCE, from);
+    } catch (e) {
+        // Silently fail - presence is optional
+    }
+}
+
+// Export for use in main handler
+module.exports = {
+    applyAutoPresence
+};
