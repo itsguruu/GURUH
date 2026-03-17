@@ -1,16 +1,60 @@
 //---------------------------------------------------------------------------
-//           GURU-MD  
+//           GURU-MD - SETTINGS MANAGER
 //---------------------------------------------------------------------------
-//  ⚠️ DO NOT MODIFY THIS FILE ⚠️  
-//---------------------------------------------------------------------------
-const { cmd, commands } = require('../command');
+const { cmd } = require('../command');
 const config = require('../config');
-const prefix = config.PREFIX;
 const fs = require('fs');
-const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, sleep, fetchJson } = require('../lib/functions2');
-const { writeFileSync } = require('fs');
 const path = require('path');
 
+// Path to store settings persistently
+const SETTINGS_FILE = path.join(__dirname, '../settings.json');
+
+// Load saved settings if exists
+let savedSettings = {};
+try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+        savedSettings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+        // Apply saved settings to config
+        Object.assign(config, savedSettings);
+        console.log('[Settings] Loaded saved settings');
+    }
+} catch (e) {
+    console.error('[Settings] Error loading settings:', e.message);
+}
+
+// Function to save settings to file
+function saveSettings() {
+    try {
+        const settingsToSave = {
+            ADMIN_EVENTS: config.ADMIN_EVENTS,
+            WELCOME: config.WELCOME,
+            PREFIX: config.PREFIX,
+            MODE: config.MODE,
+            AUTO_TYPING: config.AUTO_TYPING,
+            MENTION_REPLY: config.MENTION_REPLY,
+            ALWAYS_ONLINE: config.ALWAYS_ONLINE,
+            AUTO_RECORDING: config.AUTO_RECORDING,
+            AUTO_STATUS_SEEN: config.AUTO_STATUS_SEEN,
+            AUTO_STATUS_REACT: config.AUTO_STATUS_REACT,
+            READ_MESSAGE: config.READ_MESSAGE,
+            AUTO_VOICE: config.AUTO_VOICE,
+            ANTI_BAD_WORD: config.ANTI_BAD_WORD,
+            AUTO_STICKER: config.AUTO_STICKER,
+            AUTO_REPLY: config.AUTO_REPLY,
+            AUTO_REACT: config.AUTO_REACT,
+            AUTO_STATUS_REPLY: config.AUTO_STATUS_REPLY,
+            ANTI_LINK: config.ANTI_LINK,
+            ANTI_LINK_KICK: config.ANTI_LINK_KICK,
+            DELETE_LINKS: config.DELETE_LINKS
+        };
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settingsToSave, null, 2));
+        console.log('[Settings] Saved settings to file');
+    } catch (e) {
+        console.error('[Settings] Error saving settings:', e.message);
+    }
+}
+
+// ==================== ADMIN EVENTS ====================
 cmd({
     pattern: "admin-events",
     alias: ["adminevents"],
@@ -19,20 +63,23 @@ cmd({
     filename: __filename
 },
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
     if (status === "on") {
         config.ADMIN_EVENTS = "true";
+        saveSettings();
         return reply("✅ Admin event notifications are now enabled.");
     } else if (status === "off") {
         config.ADMIN_EVENTS = "false";
+        saveSettings();
         return reply("❌ Admin event notifications are now disabled.");
     } else {
-        return reply(`Example: .admin-events on`);
+        return reply(`Usage: .admin-events on/off\nCurrent: ${config.ADMIN_EVENTS === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
+// ==================== WELCOME ====================
 cmd({
     pattern: "welcome",
     alias: ["welcomeset"],
@@ -41,50 +88,53 @@ cmd({
     filename: __filename
 },
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
     if (status === "on") {
         config.WELCOME = "true";
+        saveSettings();
         return reply("✅ Welcome messages are now enabled.");
     } else if (status === "off") {
         config.WELCOME = "false";
+        saveSettings();
         return reply("❌ Welcome messages are now disabled.");
     } else {
-        return reply(`Example: .welcome on`);
+        return reply(`Usage: .welcome on/off\nCurrent: ${config.WELCOME === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
+// ==================== SET PREFIX ====================
 cmd({
     pattern: "setprefix",
     alias: ["prefix"],
     react: "🔧",
-    desc: "Change the bot's command prefix.",
+    desc: "Change the bot's command prefix",
     category: "settings",
     filename: __filename,
 }, async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 Only the owner can use this command!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
-    const newPrefix = args[0]; // Get the new prefix from the command arguments
-    if (!newPrefix) return reply("❌ Please provide a new prefix. Example: `.setprefix !`");
+    const newPrefix = args[0];
+    if (!newPrefix) return reply(`❌ Please provide a new prefix.\n\nCurrent prefix: *${config.PREFIX}*\n\nExample: .setprefix !`);
 
-    // Update the prefix in memory
     config.PREFIX = newPrefix;
+    saveSettings();
 
     return reply(`✅ Prefix successfully changed to *${newPrefix}*`);
 });
 
+// ==================== MODE ====================
 cmd({
     pattern: "mode",
     alias: ["setmode"],
     react: "🫟",
-    desc: "Set bot mode to private or public.",
+    desc: "Set bot mode to private or public",
     category: "settings",
     filename: __filename,
 }, async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 Only the owner can use this command!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
-    // Si aucun argument n'est fourni, afficher le mode actuel et l'usage
     if (!args[0]) {
         return reply(`📌 Current mode: *${config.MODE}*\n\nUsage: .mode private OR .mode public`);
     }
@@ -93,115 +143,123 @@ cmd({
 
     if (modeArg === "private") {
         config.MODE = "private";
+        saveSettings();
         return reply("✅ Bot mode is now set to *PRIVATE*.");
     } else if (modeArg === "public") {
         config.MODE = "public";
+        saveSettings();
         return reply("✅ Bot mode is now set to *PUBLIC*.");
     } else {
         return reply("❌ Invalid mode. Please use `.mode private` or `.mode public`.");
     }
 });
 
+// ==================== AUTO TYPING ====================
 cmd({
     pattern: "auto-typing",
-    description: "Enable or disable auto-typing feature.",
+    alias: ["autotyping"],
+    desc: "Enable or disable auto-typing feature",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    if (!["on", "off"].includes(status)) {
-        return reply("*🫟 ᴇxᴀᴍᴘʟᴇ:  .ᴀᴜᴛᴏ-ᴛʏᴘɪɴɢ ᴏɴ*");
+    if (!status || !["on", "off"].includes(status)) {
+        return reply(`Usage: .auto-typing on/off\nCurrent: ${config.AUTO_TYPING === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 
     config.AUTO_TYPING = status === "on" ? "true" : "false";
-    return reply(`Auto typing has been turned ${status}.`);
+    saveSettings();
+    
+    if (status === "on") {
+        await conn.sendPresenceUpdate("composing", from).catch(() => {});
+    }
+    
+    return reply(`✅ Auto typing has been turned ${status}.`);
 });
 
-//mention reply 
-
-
+// ==================== MENTION REPLY ====================
 cmd({
     pattern: "mention-reply",
     alias: ["menetionreply", "mee"],
-    description: "Set bot status to always online or offline.",
+    desc: "Enable or disable mention reply feature",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.MENTION_REPLY = "true";
-        return reply("Mention Reply feature is now enabled.");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Mention Reply feature is now enabled.");
+    } else if (status === "off") {
         config.MENTION_REPLY = "false";
-        return reply("Mention Reply feature is now disabled.");
+        saveSettings();
+        return reply("❌ Mention Reply feature is now disabled.");
     } else {
-        return reply(`_example:  .mee on_`);
+        return reply(`Usage: .mee on/off\nCurrent: ${config.MENTION_REPLY === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
-
-//--------------------------------------------
-// ALWAYS_ONLINE COMMANDS
-//--------------------------------------------
+// ==================== ALWAYS ONLINE ====================
 cmd({
     pattern: "always-online",
     alias: ["alwaysonline"],
-    desc: "Enable or disable the always online mode",
+    desc: "Enable or disable always online mode",
     category: "settings",
     filename: __filename
 },
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
     if (status === "on") {
         config.ALWAYS_ONLINE = "true";
-        await reply("*✅ always online mode is now enabled.*");
+        saveSettings();
+        await conn.sendPresenceUpdate("available", from).catch(() => {});
+        return reply("✅ Always online mode is now enabled.");
     } else if (status === "off") {
         config.ALWAYS_ONLINE = "false";
-        await reply("*❌ always online mode is now disabled.*");
+        saveSettings();
+        return reply("❌ Always online mode is now disabled.");
     } else {
-        await reply(`*🛠️ ᴇxᴀᴍᴘʟᴇ: .ᴀʟᴡᴀʏs-ᴏɴʟɪɴᴇ ᴏɴ*`);
+        return reply(`Usage: .always-online on/off\nCurrent: ${config.ALWAYS_ONLINE === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
-//--------------------------------------------
-//  AUTO_RECORDING COMMANDS
-//--------------------------------------------
+// ==================== AUTO RECORDING ====================
 cmd({
     pattern: "auto-recording",
-    alias: ["autorecoding"],
-    description: "Enable or disable auto-recording feature.",
+    alias: ["autorecording"],
+    desc: "Enable or disable auto-recording feature",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    if (!["on", "off"].includes(status)) {
-        return reply("*🫟 ᴇxᴀᴍᴘʟᴇ: .ᴀᴜᴛᴏ-ʀᴇᴄᴏʀᴅɪɴɢ ᴏɴ*");
+    if (!status || !["on", "off"].includes(status)) {
+        return reply(`Usage: .auto-recording on/off\nCurrent: ${config.AUTO_RECORDING === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 
     config.AUTO_RECORDING = status === "on" ? "true" : "false";
+    saveSettings();
+    
     if (status === "on") {
         await conn.sendPresenceUpdate("recording", from);
-        return reply("Auto recording is now enabled. Bot is recording...");
+        return reply("✅ Auto recording is now enabled. Bot is recording...");
     } else {
         await conn.sendPresenceUpdate("available", from);
-        return reply("Auto recording has been disabled.");
+        return reply("✅ Auto recording has been disabled.");
     }
 });
-//--------------------------------------------
-// AUTO_VIEW_STATUS COMMANDS
-//--------------------------------------------
+
+// ==================== AUTO STATUS SEEN ====================
 cmd({
     pattern: "auto-seen",
     alias: ["autostatusview"],
@@ -210,23 +268,23 @@ cmd({
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Default value for AUTO_VIEW_STATUS is "false"
-    if (args[0] === "on") {
+    if (status === "on") {
         config.AUTO_STATUS_SEEN = "true";
-        return reply("Auto-viewing of statuses is now enabled.");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Auto-viewing of statuses is now enabled.");
+    } else if (status === "off") {
         config.AUTO_STATUS_SEEN = "false";
-        return reply("Auto-viewing of statuses is now disabled.");
+        saveSettings();
+        return reply("❌ Auto-viewing of statuses is now disabled.");
     } else {
-        return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ:  .ᴀᴜᴛᴏ-sᴇᴇɴ ᴏɴ*`);
+        return reply(`Usage: .auto-seen on/off\nCurrent: ${config.AUTO_STATUS_SEEN === "true" ? "✅ ON" : "❌ OFF"}`);
     }
-}); 
-//--------------------------------------------
-// AUTO_LIKE_STATUS COMMANDS
-//--------------------------------------------
+});
+
+// ==================== AUTO STATUS REACT ====================
 cmd({
     pattern: "status-react",
     alias: ["statusreaction"],
@@ -235,282 +293,286 @@ cmd({
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Default value for AUTO_LIKE_STATUS is "false"
-    if (args[0] === "on") {
+    if (status === "on") {
         config.AUTO_STATUS_REACT = "true";
-        return reply("Auto-liking of statuses is now enabled.");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Auto-liking of statuses is now enabled.");
+    } else if (status === "off") {
         config.AUTO_STATUS_REACT = "false";
-        return reply("Auto-liking of statuses is now disabled.");
+        saveSettings();
+        return reply("❌ Auto-liking of statuses is now disabled.");
     } else {
-        return reply(`Example: . status-react on`);
+        return reply(`Usage: .status-react on/off\nCurrent: ${config.AUTO_STATUS_REACT === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
-//--------------------------------------------
-//  READ-MESSAGE COMMANDS
-//--------------------------------------------
+// ==================== READ MESSAGE ====================
 cmd({
     pattern: "read-message",
-    alias: ["autoread"],
-    desc: "enable or disable readmessage.",
+    alias: ["autoread", "readmessage"],
+    desc: "Enable or disable auto-read messages",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.READ_MESSAGE = "true";
-        return reply("readmessage feature is now enabled.");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Auto-read feature is now enabled.");
+    } else if (status === "off") {
         config.READ_MESSAGE = "false";
-        return reply("readmessage feature is now disabled.");
+        saveSettings();
+        return reply("❌ Auto-read feature is now disabled.");
     } else {
-        return reply(`_example:  .readmessage on_`);
+        return reply(`Usage: .readmessage on/off\nCurrent: ${config.READ_MESSAGE === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
-// AUTO_VOICE
-
+// ==================== AUTO VOICE ====================
 cmd({
     pattern: "auto-voice",
     alias: ["autovoice"],
-    desc: "enable or disable readmessage.",
+    desc: "Enable or disable auto-voice feature",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.AUTO_VOICE = "true";
-        return reply("AUTO_VOICE feature is now enabled.");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Auto-voice feature is now enabled.");
+    } else if (status === "off") {
         config.AUTO_VOICE = "false";
-        return reply("AUTO_VOICE feature is now disabled.");
+        saveSettings();
+        return reply("❌ Auto-voice feature is now disabled.");
     } else {
-        return reply(`_example:  .autovoice on_`);
+        return reply(`Usage: .autovoice on/off\nCurrent: ${config.AUTO_VOICE === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
-
-//--------------------------------------------
-//  ANI-BAD COMMANDS
-//--------------------------------------------
+// ==================== ANTI BAD WORD ====================
 cmd({
     pattern: "anti-bad",
-    alias: ["antibadword"],
-    desc: "enable or disable antibad.",
+    alias: ["antibadword", "antibad"],
+    desc: "Enable or disable anti-bad word",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.ANTI_BAD_WORD = "true";
-        return reply("*anti bad word is now enabled.*");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Anti-bad word is now enabled.");
+    } else if (status === "off") {
         config.ANTI_BAD_WORD = "false";
-        return reply("*anti bad word feature is now disabled*");
+        saveSettings();
+        return reply("❌ Anti-bad word is now disabled.");
     } else {
-        return reply(`_example:  .antibad on_`);
+        return reply(`Usage: .antibad on/off\nCurrent: ${config.ANTI_BAD_WORD === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
-//--------------------------------------------
-//  AUTO-STICKER COMMANDS
-//--------------------------------------------
+
+// ==================== AUTO STICKER ====================
 cmd({
     pattern: "auto-sticker",
     alias: ["autosticker"],
-    desc: "enable or disable auto-sticker.",
+    desc: "Enable or disable auto-sticker",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.AUTO_STICKER = "true";
-        return reply("auto-sticker feature is now enabled.");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Auto-sticker feature is now enabled.");
+    } else if (status === "off") {
         config.AUTO_STICKER = "false";
-        return reply("auto-sticker feature is now disabled.");
+        saveSettings();
+        return reply("❌ Auto-sticker feature is now disabled.");
     } else {
-        return reply(`_example:  .auto-sticker on_`);
+        return reply(`Usage: .auto-sticker on/off\nCurrent: ${config.AUTO_STICKER === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
-//--------------------------------------------
-//  AUTO-REPLY COMMANDS
-//--------------------------------------------
+
+// ==================== AUTO REPLY ====================
 cmd({
     pattern: "auto-reply",
     alias: ["autoreply"],
-    desc: "enable or disable auto-reply.",
+    desc: "Enable or disable auto-reply",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.AUTO_REPLY = "true";
-        return reply("*auto-reply  is now enabled.*");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Auto-reply is now enabled.");
+    } else if (status === "off") {
         config.AUTO_REPLY = "false";
-        return reply("auto-reply feature is now disabled.");
+        saveSettings();
+        return reply("❌ Auto-reply is now disabled.");
     } else {
-        return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ: . ᴀᴜᴛᴏ-ʀᴇᴘʟʏ ᴏɴ*`);
+        return reply(`Usage: .auto-reply on/off\nCurrent: ${config.AUTO_REPLY === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
-//--------------------------------------------
-//   AUTO-REACT COMMANDS
-//--------------------------------------------
+// ==================== AUTO REACT ====================
 cmd({
     pattern: "auto-react",
     alias: ["autoreact"],
-    desc: "Enable or disable the autoreact feature",
+    desc: "Enable or disable auto-react feature",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.AUTO_REACT = "true";
-        await reply("*autoreact feature is now enabled.*");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Auto-react feature is now enabled.");
+    } else if (status === "off") {
         config.AUTO_REACT = "false";
-        await reply("autoreact feature is now disabled.");
+        saveSettings();
+        return reply("❌ Auto-react feature is now disabled.");
     } else {
-        await reply(`*🫟 ᴇxᴀᴍᴘʟᴇ: .ᴀᴜᴛᴏ-ʀᴇᴀᴄᴛ ᴏɴ*`);
+        return reply(`Usage: .auto-react on/off\nCurrent: ${config.AUTO_REACT === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
-//--------------------------------------------
-//  STATUS-REPLY COMMANDS
-//--------------------------------------------
+
+// ==================== STATUS REPLY ====================
 cmd({
     pattern: "status-reply",
     alias: ["autostatusreply"],
-    desc: "enable or disable status-reply.",
+    desc: "Enable or disable status reply",
     category: "settings",
     filename: __filename
 },    
 async (conn, mek, m, { from, args, isCreator, reply }) => {
-    if (!isCreator) return reply("*📛 ᴏɴʟʏ ᴛʜᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!*");
+    if (!isCreator) return reply("❌ Only the owner can use this command!");
 
     const status = args[0]?.toLowerCase();
-    // Check the argument for enabling or disabling the anticall feature
-    if (args[0] === "on") {
+    if (status === "on") {
         config.AUTO_STATUS_REPLY = "true";
-        return reply("status-reply feature is now enabled.");
-    } else if (args[0] === "off") {
+        saveSettings();
+        return reply("✅ Status reply feature is now enabled.");
+    } else if (status === "off") {
         config.AUTO_STATUS_REPLY = "false";
-        return reply("status-reply feature is now disabled.");
+        saveSettings();
+        return reply("❌ Status reply feature is now disabled.");
     } else {
-        return reply(`*🫟 ᴇxᴀᴍᴘʟᴇ:  .sᴛᴀᴛᴜs-ʀᴇᴘʟʏ ᴏɴ*`);
+        return reply(`Usage: .status-reply on/off\nCurrent: ${config.AUTO_STATUS_REPLY === "true" ? "✅ ON" : "❌ OFF"}`);
     }
 });
 
-//--------------------------------------------
-//  ANTILINK COMMANDS
-//--------------------------------------------
-
+// ==================== ANTI LINK ====================
 cmd({
-  pattern: "antilink",
-  alias: ["antilinks"],
-  desc: "Enable or disable ANTI_LINK in groups",
-  category: "group",
-  react: "🚫",
-  filename: __filename
+    pattern: "antilink",
+    alias: ["antilinks"],
+    desc: "Enable or disable ANTI_LINK in groups",
+    category: "group",
+    react: "🚫",
+    filename: __filename
 }, async (conn, mek, m, { isGroup, isAdmins, isBotAdmins, args, reply }) => {
-  try {
-    if (!isGroup) return reply('This command can only be used in a group.');
-    if (!isBotAdmins) return reply('Bot must be an admin to use this command.');
-    if (!isAdmins) return reply('You must be an admin to use this command.');
+    try {
+        if (!isGroup) return reply('❌ This command can only be used in a group.');
+        if (!isBotAdmins) return reply('❌ Bot must be an admin to use this command.');
+        if (!isAdmins) return reply('❌ You must be an admin to use this command.');
 
-    if (args[0] === "on") {
-      config.ANTI_LINK = "true";
-      reply("✅ ANTI_LINK has been enabled.");
-    } else if (args[0] === "off") {
-      config.ANTI_LINK = "false";
-      reply("❌ ANTI_LINK has been disabled.");
-    } else {
-      reply("Usage: *.antilink on/off*");
+        if (args[0] === "on") {
+            config.ANTI_LINK = "true";
+            saveSettings();
+            return reply("✅ ANTI_LINK has been enabled.");
+        } else if (args[0] === "off") {
+            config.ANTI_LINK = "false";
+            saveSettings();
+            return reply("❌ ANTI_LINK has been disabled.");
+        } else {
+            return reply(`Usage: .antilink on/off\nCurrent: ${config.ANTI_LINK === "true" ? "✅ ON" : "❌ OFF"}`);
+        }
+    } catch (e) {
+        reply(`❌ Error: ${e.message}`);
     }
-  } catch (e) {
-    reply(`Error: ${e.message}`);
-  }
 });
 
+// ==================== ANTI LINK KICK ====================
 cmd({
-  pattern: "antilinkkick",
-  alias: ["kicklink"],
-  desc: "Enable or disable ANTI_LINK_KICK in groups",
-  category: "group",
-  react: "⚠️",
-  filename: __filename
+    pattern: "antilinkkick",
+    alias: ["kicklink"],
+    desc: "Enable or disable ANTI_LINK_KICK in groups",
+    category: "group",
+    react: "⚠️",
+    filename: __filename
 }, async (conn, mek, m, { isGroup, isAdmins, isBotAdmins, args, reply }) => {
-  try {
-    if (!isGroup) return reply('This command can only be used in a group.');
-    if (!isBotAdmins) return reply('Bot must be an admin to use this command.');
-    if (!isAdmins) return reply('You must be an admin to use this command.');
+    try {
+        if (!isGroup) return reply('❌ This command can only be used in a group.');
+        if (!isBotAdmins) return reply('❌ Bot must be an admin to use this command.');
+        if (!isAdmins) return reply('❌ You must be an admin to use this command.');
 
-    if (args[0] === "on") {
-      config.ANTI_LINK_KICK = "true";
-      reply("✅ ANTI_LINK_KICK has been enabled.");
-    } else if (args[0] === "off") {
-      config.ANTI_LINK_KICK = "false";
-      reply("❌ ANTI_LINK_KICK has been disabled.");
-    } else {
-      reply("Usage: *.antilinkkick on/off*");
+        if (args[0] === "on") {
+            config.ANTI_LINK_KICK = "true";
+            saveSettings();
+            return reply("✅ ANTI_LINK_KICK has been enabled.");
+        } else if (args[0] === "off") {
+            config.ANTI_LINK_KICK = "false";
+            saveSettings();
+            return reply("❌ ANTI_LINK_KICK has been disabled.");
+        } else {
+            return reply(`Usage: .antilinkkick on/off\nCurrent: ${config.ANTI_LINK_KICK === "true" ? "✅ ON" : "❌ OFF"}`);
+        }
+    } catch (e) {
+        reply(`❌ Error: ${e.message}`);
     }
-  } catch (e) {
-    reply(`Error: ${e.message}`);
-  }
 });
 
-
+// ==================== DELETE LINKS ====================
 cmd({
-  pattern: "deletelink",
-  alias: ["linksdelete"],
-  desc: "Enable or disable DELETE_LINKS in groups",
-  category: "group",
-  react: "❌",
-  filename: __filename
+    pattern: "deletelink",
+    alias: ["linksdelete"],
+    desc: "Enable or disable DELETE_LINKS in groups",
+    category: "group",
+    react: "❌",
+    filename: __filename
 }, async (conn, mek, m, { isGroup, isAdmins, isBotAdmins, args, reply }) => {
-  try {
-    if (!isGroup) return reply('This command can only be used in a group.');
-    if (!isBotAdmins) return reply('Bot must be an admin to use this command.');
-    if (!isAdmins) return reply('You must be an admin to use this command.');
+    try {
+        if (!isGroup) return reply('❌ This command can only be used in a group.');
+        if (!isBotAdmins) return reply('❌ Bot must be an admin to use this command.');
+        if (!isAdmins) return reply('❌ You must be an admin to use this command.');
 
-    if (args[0] === "on") {
-      config.DELETE_LINKS = "true";
-      reply("✅ DELETE_LINKS is now enabled.");
-    } else if (args[0] === "off") {
-      config.DELETE_LINKS = "false";
-      reply("❌ DELETE_LINKS is now disabled.");
-    } else {
-      reply("Usage: *.deletelink on/off*");
+        if (args[0] === "on") {
+            config.DELETE_LINKS = "true";
+            saveSettings();
+            return reply("✅ DELETE_LINKS is now enabled.");
+        } else if (args[0] === "off") {
+            config.DELETE_LINKS = "false";
+            saveSettings();
+            return reply("❌ DELETE_LINKS is now disabled.");
+        } else {
+            return reply(`Usage: .deletelink on/off\nCurrent: ${config.DELETE_LINKS === "true" ? "✅ ON" : "❌ OFF"}`);
+        }
+    } catch (e) {
+        reply(`❌ Error: ${e.message}`);
     }
-  } catch (e) {
-    reply(`Error: ${e.message}`);
-  }
 });
+
+// Export save function for use elsewhere
+module.exports = { saveSettings };
