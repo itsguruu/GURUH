@@ -1,7 +1,7 @@
 // plugins/statusManager.js
 const fs = require('fs');
 const path = require('path');
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('gifted-baileys');
 
 module.exports = {
     name: 'StatusManager',
