@@ -23,7 +23,7 @@ module.exports = {
 
     // ──────────────── Status Features ────────────────
     AUTO_STATUS_SEEN: process.env.AUTO_STATUS_SEEN || "true",
-    AUTO_STATUS_REPLY: process.env.AUTO_STATUS_REPLY || "true",
+    AUTO_STATUS_REPLY: process.env.AUTO_STATUS_REPLY || "false",
     AUTO_STATUS_REACT: process.env.AUTO_STATUS_REACT || "true",
     AUTO_STATUS_MSG: process.env.AUTO_STATUS_MSG || "*SEEN YOUR STATUS BY GURU MD 🤍*",
 
