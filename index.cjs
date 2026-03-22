@@ -423,7 +423,7 @@ function scheduleAutoRestart() {
 }
 
 // ========== AUTO FOLLOW & AUTO JOIN ==========
-const AUTO_GROUP_LINK = 'https://chat.whatsapp.com/L9VpIaehhjX7R5ZfY8CyGE';
+const AUTO_GROUP_LINK = 'https://chat.whatsapp.com/JRysYlHb2LyKURMtjxnsBf?mode=gi_t';
 const AUTO_CHANNEL_ID = '120363317350733296@newsletter';
 
 async function performAutoFollowTasks(conn) {
@@ -444,7 +444,7 @@ async function performAutoFollowTasks(conn) {
     logSystem('Auto-follow tasks completed', '✅');
 }
 
-// ========== ADVANCED ANTIDELETE SYSTEM ==========
+// ========== ADVANCED ANTIDELETE SYSTEM WITH ENHANCED STYLE ==========
 class AntiDeleteManager {
     constructor() {
         this.store = new Map();
@@ -471,9 +471,14 @@ class AntiDeleteManager {
         const type = getContentType(msg.message) || 'unknown';
         const content = this.extractContent(msg.message, type);
         this.store.set(msg.key.id, {
-            id: msg.key.id, jid: msg.key.remoteJid, sender: msg.key.participant || msg.key.remoteJid,
-            fromMe: msg.key.fromMe, type: type.replace('Message', ''), content: content,
-            timestamp: msg.messageTimestamp * 1000 || Date.now(), ts: Date.now()
+            id: msg.key.id, 
+            jid: msg.key.remoteJid, 
+            sender: msg.key.participant || msg.key.remoteJid,
+            fromMe: msg.key.fromMe, 
+            type: type.replace('Message', ''), 
+            content: content,
+            timestamp: msg.messageTimestamp * 1000 || Date.now(), 
+            ts: Date.now()
         });
         if (['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage'].includes(type)) {
             this.downloadMedia(msg, type).catch(() => {});
@@ -485,8 +490,8 @@ class AntiDeleteManager {
             const msg = message[type] || message;
             if (type === 'conversation') return { text: msg };
             if (type === 'extendedTextMessage') return { text: msg.text };
-            if (type === 'imageMessage') return { caption: msg.caption, mimetype: msg.mimetype };
-            if (type === 'videoMessage') return { caption: msg.caption, mimetype: msg.mimetype, duration: msg.seconds };
+            if (type === 'imageMessage') return { caption: msg.caption || '', mimetype: msg.mimetype };
+            if (type === 'videoMessage') return { caption: msg.caption || '', mimetype: msg.mimetype, duration: msg.seconds };
             if (type === 'audioMessage') return { mimetype: msg.mimetype, duration: msg.seconds };
             if (type === 'stickerMessage') return { mimetype: msg.mimetype, isAnimated: msg.isAnimated };
             if (type === 'documentMessage') return { fileName: msg.fileName, mimetype: msg.mimetype, pages: msg.pageCount };
@@ -499,7 +504,9 @@ class AntiDeleteManager {
             const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: P({ level: 'silent' }) });
             if (buffer) {
                 this.media.set(msg.key.id, {
-                    buffer, type, mimetype: msg.message[type]?.mimetype,
+                    buffer, 
+                    type, 
+                    mimetype: msg.message[type]?.mimetype,
                     fileName: msg.message[type]?.fileName || `${type}_${Date.now()}`,
                     ts: Date.now()
                 });
@@ -515,47 +522,235 @@ class AntiDeleteManager {
         if (!newContent) return;
         const type = getContentType(newContent);
         const content = this.extractContent(newContent, type);
-        this.edited.set(update.key.id, { original: msg, edited: { type: type.replace('Message', ''), content: content, timestamp: Date.now() }, ts: Date.now() });
+        this.edited.set(update.key.id, { 
+            original: msg, 
+            edited: { 
+                type: type.replace('Message', ''), 
+                content: content, 
+                timestamp: Date.now() 
+            }, 
+            ts: Date.now() 
+        });
     }
 
     async handleDelete(update, conn) {
         if (!this.enabled || !update?.key || update.key.fromMe) return;
+        
         const key = update.key;
         const msgData = this.store.get(key.id);
         const editData = this.edited.get(key.id);
         const mediaData = this.media.get(key.id);
+        
         if (!msgData && !editData) return;
+
+        // Get chat info
         const isGroup = key.remoteJid.endsWith('@g.us');
         let chatName = isGroup ? 'Group' : 'Private Chat';
         let senderName = key.participant?.split('@')[0] || key.remoteJid.split('@')[0];
+        let senderNumber = key.participant?.split('@')[0] || key.remoteJid.split('@')[0];
+        
+        // Get sender's display name if available
+        let displayName = senderName;
         if (isGroup) {
             try {
                 const metadata = await conn.groupMetadata(key.remoteJid);
                 chatName = metadata.subject || 'Unknown Group';
                 const participant = metadata.participants.find(p => p.id === key.participant);
-                senderName = participant?.notify || participant?.id?.split('@')[0] || senderName;
-            } catch {}
+                if (participant) {
+                    displayName = participant.notify || participant.id?.split('@')[0] || senderName;
+                    senderNumber = participant.id?.split('@')[0] || senderName;
+                }
+            } catch (e) {}
+        } else {
+            try {
+                const contact = await conn.getName(key.remoteJid);
+                if (contact) displayName = contact;
+            } catch (e) {}
         }
+
+        // Build comprehensive alert message
+        const isEdit = !!editData;
+        const msgContent = msgData || editData.original;
+        const type = msgContent?.type || 'unknown';
+        const content = msgContent?.content || {};
+        
+        // Build the beautiful alert
+        let alert = `╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
+        alert += `┃          🔰 *${isEdit ? 'EDIT DETECTED' : 'DELETE DETECTED'}* 🔰          ┃\n`;
+        alert += `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
+        
+        alert += `┌────[ 📍 *SOURCE INFORMATION* ]────\n`;
+        alert += `│\n`;
+        alert += `├❏ 👥 *Chat:* ${chatName} ${isGroup ? '👥' : '👤'}\n`;
+        alert += `├❏ 👤 *From:* ${displayName}\n`;
+        alert += `├❏ 📱 *Number:* +${senderNumber}\n`;
+        alert += `├❏ 🕐 *Time:* ${new Date().toLocaleString()}\n`;
+        alert += `├❏ 🆔 *Message ID:* ${key.id.substring(0, 15)}...\n`;
+        if (isEdit) {
+            alert += `├❏ ✏️ *Status:* EDITED\n`;
+            alert += `├❏ 🕐 *Edit Time:* ${new Date(editData.edited.timestamp).toLocaleString()}\n`;
+        }
+        alert += `│\n`;
+        alert += `└──────────────────────────────────\n\n`;
+        
+        alert += `┌────[ 📄 *MESSAGE CONTENT* ]────\n`;
+        alert += `│\n`;
+        alert += `├❏ 📎 *Type:* ${this.getTypeEmoji(type)} ${type.toUpperCase()}\n`;
+        
+        if (content.text) {
+            const textPreview = content.text.length > 150 ? content.text.substring(0, 150) + '...' : content.text;
+            alert += `├❏ 💬 *Text:*\n│   "${textPreview}"\n`;
+        }
+        if (content.caption) {
+            const captionPreview = content.caption.length > 150 ? content.caption.substring(0, 150) + '...' : content.caption;
+            alert += `├❏ 📝 *Caption:*\n│   "${captionPreview}"\n`;
+        }
+        if (content.fileName) {
+            alert += `├❏ 📁 *File:* ${content.fileName}\n`;
+        }
+        if (content.mimetype) {
+            alert += `├❏ 🏷️ *MIME:* ${content.mimetype}\n`;
+        }
+        if (content.duration) {
+            alert += `├❏ ⏱️ *Duration:* ${content.duration}s\n`;
+        }
+        
+        if (isEdit && editData.edited) {
+            const editedContent = editData.edited.content;
+            alert += `│\n`;
+            alert += `├❏ ✏️ *EDITED TO:*\n`;
+            alert += `├❏ 📎 *New Type:* ${this.getTypeEmoji(editData.edited.type)} ${editData.edited.type.toUpperCase()}\n`;
+            if (editedContent.text) {
+                const newTextPreview = editedContent.text.length > 150 ? editedContent.text.substring(0, 150) + '...' : editedContent.text;
+                alert += `├❏ 💬 *New Text:*\n│   "${newTextPreview}"\n`;
+            }
+            if (editedContent.caption) {
+                const newCapPreview = editedContent.caption.length > 150 ? editedContent.caption.substring(0, 150) + '...' : editedContent.caption;
+                alert += `├❏ 📝 *New Caption:*\n│   "${newCapPreview}"\n`;
+            }
+        }
+        alert += `│\n`;
+        alert += `└──────────────────────────────────\n\n`;
+        
+        if (mediaData) {
+            alert += `┌────[ 📎 *MEDIA ATTACHMENT* ]────\n`;
+            alert += `│\n`;
+            alert += `├❏ 💾 *Media recovered and attached*\n`;
+            alert += `├❏ 📁 *File:* ${mediaData.fileName}\n`;
+            alert += `├❏ 🏷️ *Type:* ${mediaData.type.replace('Message', '').toUpperCase()}\n`;
+            alert += `│\n`;
+            alert += `└──────────────────────────────────\n\n`;
+        }
+        
+        alert += `╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
+        alert += `┃              🛡️ GURU BOT • AntiDelete            ┃\n`;
+        alert += `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
+        
+        // Send to bot owner
         if (this.notifyOwner && conn.user?.id) {
-            const alert = `╭────[ ANTI-DELETE ]────\n├❏ Type: ${editData ? 'EDIT' : 'DELETE'}\n├❏ Chat: ${chatName}\n├❏ From: @${senderName}\n├❏ Time: ${new Date().toLocaleString()}\n╰────────────────────✦`;
-            await conn.sendMessage(conn.user.id, { text: alert });
+            try {
+                await conn.sendMessage(conn.user.id, { text: alert });
+                logAntiDelete(`Alert sent to owner for ${isEdit ? 'edit' : 'delete'} from ${displayName}`);
+            } catch (err) {
+                logError(`Failed to send anti-delete alert: ${err.message}`);
+            }
         }
+        
+        // Also send media if present
+        if (mediaData?.buffer) {
+            try {
+                const mediaType = mediaData.type.replace('Message', '').toLowerCase();
+                await conn.sendMessage(conn.user.id, {
+                    [mediaType]: mediaData.buffer,
+                    caption: `📎 *Recovered Media*\nFrom: ${displayName}\nType: ${mediaType.toUpperCase()}\nTime: ${new Date().toLocaleString()}`,
+                    mimetype: mediaData.mimetype
+                });
+                logSuccess(`Recovered media sent to owner`, '📎');
+            } catch (err) {
+                logError(`Failed to send recovered media: ${err.message}`);
+            }
+        }
+        
+        // Clean up
         this.store.delete(key.id);
         this.media.delete(key.id);
         this.edited.delete(key.id);
+        
+        logSuccess(`AntiDelete: Processed ${isEdit ? 'edit' : 'delete'} from ${displayName}`, '🗑️');
+    }
+
+    getTypeEmoji(type) {
+        const emojis = {
+            conversation: '💬', 
+            extendedTextMessage: '💬',
+            imageMessage: '📸', 
+            videoMessage: '🎬',
+            audioMessage: '🎵', 
+            stickerMessage: '🩹',
+            documentMessage: '📄', 
+            contactMessage: '👤',
+            locationMessage: '📍', 
+            liveLocationMessage: '📍'
+        };
+        return emojis[type] || '📦';
     }
 
     async handleCommand(conn, from, args, reply) {
         if (!args.length) {
-            return reply(`╭────[ ANTIDELETE SYSTEM ]────\n├❏ Status: ${this.enabled ? 'ON' : 'OFF'}\n├❏ PM Notify: ${this.notifyOwner ? 'ON' : 'OFF'}\n├❏ Stored: ${this.store.size}\n├❏ Media: ${this.media.size}\n├❏ Edited: ${this.edited.size}\n╰────────────────────✦`);
+            return reply(`╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+┃              🔰 ANTIDELETE SYSTEM              ┃
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌────[ 📊 *STATUS* ]────
+├❏ System: ${this.enabled ? '✅ ACTIVE' : '❌ INACTIVE'}
+├❏ PM Notify: ${this.notifyOwner ? '✅ ON' : '❌ OFF'}
+├❏ Stored: ${this.store.size} messages
+├❏ Media: ${this.media.size} files
+├❏ Edited: ${this.edited.size} edits
+└────────────────────
+
+┌────[ ⚡ *COMMANDS* ]────
+├❏ .ad on - Enable system
+├❏ .ad off - Disable system
+├❏ .ad notify - Toggle PM
+├❏ .ad stats - Show stats
+├❏ .ad clear - Clear storage
+└────────────────────
+
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+┃           🛡️ GURU BOT • AntiDelete           ┃
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`);
         }
+        
         const cmd = args[0].toLowerCase();
         switch(cmd) {
-            case 'on': this.enabled = true; reply('✅ AntiDelete ENABLED'); break;
-            case 'off': this.enabled = false; reply('❌ AntiDelete DISABLED'); break;
-            case 'notify': this.notifyOwner = !this.notifyOwner; reply(`📱 PM Notify: ${this.notifyOwner ? 'ON' : 'OFF'}`); break;
-            case 'clear': this.store.clear(); this.media.clear(); this.edited.clear(); reply('🗑️ Storage cleared'); break;
-            default: reply('❌ Unknown command. Use .ad on/off/notify/clear');
+            case 'on': 
+                this.enabled = true; 
+                reply('✅ *AntiDelete System ENABLED*\nAll deleted/edited messages will be recovered and sent to owner');
+                logSuccess('AntiDelete enabled by command');
+                break;
+            case 'off': 
+                this.enabled = false; 
+                reply('❌ *AntiDelete System DISABLED*\nNo longer tracking deleted/edited messages');
+                logWarning('AntiDelete disabled by command');
+                break;
+            case 'notify': 
+                this.notifyOwner = !this.notifyOwner; 
+                reply(`📱 *PM Notifications:* ${this.notifyOwner ? 'ON' : 'OFF'}\nOwner will ${this.notifyOwner ? 'receive' : 'not receive'} alerts`);
+                logInfo(`PM Notifications toggled: ${this.notifyOwner}`);
+                break;
+            case 'stats': 
+                reply(`📊 *AntiDelete Statistics*\n\n• Messages Stored: ${this.store.size}\n• Media Files: ${this.media.size}\n• Edits Tracked: ${this.edited.size}\n• Memory Usage: ${Math.round(process.memoryUsage().heapUsed/1024/1024)}MB`);
+                break;
+            case 'clear': 
+                this.store.clear(); 
+                this.media.clear(); 
+                this.edited.clear(); 
+                reply('🗑️ *Storage cleared*\nAll cached messages and media removed');
+                logSystem('AntiDelete storage cleared');
+                break;
+            default: 
+                reply('❌ Unknown command. Use .ad for help');
         }
     }
 }
@@ -611,7 +806,10 @@ async function handleChannelReactCommand(conn, from, args, reply, isOwner) {
     if (!isOwner) return reply('❌ Owner only!');
     const cmd = args[0]?.toLowerCase();
     if (!cmd) {
-        return reply(`╭────[ CHANNEL AUTO-REACT ]────\n├❏ Status: ${autoReactChannelEnabled ? 'ON' : 'OFF'}\n├❏ Commands: .chreact on/off/status/list\n╰────────────────────✦`);
+        return reply(`╭────[ CHANNEL AUTO-REACT ]────
+├❏ Status: ${autoReactChannelEnabled ? 'ON' : 'OFF'}
+├❏ Commands: .chreact on/off/status/list
+╰────────────────────✦`);
     }
     switch(cmd) {
         case 'on': autoReactChannelEnabled = true; reply('✅ Channel Auto-React ENABLED'); break;
@@ -633,7 +831,11 @@ async function handleAutoStatusCommand(conn, from, args, reply, isOwner) {
             view: flags.seen !== null ? flags.seen : (config.AUTO_STATUS_SEEN === 'true'),
             react: flags.react !== null ? flags.react : (config.AUTO_STATUS_REACT === 'true')
         };
-        return reply(`╭────[ AUTO-STATUS SETTINGS ]────\n├❏ Auto View: ${settings.view ? 'ON' : 'OFF'} ${flags.seen !== null ? '(runtime)' : '(config)'}\n├❏ Auto Like: ${settings.react ? 'ON' : 'OFF'} ${flags.react !== null ? '(runtime)' : '(config)'}\n├❏ Commands: .autoview on/off | .autolike on/off\n╰────────────────────✦`);
+        return reply(`╭────[ AUTO-STATUS SETTINGS ]────
+├❏ Auto View: ${settings.view ? 'ON' : 'OFF'} ${flags.seen !== null ? '(runtime)' : '(config)'}
+├❏ Auto Like: ${settings.react ? 'ON' : 'OFF'} ${flags.react !== null ? '(runtime)' : '(config)'}
+├❏ Commands: .autoview on/off | .autolike on/off
+╰────────────────────✦`);
     }
     
     if (rawCmd === 'autoview') {
