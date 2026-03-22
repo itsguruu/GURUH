@@ -26,7 +26,7 @@ process.env.NODE_OPTIONS = '--max-old-space-size=384';
 process.env.BAILEYS_MEMORY_OPTIMIZED = 'true';
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
-const baileys = require('@whiskeysockets/baileys');
+const baileys = require('gifted-baileys');
 const makeWASocket = baileys.default;
 const {
   useMultiFileAuthState, DisconnectReason, jidNormalizedUser, getContentType,
