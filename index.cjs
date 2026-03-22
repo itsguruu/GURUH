@@ -728,7 +728,7 @@ let sessionInitPromise = (async () => {
         if (!process.env.SESSION_ID) { logError('SESSION_ID missing!', '🔑'); return false; }
         try {
             let sess = process.env.SESSION_ID.trim();
-            if (sess.includes('~')) sess = sess.split('~').pop();
+            if (sess.includes('GURU~')) sess = sess.split('~').pop();
             const creds = JSON.parse(Buffer.from(sess, 'base64').toString());
             fs.writeFileSync('./sessions/creds.json', JSON.stringify(creds, null, 2));
             logSuccess('Session loaded from SESSION_ID', '✅');
