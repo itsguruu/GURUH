@@ -79,15 +79,14 @@
     "sharp": "0.32.6"
   },
   "engines": {
-    "node": "18.x",
-    "npm": "9.x"
+    "node": "20.x",
+    "npm": "10.x"
   },
   "keywords": [
     "guru-md",
     "whatsapp-bot",
     "guru-bot",
-    "whatsapp-md",
-    "low-resource"
+    "whatsapp-md"
   ],
   "author": "GuruTech",
   "license": "MIT"
