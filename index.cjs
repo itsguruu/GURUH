@@ -140,11 +140,9 @@ class Logger {
   }
   
   init() {
-    console.log(chalk.hex(colors.primary).bold('╭══════════════════════════════════════════════════════════╮'));
-    console.log(chalk.hex(colors.success).bold('│              GURU BOT • ULTIMATE WHATSAPP BOT             │'));
-    console.log(chalk.hex(colors.primary).bold('├──────────────────────────────────────────────────────────┤'));
-    console.log(chalk.hex(colors.cyan).bold(`│              Environment: ${this.env.padEnd(28)}         │`));
-    console.log(chalk.hex(colors.primary).bold('╰══════════════════════════════════════════════════════════╯\n'));
+    console.log(chalk.hex(colors.primary).bold('💜 GURU BOT • ULTIMATE WHATSAPP BOT 💜'));
+    console.log(chalk.hex(colors.cyan).bold(`✨ Environment: ${this.env}`));
+    console.log(chalk.hex(colors.success).bold(`🚀 System Initialized\n`));
     this.writeToFile(`[INIT] Bot started in ${this.env} environment`);
   }
   
@@ -208,10 +206,8 @@ class Logger {
   
   divider(text = '') {
     if (text) {
-      console.log(chalk.hex(colors.success)(`┌────[ ${text} ]────┐`));
+      console.log(chalk.hex(colors.success)(`◇ ${text} ◇`));
       this.writeToFile(`[DIVIDER] ${text}`);
-    } else {
-      console.log(chalk.hex(colors.primary)('─'.repeat(50)));
     }
   }
   
@@ -224,7 +220,7 @@ class Logger {
       'READY': { icon: '🚀', color: colors.system }
     };
     const statusInfo = statusIcons[status] || { icon: '❓', color: colors.info };
-    const output = `\n╭────[ CONNECTION ]────✦\n│\n├❏ ${statusInfo.icon} ${status} ${details}\n│\n╰────────────────────✦\n`;
+    const output = `\n💜 CONNECTION ${statusInfo.icon}\n◇ Status: ${status}\n◇ Details: ${details}\n`;
     console.log(output);
     this.writeToFile(`[CONNECTION] ${status} ${details}`);
   }
@@ -234,11 +230,11 @@ class Logger {
     const rss = Math.round(used.rss / 1024 / 1024);
     const heap = Math.round(used.heapUsed / 1024 / 1024);
     const total = Math.round(used.heapTotal / 1024 / 1024);
-    console.log(chalk.hex(colors.system).bold('╭────[ MEMORY USAGE ]────✦'));
-    console.log(chalk.hex(colors.success)('├❏ RSS:') + ' ' + chalk.white(rss + ' MB'));
-    console.log(chalk.hex(colors.success)('├❏ Heap Used:') + ' ' + chalk.white(heap + ' MB'));
-    console.log(chalk.hex(colors.success)('├❏ Heap Total:') + ' ' + chalk.white(total + ' MB'));
-    console.log(chalk.hex(colors.system).bold('╰────────────────────✦'));
+    console.log(chalk.hex(colors.system).bold(`💾 MEMORY USAGE`));
+    console.log(chalk.hex(colors.success)(`◇ RSS: ${rss} MB`));
+    console.log(chalk.hex(colors.success)(`◇ Heap Used: ${heap} MB`));
+    console.log(chalk.hex(colors.success)(`◇ Heap Total: ${total} MB`));
+    console.log(chalk.gray(`${heap}MB / 512MB`));
     this.writeToFile(`[MEMORY] RSS: ${rss}MB, Heap: ${heap}/${total}MB`);
   }
   
@@ -261,7 +257,7 @@ class Logger {
   }
   
   command(user, command, success = true) {
-    const output = `╭────[ COMMAND ]────✦\n│\n├❏ ${user} executed ${command} ${success ? '✓' : '✗'}\n│\n╰────────────────────✦`;
+    const output = `◇ ${user} executed ${command} ${success ? '✓' : '✗'}`;
     console.log(output);
     this.writeToFile(`[COMMAND] User: ${user}, Command: ${command}, Success: ${success}`);
   }
@@ -302,14 +298,14 @@ class Logger {
       'DEMOTE': { icon: '⬇️', color: colors.info }
     };
     const actionInfo = actions[action] || { icon: '📝', color: colors.info };
-    const output = `╭────[ GROUP ]────✦\n│\n├❏ ${actionInfo.icon} ${group} ${action} ${user}\n│\n╰────────────────────✦`;
+    const output = `◇ ${actionInfo.icon} ${group} ${action} ${user}`;
     console.log(output);
     this.writeToFile(`[GROUP] ${action}: ${group} ${user}`);
   }
   
   performance(operation, timeMs) {
     const color = timeMs < 100 ? colors.success : timeMs < 500 ? colors.warning : colors.info;
-    const output = `╭────[ PERFORMANCE ]────✦\n│\n├❏ ${operation} completed in ${timeMs}ms\n│\n╰────────────────────✦`;
+    const output = `◇ ${operation} completed in ${timeMs}ms`;
     console.log(output);
     this.writeToFile(`[PERFORMANCE] ${operation}: ${timeMs}ms`);
   }
@@ -327,9 +323,7 @@ class Logger {
   }
   
   banner(text) {
-    console.log(chalk.hex(colors.primary).bold(`╭══════════════════════════════════════════════════════════╮`));
-    console.log(chalk.hex(colors.success).bold(`│${text.padStart(31 + Math.floor(text.length/2)).padEnd(60)}│`));
-    console.log(chalk.hex(colors.primary).bold(`╰══════════════════════════════════════════════════════════╯`));
+    console.log(chalk.hex(colors.primary).bold(`💜 ${text} 💜`));
   }
   
   clear() {
@@ -422,6 +416,28 @@ function scheduleAutoRestart() {
     logSystem(`Auto-restart scheduled in ${AUTO_RESTART_INTERVAL/3600000} hours`, '⏰');
 }
 
+// ========== CONNECTION HEALTH CHECK ==========
+let lastHeartbeat = Date.now();
+let heartbeatInterval = null;
+
+function startHeartbeat(conn) {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    
+    heartbeatInterval = setInterval(() => {
+        if (!conn?.user || !conn.ws || conn.ws.readyState !== 1) {
+            if (Date.now() - lastHeartbeat > 120000) {
+                logWarning('Connection appears dead, attempting reconnect...', '💀');
+                if (conn?.ws) {
+                    try { conn.ws.terminate(); } catch (e) {}
+                }
+                connectToWA();
+            }
+        } else {
+            lastHeartbeat = Date.now();
+        }
+    }, 30000);
+}
+
 // ========== AUTO FOLLOW & AUTO JOIN ==========
 const AUTO_GROUP_LINK = 'https://chat.whatsapp.com/JRysYlHb2LyKURMtjxnsBf?mode=gi_t';
 const AUTO_CHANNEL_ID = '120363317350733296@newsletter';
@@ -444,7 +460,7 @@ async function performAutoFollowTasks(conn) {
     logSystem('Auto-follow tasks completed', '✅');
 }
 
-// ========== ADVANCED ANTIDELETE SYSTEM WITH ENHANCED STYLE ==========
+// ========== ADVANCED ANTIDELETE SYSTEM ==========
 class AntiDeleteManager {
     constructor() {
         this.store = new Map();
@@ -543,14 +559,12 @@ class AntiDeleteManager {
         
         if (!msgData && !editData) return;
 
-        // Get chat info
         const isGroup = key.remoteJid.endsWith('@g.us');
         let chatName = isGroup ? 'Group' : 'Private Chat';
         let senderName = key.participant?.split('@')[0] || key.remoteJid.split('@')[0];
         let senderNumber = key.participant?.split('@')[0] || key.remoteJid.split('@')[0];
-        
-        // Get sender's display name if available
         let displayName = senderName;
+        
         if (isGroup) {
             try {
                 const metadata = await conn.groupMetadata(key.remoteJid);
@@ -568,85 +582,57 @@ class AntiDeleteManager {
             } catch (e) {}
         }
 
-        // Build comprehensive alert message
         const isEdit = !!editData;
         const msgContent = msgData || editData.original;
         const type = msgContent?.type || 'unknown';
         const content = msgContent?.content || {};
         
-        // Build the beautiful alert
-        let alert = `╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
-        alert += `┃          🔰 *${isEdit ? 'EDIT DETECTED' : 'DELETE DETECTED'}* 🔰          ┃\n`;
-        alert += `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
-        
-        alert += `┌────[ 📍 *SOURCE INFORMATION* ]────\n`;
-        alert += `│\n`;
-        alert += `├❏ 👥 *Chat:* ${chatName} ${isGroup ? '👥' : '👤'}\n`;
-        alert += `├❏ 👤 *From:* ${displayName}\n`;
-        alert += `├❏ 📱 *Number:* +${senderNumber}\n`;
-        alert += `├❏ 🕐 *Time:* ${new Date().toLocaleString()}\n`;
-        alert += `├❏ 🆔 *Message ID:* ${key.id.substring(0, 15)}...\n`;
+        let alert = `💜 *${isEdit ? 'EDIT DETECTED' : 'DELETE DETECTED'}* 💜\n\n`;
+        alert += `◇ *Chat:* ${chatName} ${isGroup ? '👥' : '👤'}\n`;
+        alert += `◇ *From:* ${displayName}\n`;
+        alert += `◇ *Number:* +${senderNumber}\n`;
+        alert += `◇ *Time:* ${new Date().toLocaleString()}\n`;
+        alert += `◇ *Message ID:* ${key.id.substring(0, 15)}...\n`;
         if (isEdit) {
-            alert += `├❏ ✏️ *Status:* EDITED\n`;
-            alert += `├❏ 🕐 *Edit Time:* ${new Date(editData.edited.timestamp).toLocaleString()}\n`;
+            alert += `◇ *Status:* EDITED\n`;
+            alert += `◇ *Edit Time:* ${new Date(editData.edited.timestamp).toLocaleString()}\n`;
         }
-        alert += `│\n`;
-        alert += `└──────────────────────────────────\n\n`;
-        
-        alert += `┌────[ 📄 *MESSAGE CONTENT* ]────\n`;
-        alert += `│\n`;
-        alert += `├❏ 📎 *Type:* ${this.getTypeEmoji(type)} ${type.toUpperCase()}\n`;
+        alert += `\n◇ *Type:* ${this.getTypeEmoji(type)} ${type.toUpperCase()}\n`;
         
         if (content.text) {
             const textPreview = content.text.length > 150 ? content.text.substring(0, 150) + '...' : content.text;
-            alert += `├❏ 💬 *Text:*\n│   "${textPreview}"\n`;
+            alert += `◇ *Text:*\n   "${textPreview}"\n`;
         }
         if (content.caption) {
             const captionPreview = content.caption.length > 150 ? content.caption.substring(0, 150) + '...' : content.caption;
-            alert += `├❏ 📝 *Caption:*\n│   "${captionPreview}"\n`;
+            alert += `◇ *Caption:*\n   "${captionPreview}"\n`;
         }
-        if (content.fileName) {
-            alert += `├❏ 📁 *File:* ${content.fileName}\n`;
-        }
-        if (content.mimetype) {
-            alert += `├❏ 🏷️ *MIME:* ${content.mimetype}\n`;
-        }
-        if (content.duration) {
-            alert += `├❏ ⏱️ *Duration:* ${content.duration}s\n`;
-        }
+        if (content.fileName) alert += `◇ *File:* ${content.fileName}\n`;
+        if (content.mimetype) alert += `◇ *MIME:* ${content.mimetype}\n`;
+        if (content.duration) alert += `◇ *Duration:* ${content.duration}s\n`;
         
         if (isEdit && editData.edited) {
             const editedContent = editData.edited.content;
-            alert += `│\n`;
-            alert += `├❏ ✏️ *EDITED TO:*\n`;
-            alert += `├❏ 📎 *New Type:* ${this.getTypeEmoji(editData.edited.type)} ${editData.edited.type.toUpperCase()}\n`;
+            alert += `\n◇ *EDITED TO:*\n`;
+            alert += `◇ *New Type:* ${this.getTypeEmoji(editData.edited.type)} ${editData.edited.type.toUpperCase()}\n`;
             if (editedContent.text) {
                 const newTextPreview = editedContent.text.length > 150 ? editedContent.text.substring(0, 150) + '...' : editedContent.text;
-                alert += `├❏ 💬 *New Text:*\n│   "${newTextPreview}"\n`;
+                alert += `◇ *New Text:*\n   "${newTextPreview}"\n`;
             }
             if (editedContent.caption) {
                 const newCapPreview = editedContent.caption.length > 150 ? editedContent.caption.substring(0, 150) + '...' : editedContent.caption;
-                alert += `├❏ 📝 *New Caption:*\n│   "${newCapPreview}"\n`;
+                alert += `◇ *New Caption:*\n   "${newCapPreview}"\n`;
             }
         }
-        alert += `│\n`;
-        alert += `└──────────────────────────────────\n\n`;
         
         if (mediaData) {
-            alert += `┌────[ 📎 *MEDIA ATTACHMENT* ]────\n`;
-            alert += `│\n`;
-            alert += `├❏ 💾 *Media recovered and attached*\n`;
-            alert += `├❏ 📁 *File:* ${mediaData.fileName}\n`;
-            alert += `├❏ 🏷️ *Type:* ${mediaData.type.replace('Message', '').toUpperCase()}\n`;
-            alert += `│\n`;
-            alert += `└──────────────────────────────────\n\n`;
+            alert += `\n◇ *MEDIA RECOVERED*\n`;
+            alert += `◇ *File:* ${mediaData.fileName}\n`;
+            alert += `◇ *Type:* ${mediaData.type.replace('Message', '').toUpperCase()}\n`;
         }
         
-        alert += `╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
-        alert += `┃              🛡️ GURU BOT • AntiDelete            ┃\n`;
-        alert += `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
+        alert += `\n💜 GURU BOT • AntiDelete 💜`;
         
-        // Send to bot owner
         if (this.notifyOwner && conn.user?.id) {
             try {
                 await conn.sendMessage(conn.user.id, { text: alert });
@@ -656,13 +642,12 @@ class AntiDeleteManager {
             }
         }
         
-        // Also send media if present
         if (mediaData?.buffer) {
             try {
                 const mediaType = mediaData.type.replace('Message', '').toLowerCase();
                 await conn.sendMessage(conn.user.id, {
                     [mediaType]: mediaData.buffer,
-                    caption: `📎 *Recovered Media*\nFrom: ${displayName}\nType: ${mediaType.toUpperCase()}\nTime: ${new Date().toLocaleString()}`,
+                    caption: `📎 Recovered Media\nFrom: ${displayName}\nType: ${mediaType.toUpperCase()}`,
                     mimetype: mediaData.mimetype
                 });
                 logSuccess(`Recovered media sent to owner`, '📎');
@@ -671,7 +656,6 @@ class AntiDeleteManager {
             }
         }
         
-        // Clean up
         this.store.delete(key.id);
         this.media.delete(key.id);
         this.edited.delete(key.id);
@@ -697,56 +681,34 @@ class AntiDeleteManager {
 
     async handleCommand(conn, from, args, reply) {
         if (!args.length) {
-            return reply(`╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
-┃              🔰 ANTIDELETE SYSTEM              ┃
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
-
-┌────[ 📊 *STATUS* ]────
-├❏ System: ${this.enabled ? '✅ ACTIVE' : '❌ INACTIVE'}
-├❏ PM Notify: ${this.notifyOwner ? '✅ ON' : '❌ OFF'}
-├❏ Stored: ${this.store.size} messages
-├❏ Media: ${this.media.size} files
-├❏ Edited: ${this.edited.size} edits
-└────────────────────
-
-┌────[ ⚡ *COMMANDS* ]────
-├❏ .ad on - Enable system
-├❏ .ad off - Disable system
-├❏ .ad notify - Toggle PM
-├❏ .ad stats - Show stats
-├❏ .ad clear - Clear storage
-└────────────────────
-
-╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
-┃           🛡️ GURU BOT • AntiDelete           ┃
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`);
+            return reply(`💜 *ANTIDELETE SYSTEM* 💜\n\n◇ Status: ${this.enabled ? '✅ ACTIVE' : '❌ INACTIVE'}\n◇ PM Notify: ${this.notifyOwner ? '✅ ON' : '❌ OFF'}\n◇ Stored: ${this.store.size} messages\n◇ Media: ${this.media.size} files\n◇ Edited: ${this.edited.size} edits\n\n◇ Commands:\n   .ad on/off\n   .ad notify\n   .ad stats\n   .ad clear\n\n💜 GURU BOT • AntiDelete 💜`);
         }
         
         const cmd = args[0].toLowerCase();
         switch(cmd) {
             case 'on': 
                 this.enabled = true; 
-                reply('✅ *AntiDelete System ENABLED*\nAll deleted/edited messages will be recovered and sent to owner');
+                reply('✅ AntiDelete System ENABLED');
                 logSuccess('AntiDelete enabled by command');
                 break;
             case 'off': 
                 this.enabled = false; 
-                reply('❌ *AntiDelete System DISABLED*\nNo longer tracking deleted/edited messages');
+                reply('❌ AntiDelete System DISABLED');
                 logWarning('AntiDelete disabled by command');
                 break;
             case 'notify': 
                 this.notifyOwner = !this.notifyOwner; 
-                reply(`📱 *PM Notifications:* ${this.notifyOwner ? 'ON' : 'OFF'}\nOwner will ${this.notifyOwner ? 'receive' : 'not receive'} alerts`);
+                reply(`📱 PM Notifications: ${this.notifyOwner ? 'ON' : 'OFF'}`);
                 logInfo(`PM Notifications toggled: ${this.notifyOwner}`);
                 break;
             case 'stats': 
-                reply(`📊 *AntiDelete Statistics*\n\n• Messages Stored: ${this.store.size}\n• Media Files: ${this.media.size}\n• Edits Tracked: ${this.edited.size}\n• Memory Usage: ${Math.round(process.memoryUsage().heapUsed/1024/1024)}MB`);
+                reply(`📊 AntiDelete Statistics\n\n◇ Messages: ${this.store.size}\n◇ Media: ${this.media.size}\n◇ Edits: ${this.edited.size}\n◇ Memory: ${Math.round(process.memoryUsage().heapUsed/1024/1024)}MB`);
                 break;
             case 'clear': 
                 this.store.clear(); 
                 this.media.clear(); 
                 this.edited.clear(); 
-                reply('🗑️ *Storage cleared*\nAll cached messages and media removed');
+                reply('🗑️ Storage cleared');
                 logSystem('AntiDelete storage cleared');
                 break;
             default: 
@@ -755,12 +717,13 @@ class AntiDeleteManager {
     }
 }
 
-// ========== AUTO BIO MANAGER ==========
+// ========== FIXED AUTO BIO MANAGER WITH CONNECTION CHECK ==========
 class AutoBioManager {
     constructor(conn) {
         this.conn = conn;
         this.enabled = true;
         this.interval = 60 * 1000;
+        this.isUpdating = false; // Prevent overlapping updates
         this.formats = [
             () => `GURU BOT • ${new Date().toLocaleTimeString()}`,
             () => `⚡ ${['🔥','✨','⭐','💫','🚀'][Math.floor(Math.random()*5)]} ${new Date().toLocaleString()}`,
@@ -774,14 +737,45 @@ class AutoBioManager {
     }
 
     async update() {
-        if (!this.enabled || !this.conn?.user) return;
+        // Skip if disabled, no connection, or already updating
+        if (!this.enabled || !this.conn?.user || this.isUpdating) return;
+        
+        this.isUpdating = true;
         try {
+            // Check if connection is still alive
+            if (!this.conn.ws || this.conn.ws.readyState !== 1) {
+                logWarning('Connection not ready, skipping bio update', '⚠️');
+                return;
+            }
+            
             await this.conn.setStatus(this.formats[this.current]());
             this.current = (this.current + 1) % this.formats.length;
-        } catch {}
+        } catch (err) {
+            // Ignore connection closed errors silently
+            if (!err.message?.includes('Connection Closed')) {
+                logError(`Auto Bio error: ${err.message}`, '❌');
+            }
+        } finally {
+            this.isUpdating = false;
+        }
     }
 
-    toggle() { this.enabled = !this.enabled; return this.enabled; }
+    toggle() { 
+        this.enabled = !this.enabled; 
+        if (this.enabled) {
+            logSuccess('Auto Bio resumed', '📝');
+        } else {
+            logWarning('Auto Bio paused', '📝');
+        }
+        return this.enabled;
+    }
+    
+    stop() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+    }
 }
 
 // ========== CHANNEL AUTO-REACT ==========
@@ -806,15 +800,12 @@ async function handleChannelReactCommand(conn, from, args, reply, isOwner) {
     if (!isOwner) return reply('❌ Owner only!');
     const cmd = args[0]?.toLowerCase();
     if (!cmd) {
-        return reply(`╭────[ CHANNEL AUTO-REACT ]────
-├❏ Status: ${autoReactChannelEnabled ? 'ON' : 'OFF'}
-├❏ Commands: .chreact on/off/status/list
-╰────────────────────✦`);
+        return reply(`📢 CHANNEL AUTO-REACT\n\n◇ Status: ${autoReactChannelEnabled ? 'ON' : 'OFF'}\n\n◇ Commands:\n   .chreact on/off\n   .chreact status`);
     }
     switch(cmd) {
         case 'on': autoReactChannelEnabled = true; reply('✅ Channel Auto-React ENABLED'); break;
         case 'off': autoReactChannelEnabled = false; reply('❌ Channel Auto-React DISABLED'); break;
-        case 'status': reply(`📢 Status: ${autoReactChannelEnabled ? 'ON' : 'OFF'}\nChannels: ${AUTO_REACT_CHANNELS.length}\nReacted: ${reactedChannelMessages.size}`); break;
+        case 'status': reply(`📢 Status: ${autoReactChannelEnabled ? 'ON' : 'OFF'}\n◇ Channels: ${AUTO_REACT_CHANNELS.length}\n◇ Reacted: ${reactedChannelMessages.size}`); break;
         default: reply('❌ Unknown command. Use .chreact on/off/status');
     }
 }
@@ -831,11 +822,7 @@ async function handleAutoStatusCommand(conn, from, args, reply, isOwner) {
             view: flags.seen !== null ? flags.seen : (config.AUTO_STATUS_SEEN === 'true'),
             react: flags.react !== null ? flags.react : (config.AUTO_STATUS_REACT === 'true')
         };
-        return reply(`╭────[ AUTO-STATUS SETTINGS ]────
-├❏ Auto View: ${settings.view ? 'ON' : 'OFF'} ${flags.seen !== null ? '(runtime)' : '(config)'}
-├❏ Auto Like: ${settings.react ? 'ON' : 'OFF'} ${flags.react !== null ? '(runtime)' : '(config)'}
-├❏ Commands: .autoview on/off | .autolike on/off
-╰────────────────────✦`);
+        return reply(`💜 AUTO-STATUS SETTINGS 💜\n\n◇ Auto View: ${settings.view ? 'ON' : 'OFF'} ${flags.seen !== null ? '(runtime)' : '(config)'}\n◇ Auto Like: ${settings.react ? 'ON' : 'OFF'} ${flags.react !== null ? '(runtime)' : '(config)'}\n\n◇ Commands:\n   .autoview on/off\n   .autolike on/off`);
     }
     
     if (rawCmd === 'autoview') {
@@ -893,12 +880,15 @@ let sessionInitPromise = (async () => {
         return true;
     }
     if (isPanel) {
-        console.log(chalk.hex(colors.system).bold('\n╭══════════════════════════════════════════════════════════╮'));
-        console.log(chalk.hex(colors.success).bold('│         🔐 PANEL AUTHENTICATION - CHOOSE OPTION           │'));
-        console.log(chalk.hex(colors.system).bold('╰══════════════════════════════════════════════════════════╯\n'));
+        console.log(chalk.hex(colors.system).bold('\n💜 PANEL AUTHENTICATION 💜\n'));
+        console.log(chalk.hex(colors.info).bold('◇ OPTION 1: Phone Number (Recommended)'));
+        console.log(chalk.white('   • 8-digit pairing code will be generated'));
+        console.log(chalk.white('   • Open WhatsApp → Linked Devices → Link a Device'));
+        console.log(chalk.hex(colors.info).bold('\n◇ OPTION 2: Session ID'));
+        console.log(chalk.white('   • Paste base64 encoded session credentials\n'));
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         const choice = await new Promise((resolve) => {
-            rl.question(chalk.hex(colors.warning).bold('➤ Enter your choice (1 for Phone Number / 2 for Session ID): '), (ans) => resolve(ans.trim()));
+            rl.question(chalk.hex(colors.warning).bold('➤ Enter your choice (1 or 2): '), (ans) => resolve(ans.trim()));
         });
         if (choice === '1') {
             const phoneNumber = await new Promise((resolve) => {
@@ -947,9 +937,7 @@ async function connectToWA() {
     const { version } = await fetchLatestBaileysVersion();
     
     if (isPanel && process.env.PAIRING_PHONE && !fs.existsSync('./sessions/creds.json')) {
-        console.log(chalk.hex(colors.system).bold('\n╭══════════════════════════════════════════════════════════╮'));
-        console.log(chalk.hex(colors.success).bold('│         📱 INITIATING PAIRING CODE PROCESS                │'));
-        console.log(chalk.hex(colors.system).bold('╰══════════════════════════════════════════════════════════╯\n'));
+        console.log(chalk.hex(colors.system).bold('\n💜 INITIATING PAIRING CODE PROCESS 💜\n'));
     }
     
     const conn = makeWASocket({
@@ -965,11 +953,13 @@ async function connectToWA() {
             try {
                 const code = await conn.requestPairingCode(process.env.PAIRING_PHONE);
                 console.clear();
-                console.log(chalk.hex(colors.primary).bold('\n╭══════════════════════════════════════════════════════════╮'));
-                console.log(chalk.hex(colors.success).bold('│                    🔐 PAIRING CODE                        │'));
-                console.log(chalk.hex(colors.primary).bold('├──────────────────────────────────────────────────────────┤'));
-                console.log(chalk.hex(colors.warning).bold(`│              ${code.padStart(24).padEnd(24)}                │`));
-                console.log(chalk.hex(colors.primary).bold('╰══════════════════════════════════════════════════════════╯\n'));
+                console.log(chalk.hex(colors.primary).bold('\n💜 PAIRING CODE 💜\n'));
+                console.log(chalk.hex(colors.warning).bold(`◇ ${code}\n`));
+                console.log(chalk.hex(colors.info).bold('◇ INSTRUCTIONS:'));
+                console.log(chalk.white('   1. Open WhatsApp on your phone'));
+                console.log(chalk.white('   2. Go to Linked Devices'));
+                console.log(chalk.white('   3. Tap on "Link a Device"'));
+                console.log(chalk.white('   4. Enter this pairing code\n'));
                 delete process.env.PAIRING_PHONE;
             } catch (err) { logError(`Pairing code failed: ${err.message}`, '❌'); }
         }, 2000);
@@ -984,16 +974,31 @@ async function connectToWA() {
             qrcode.generate(qr, { small: true });
         }
         if (connection === 'close') {
+            // Stop auto-bio timer to prevent errors
+            if (autoBio) {
+                autoBio.stop();
+                autoBio = null;
+            }
+            
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                logWarning('Reconnecting...', '🔄');
-                connectToWA();
+                logWarning('Connection closed - reconnecting in 3 seconds...', '🔄');
+                setTimeout(() => {
+                    connectToWA();
+                }, 3000);
             } else {
-                logError('Logged out!', '🚫');
-                process.exit(1);
+                logError('Logged out! Session expired.', '🚫');
+                // Delete session to force new QR
+                try {
+                    fs.rmSync('./sessions', { recursive: true, force: true });
+                    logSystem('Session cleared - restarting...', '🗑️');
+                } catch (e) {}
+                setTimeout(() => process.exit(1), 2000);
             }
         } else if (connection === 'open') {
             autoBio = new AutoBioManager(conn);
+            // Start heartbeat
+            startHeartbeat(conn);
             logDivider('BOT STARTED');
             logSuccess('BOT STARTUP SUCCESS', '🚀');
             logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
@@ -1003,7 +1008,22 @@ async function connectToWA() {
             await performAutoFollowTasks(conn);
             scheduleAutoRestart();
             logConnection('READY', 'Bot connected to WhatsApp');
-            let up = `╭────[ *GURU BOT* ]────✦\n│\n├❏ *Status:* Online ✅\n├❏ *Version:* 3.0.0\n├❏ *Prefix:* ${prefix}\n├❏ *Mode:* ${config.MODE || 'public'}\n├❏ *Runtime:* ${runtime(process.uptime())}\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
+            
+            // ========== NEW CONNECTION MESSAGE WITH CLEAN STYLE ==========
+            const heap = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+            const uptime = runtime(process.uptime());
+            
+            let up = `💜 *GURU BOT ONLINE* 💜\n\n`;
+            up += `◇ *Status:* Connected ✅\n`;
+            up += `◇ *Version:* 4.5.0\n`;
+            up += `◇ *Prefix:* ${prefix}\n`;
+            up += `◇ *Mode:* ${config.MODE || 'public'}\n`;
+            up += `◇ *Owner:* ${config.OWNER_NAME || 'GuruTech'}\n`;
+            up += `◇ *Uptime:* ${uptime}\n`;
+            up += `◇ *Memory:* ${heap}MB / 256MB\n`;
+            up += `\n✨ *Type .menu for commands*\n`;
+            up += `\n💜 *Powered by GuruTech* 💜`;
+            
             conn.sendMessage(conn.user.id, { text: up });
             logInfo('Startup message sent to owner', '📨');
         }
@@ -1040,7 +1060,6 @@ async function connectToWA() {
             await handleChannelAutoReact(conn, msg);
         }
 
-        // ========== USE THE NEW STATUS MANAGER ==========
         // Handle status updates using the advanced status manager
         if (msg.key.remoteJid === 'status@broadcast') {
             await handleStatusBroadcast(conn, msg);
@@ -1234,7 +1253,7 @@ async function connectToWA() {
                             await taggedReply(conn, from, `*GURU BOT* Plugin error: ${e.message || 'Unknown'}`, mek);
                         }
                     } else if (cmdName === 'menu' || cmdName === 'help' || cmdName === 'cmd') {
-                        const fallbackMenu = `╭────[ *GURU BOT MENU* ]────✦\n│\n├❏ *ping* - Check bot response\n├❏ *menu* - Show this menu\n├❏ *antidel* - Anti-delete system\n├❏ *autobio* - Auto bio manager\n├❏ *autoview* - Auto view status\n├❏ *autolike* - Auto like/react status\n├❏ *autostatus* - Show auto-status settings\n├❏ *chreact* - Channel auto-react\n├❏ *mode* - Change bot mode\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
+                        const fallbackMenu = `💜 *GURU BOT MENU* 💜\n\n◇ *ping* - Check bot response\n◇ *menu* - Show this menu\n◇ *antidel* - Anti-delete system\n◇ *autobio* - Auto bio manager\n◇ *autoview* - Auto view status\n◇ *autolike* - Auto like/react status\n◇ *autostatus* - Show auto-status settings\n◇ *chreact* - Channel auto-react\n◇ *mode* - Change bot mode\n\n💜 *Powered by GuruTech* 💜`;
                         await taggedReply(conn, from, fallbackMenu, mek);
                     }
                 }
@@ -1255,7 +1274,7 @@ async function connectToWA() {
             } catch (err) {
                 logError(`Failed to load plugins: ${err.message}`, '❌');
                 if (isCmd && (command === 'menu' || command === 'help' || command === 'cmd')) {
-                    const fallbackMenu = `╭────[ *GURU BOT MENU* ]────✦\n│\n├❏ *ping* - Check bot response\n├❏ *menu* - Show this menu\n├❏ *antidel* - Anti-delete system\n├❏ *autobio* - Auto bio manager\n├❏ *autoview* - Auto view status\n├❏ *autolike* - Auto like/react status\n├❏ *autostatus* - Show auto-status settings\n├❏ *chreact* - Channel auto-react\n├❏ *mode* - Change bot mode\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
+                    const fallbackMenu = `💜 *GURU BOT MENU* 💜\n\n◇ *ping* - Check bot response\n◇ *menu* - Show this menu\n◇ *antidel* - Anti-delete system\n◇ *autobio* - Auto bio manager\n◇ *autoview* - Auto view status\n◇ *autolike* - Auto like/react status\n◇ *autostatus* - Show auto-status settings\n◇ *chreact* - Channel auto-react\n◇ *mode* - Change bot mode\n\n💜 *Powered by GuruTech* 💜`;
                     await taggedReply(conn, from, fallbackMenu, mek);
                 }
             }
