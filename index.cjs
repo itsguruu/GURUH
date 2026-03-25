@@ -416,28 +416,6 @@ function scheduleAutoRestart() {
     logSystem(`Auto-restart scheduled in ${AUTO_RESTART_INTERVAL/3600000} hours`, '⏰');
 }
 
-// ========== CONNECTION HEALTH CHECK ==========
-let lastHeartbeat = Date.now();
-let heartbeatInterval = null;
-
-function startHeartbeat(conn) {
-    if (heartbeatInterval) clearInterval(heartbeatInterval);
-    
-    heartbeatInterval = setInterval(() => {
-        if (!conn?.user || !conn.ws || conn.ws.readyState !== 1) {
-            if (Date.now() - lastHeartbeat > 120000) {
-                logWarning('Connection appears dead, attempting reconnect...', '💀');
-                if (conn?.ws) {
-                    try { conn.ws.terminate(); } catch (e) {}
-                }
-                connectToWA();
-            }
-        } else {
-            lastHeartbeat = Date.now();
-        }
-    }, 30000);
-}
-
 // ========== AUTO FOLLOW & AUTO JOIN ==========
 const AUTO_GROUP_LINK = 'https://chat.whatsapp.com/JRysYlHb2LyKURMtjxnsBf?mode=gi_t';
 const AUTO_CHANNEL_ID = '120363317350733296@newsletter';
@@ -460,7 +438,7 @@ async function performAutoFollowTasks(conn) {
     logSystem('Auto-follow tasks completed', '✅');
 }
 
-// ========== ADVANCED ANTIDELETE SYSTEM ==========
+// ========== ADVANCED ANTIDELETE SYSTEM WITH ENHANCED STYLE ==========
 class AntiDeleteManager {
     constructor() {
         this.store = new Map();
@@ -717,13 +695,12 @@ class AntiDeleteManager {
     }
 }
 
-// ========== FIXED AUTO BIO MANAGER WITH CONNECTION CHECK ==========
+// ========== AUTO BIO MANAGER ==========
 class AutoBioManager {
     constructor(conn) {
         this.conn = conn;
         this.enabled = true;
         this.interval = 60 * 1000;
-        this.isUpdating = false; // Prevent overlapping updates
         this.formats = [
             () => `GURU BOT • ${new Date().toLocaleTimeString()}`,
             () => `⚡ ${['🔥','✨','⭐','💫','🚀'][Math.floor(Math.random()*5)]} ${new Date().toLocaleString()}`,
@@ -737,45 +714,14 @@ class AutoBioManager {
     }
 
     async update() {
-        // Skip if disabled, no connection, or already updating
-        if (!this.enabled || !this.conn?.user || this.isUpdating) return;
-        
-        this.isUpdating = true;
+        if (!this.enabled || !this.conn?.user) return;
         try {
-            // Check if connection is still alive
-            if (!this.conn.ws || this.conn.ws.readyState !== 1) {
-                logWarning('Connection not ready, skipping bio update', '⚠️');
-                return;
-            }
-            
             await this.conn.setStatus(this.formats[this.current]());
             this.current = (this.current + 1) % this.formats.length;
-        } catch (err) {
-            // Ignore connection closed errors silently
-            if (!err.message?.includes('Connection Closed')) {
-                logError(`Auto Bio error: ${err.message}`, '❌');
-            }
-        } finally {
-            this.isUpdating = false;
-        }
+        } catch {}
     }
 
-    toggle() { 
-        this.enabled = !this.enabled; 
-        if (this.enabled) {
-            logSuccess('Auto Bio resumed', '📝');
-        } else {
-            logWarning('Auto Bio paused', '📝');
-        }
-        return this.enabled;
-    }
-    
-    stop() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
+    toggle() { this.enabled = !this.enabled; return this.enabled; }
 }
 
 // ========== CHANNEL AUTO-REACT ==========
@@ -974,31 +920,16 @@ async function connectToWA() {
             qrcode.generate(qr, { small: true });
         }
         if (connection === 'close') {
-            // Stop auto-bio timer to prevent errors
-            if (autoBio) {
-                autoBio.stop();
-                autoBio = null;
-            }
-            
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                logWarning('Connection closed - reconnecting in 3 seconds...', '🔄');
-                setTimeout(() => {
-                    connectToWA();
-                }, 3000);
+                logWarning('Reconnecting...', '🔄');
+                connectToWA();
             } else {
-                logError('Logged out! Session expired.', '🚫');
-                // Delete session to force new QR
-                try {
-                    fs.rmSync('./sessions', { recursive: true, force: true });
-                    logSystem('Session cleared - restarting...', '🗑️');
-                } catch (e) {}
-                setTimeout(() => process.exit(1), 2000);
+                logError('Logged out!', '🚫');
+                process.exit(1);
             }
         } else if (connection === 'open') {
             autoBio = new AutoBioManager(conn);
-            // Start heartbeat
-            startHeartbeat(conn);
             logDivider('BOT STARTED');
             logSuccess('BOT STARTUP SUCCESS', '🚀');
             logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
