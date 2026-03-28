@@ -978,36 +978,55 @@ async function connectToWA() {
     antiDelete = new AntiDeleteManager();
     
     conn.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        if (qr && !isHeroku && !isRailway && !isRender && !isPanel && !usePairingCode) {
-            logSystem('Scan this QR to link:', '🔗');
-            qrcode.generate(qr, { small: true });
+    const { connection, lastDisconnect, qr } = update;
+    if (qr && !isHeroku && !isRailway && !isRender && !isPanel && !usePairingCode) {
+        logSystem('Scan this QR to link:', '🔗');
+        qrcode.generate(qr, { small: true });
+    }
+    if (connection === 'close') {
+        const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+        if (shouldReconnect) {
+            logWarning('Reconnecting...', '🔄');
+            connectToWA();
+        } else {
+            logError('Logged out!', '🚫');
+            process.exit(1);
         }
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                logWarning('Reconnecting...', '🔄');
-                connectToWA();
-            } else {
-                logError('Logged out!', '🚫');
-                process.exit(1);
-            }
-        } else if (connection === 'open') {
-            autoBio = new AutoBioManager(conn);
-            logDivider('BOT STARTED');
-            logSuccess('BOT STARTUP SUCCESS', '🚀');
-            logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
-            logInfo(`Baileys Version: ${version.join('.')}`, '⚙️');
-            logInfo(`Prefix: ${prefix}`, '🔤');
-            logMemory();
-            await performAutoFollowTasks(conn);
-            scheduleAutoRestart();
-            logConnection('READY', 'Bot connected to WhatsApp');
-            let up = `╭────[ *GURU BOT* ]────✦\n│\n├❏ *Status:* Online ✅\n├❏ *Version:* 3.0.0\n├❏ *Prefix:* ${prefix}\n├❏ *Mode:* ${config.MODE || 'public'}\n├❏ *Runtime:* ${runtime(process.uptime())}\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
-            conn.sendMessage(conn.user.id, { text: up });
-            logInfo('Startup message sent to owner', '📨');
-        }
-    });
+    } else if (connection === 'open') {
+        autoBio = new AutoBioManager(conn);
+        logDivider('BOT STARTED');
+        logSuccess('BOT STARTUP SUCCESS', '🚀');
+        logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
+        logInfo(`Baileys Version: ${version.join('.')}`, '⚙️');
+        logInfo(`Prefix: ${prefix}`, '🔤');
+        logMemory();
+        await performAutoFollowTasks(conn);
+        scheduleAutoRestart();
+        logConnection('READY', 'Bot connected to WhatsApp');
+        
+        // ========== NEW CONNECTION MESSAGE WITH REPO & INSTRUCTIONS ==========
+        const heap = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+        const uptime = runtime(process.uptime());
+        
+        let up = `💜 *GURU BOT ONLINE* 💜\n\n`;
+        up += `◇ *Status:* Connected ✅\n`;
+        up += `◇ *Version:* 4.5.0\n`;
+        up += `◇ *Prefix:* ${prefix}\n`;
+        up += `◇ *Mode:* ${config.MODE || 'public'}\n`;
+        up += `◇ *Owner:* ${config.OWNER_NAME || 'GuruTech'}\n`;
+        up += `◇ *Uptime:* ${uptime}\n`;
+        up += `◇ *Memory:* ${heap}MB / 256MB\n\n`;
+        up += `✨ *IMPORTANT:* Please wait 3-4 minutes before sending commands\n`;
+        up += `   to allow the bot to fully stabilize and avoid disconnection.\n\n`;
+        up += `⭐ *Support the Project:*\n`;
+        up += `   ◇ Star & Fork on GitHub:\n`;
+        up += `   https://github.com/Gurulabstech/GURU-MD\n\n`;
+        up += `💜 *Powered by GuruTech* 💜`;
+        
+        conn.sendMessage(conn.user.id, { text: up });
+        logInfo('Startup message sent to owner', '📨');
+    }
+});
 
     conn.ev.on('creds.update', saveCreds);
 
